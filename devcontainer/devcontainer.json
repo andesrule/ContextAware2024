@@ -1,0 +1,16 @@
+{
+    "name": "Flask and Postgres Dev Container",
+    "dockerFile": "Dockerfiledev",
+    "context": "..",
+    "appPort": [5000],
+    "settings": {
+      "terminal.integrated.shell.linux": "/bin/bash"
+    },
+    "extensions": [
+      "ms-python.python",
+      "ms-python.vscode-pylance"
+    ],
+    "postCreateCommand": "pip install -r requirements.txt",
+    "remoteUser": "root"
+  }
+  
