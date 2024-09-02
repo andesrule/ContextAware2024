@@ -1,41 +1,42 @@
-version: '3.7'
+version: '3.8'
 
 services:
-  db:
-    image: postgres:13
-    environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydatabase
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - mynetwork
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfilebe
-    environment:
-      DATABASE_URL: postgres://myuser:mypassword@db:5432/mydatabase
     ports:
       - "5000:5000"
-    depends_on:
-      - db
     networks:
-      - mynetwork
+      - app-network
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://user:password@db:5432/homezone
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfilefe
     ports:
-      - "80:80"
+      - "8080:80"
     networks:
-      - mynetwork
+      - app-network
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: homezone
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - app-network
 
 volumes:
-  postgres_data:
+  db_data:
 
 networks:
-  mynetwork:
+  app-network:

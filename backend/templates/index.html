@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+        }
+        h1 {
+            color: #4CAF50;
+        }
+        p {
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Flask Test Page</h1>
+        <p>If you see this page, your Flask server is working correctly!</p>
+        <button onclick="fetchApiTest()">Test API</button>
+        <p id="apiResponse"></p>
+    </div>
+    <script>
+        function fetchApiTest() {
+            fetch('/api/test')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('apiResponse').innerText = data.message;
+                })
+                .catch(error => {
+                    document.getElementById('apiResponse').innerText = 'Error fetching API!';
+                });
+        }
+    </script>
+</body>
+</html>
