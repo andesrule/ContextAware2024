@@ -1,8 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
-
+from sqlalchemy.dialects.postgresql import ARRAY  
 db = SQLAlchemy()
 
-class MyString(db.Model):
-    __tablename__ = 'my_strings'
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(255), nullable=False)
+class User(db.Model):
+    __tablename__ = 'user'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    content_poi = db.Column(ARRAY(db.String), nullable=False)

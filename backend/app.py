@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, render_template, send_from_directory
 from config import Config
-from models import db, MyString
+from models import db, User
 import os
 
 # Usa il percorso assoluto per il frontend
@@ -17,18 +17,17 @@ def initialize_database():
     if not hasattr(app, 'db_initialized'):
         with app.app_context():
             db.create_all()
-            if MyString.query.count() == 0:
+            if User.query.count() == 0:
                 db.session.add_all([
-                    MyString(content='First string'),
-                    MyString(content='Second string'),
-                    MyString(content='Third string')
+                    User(content_poi=['First string', 'Another string']),
+                    User(content_poi=['First string', 'Another string'])
                 ])
                 db.session.commit()
         app.db_initialized = True
 
 @app.route('/')
 def index():
-    strings = MyString.query.all()
+    strings = User.query.all()
     return render_template('index.html', strings=strings)
 
 @app.route('/api/test')
