@@ -1,0 +1,31 @@
+/* Additional custom styles can go here */
+.star {
+    color: gray;
+    font-size: 24px;
+}
+.star.selected {
+    color: gold;
+}
+/* Ensure that the content adjusts based on sidebar visibility */
+.sidebar-open #mainContent {
+    margin-right: 16rem; /* Adjust based on the width of the sidebar */
+}
+@media (max-width: 768px) {
+    .sidebar-open #mainContent {
+        margin-right: 0;
+    }
+    #sidebar {
+        width: 100%;
+        max-width: 20rem; /* Adjust based on your preference */
+    }
+}
+/* Initially visible sidebar */
+#sidebar {
+    transform: translateX(0); /* Make the sidebar visible initially */
+    transition: transform 0.3s ease-in-out;
+    right: 0; /* Align the sidebar to the right edge */
+}
+/* Sidebar closed state */
+.sidebar-open #sidebar {
+    transform: translateX(100%); /* Move the sidebar out of view to the right */
+}

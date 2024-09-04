@@ -3,53 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flask Test Page</title>
+
+    <title>Context Aware 2024</title>
     <!-- Tailwind CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <!-- Leaflet CSS CDN -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            text-align: center;
-        }
-        h1 {
-            color: #4CAF50;
-        }
-        p {
-            font-size: 18px;
-        }
-        #map {
-            height: 400px;
-            width: 100%;
-        }
-    </style>
+
+    <link rel="stylesheet" href="style.css">
+
+
 </head>
-<body>
-    <h1>Strings Arrays from the Database</h1>
+
+<body class="bg-gray-700 flex flex-col h-screen">
+    <!-- Navbar -->
+    <nav class="w-full bg-gray-800 p-4 sticky top-0 z-50 flex items-center">
+        <div class="flex-1 flex justify-between items-center">
+            <a href="#" class="text-white text-xl font-bold">Context Aware 2024</a>
+            <button id="menuButton" class="text-white text-xl font-bold">Menu</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div id="mainContent" class="flex flex-1 overflow-hidden transition-all duration-300 ease-in-out">
+        <!-- Sidebar Menu -->
+        <div id="sidebar" class="fixed inset-y-0 right-0 bg-gray-800 z-40 transform transition-transform duration-300 ease-in-out">
+            <div class="w-full h-full bg-gray-900 text-white p-4">
+                <button id="closeSidebar" class="text-white text-xl mb-4">Close</button>
+                <ul>
+                    <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
+                    <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">About</a></li>
+                    <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">Contact</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div id="content" class="flex-1 p-4 flex items-center justify-center">
+            <div class="bg-gray-800 text-white p-8 rounded-lg shadow-lg">
+                <!-- Survey Content -->
+                <div class="mb-4">
+                    <h1 class="text-2xl mb-4">User Preference Survey</h1>
+                    <p class="mb-4">Please rate your experience:</p>
+                    <div class="flex items-center mb-4">
+                        <!-- Question -->
+                        <p class="mr-4">Rating:</p>
+                        <!-- Star Rating -->
+                        <div id="rating" class="flex">
+                            <span class="star" data-value="1">&#9733;</span>
+                            <span class="star" data-value="2">&#9733;</span>
+                            <span class="star" data-value="3">&#9733;</span>
+                            <span class="star" data-value="4">&#9733;</span>
+                            <span class="star" data-value="5">&#9733;</span>
+                        </div>
+                        <!-- Display selected rating -->
+                        <p id="ratingValue" class="ml-4">No rating selected</p>
+                    </div>
+                </div>
+                <!-- Repeat the survey block as needed -->
+            </div>
+        </div>
+    </div>
+
+<h1>Strings Arrays from the Database</h1>
     <ul>
         {% for string in strings %}
             <li>{{ string.content_poi }}</li>
         {% endfor %}
     </ul>
-    <div class="container text-center">
-        <h1 class="text-4xl text-green-500">Flask Test Page</h1>
-        <h1>dio animale</h1>
-        porco diose
-        <p class="text-lg mt-4">If you see this page, your Flask server is working correctly!</p>
-        <button class="bg-blue-500 text-white py-2 px-4 rounded mt-4" onclick="fetchApiTest()">Test API</button>
-        <p id="apiResponse" class="mt-4"></p>
-        
-        <!-- Leaflet Map -->
-        <div id="map" class="mt-5"></div>
-    </div>
+  
     <!-- Leaflet JS CDN -->
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
@@ -75,5 +97,9 @@
             .bindPopup('A pretty CSS3 popup.<br> Easily customizable.')
             .openPopup();
     </script>
+
+    <script src="script.js"></script>
+
+   
 </body>
 </html>
