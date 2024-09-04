@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flask Test Page</title>
+    <!-- Tailwind CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Leaflet CSS CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -22,6 +26,10 @@
         p {
             font-size: 18px;
         }
+        #map {
+            height: 400px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -31,13 +39,19 @@
             <li>{{ string.content }}</li>
         {% endfor %}
     </ul>
-    <div class="container">
-        <h1>Flask Test Pfage</h1>
-        <h1>Porco Dio!!!</h1>
-        <p>If you see this page, your Flask server is working correctly!</p>
-        <button onclick="fetchApiTest()">Test API</button>
-        <p id="apiResponse"></p>
+    <div class="container text-center">
+        <h1 class="text-4xl text-green-500">Flask Test Page</h1>
+        <h1>dio animale</h1>
+        porco diose
+        <p class="text-lg mt-4">If you see this page, your Flask server is working correctly!</p>
+        <button class="bg-blue-500 text-white py-2 px-4 rounded mt-4" onclick="fetchApiTest()">Test API</button>
+        <p id="apiResponse" class="mt-4"></p>
+        
+        <!-- Leaflet Map -->
+        <div id="map" class="mt-5"></div>
     </div>
+    <!-- Leaflet JS CDN -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
         function fetchApiTest() {
             fetch('/api/test')
@@ -49,6 +63,17 @@
                     document.getElementById('apiResponse').innerText = 'Error fetching API!';
                 });
         }
+
+        // Initialize Leaflet map
+        var map = L.map('map').setView([51.505, -0.09], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        L.marker([51.505, -0.09]).addTo(map)
+            .bindPopup('A pretty CSS3 popup.<br> Easily customizable.')
+            .openPopup();
     </script>
 </body>
 </html>
