@@ -25,6 +25,12 @@
     </style>
 </head>
 <body>
+    <h1>Strings from the Database</h1>
+    <ul>
+        {% for string in strings %}
+            <li>{{ string.content }}</li>
+        {% endfor %}
+    </ul>
     <div class="container">
         <h1>Flask Test Pfage</h1>
         <h1>Porco Dio!!!</h1>
