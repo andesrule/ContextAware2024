@@ -3,41 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flask Test Page</title>
+    <title>Context Aware 2024</title>
+    <!-- Tailwind CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Leaflet CSS CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
+        /* Additional custom styles can go here */
+        .star {
+            color: gray;
+            font-size: 24px;
         }
-        .container {
-            text-align: center;
+        .star.selected {
+            color: gold;
         }
-        h1 {
-            color: #4CAF50;
+        /* Ensures that the content adjusts based on sidebar visibility */
+        .sidebar-open #mainContent {
+            margin-right: 16rem; /* Adjust based on the width of the sidebar */
         }
-        p {
-            font-size: 18px;
+        @media (max-width: 768px) {
+            .sidebar-open #mainContent {
+                margin-right: 0;
+            }
+            #sidebar {
+                width: 100%;
+                max-width: 20rem; /* Adjust based on your preference */
+            }
+        }
+        /* Initially visible sidebar */
+        #sidebar {
+            transform: translateX(0); /* Make the sidebar visible initially */
+            transition: transform 0.3s ease-in-out;
+        }
+        /* Sidebar closed state */
+        .sidebar-open #sidebar {
+            transform: translateX(-100%); /* Move the sidebar out of view */
         }
     </style>
 </head>
-<body>
-    <h1>Strings from the Database</h1>
-    <ul>
-        {% for string in strings %}
-            <li>{{ string.content }}</li>
-        {% endfor %}
-    </ul>
-    <div class="container">
-        <h1>Flask Test Pfage</h1>
-        <h1>Porco Dio!!!</h1>
-        <p>If you see this page, your Flask server is working correctly!</p>
-        <button onclick="fetchApiTest()">Test API</button>
-        <p id="apiResponse"></p>
+<body class="bg-gray-700 flex flex-col h-screen">
+    <!-- Navbar -->
+    <nav class="w-full bg-gray-800 p-4 sticky top-0 z-50 flex items-center">
+        <div class="flex-1 flex justify-between items-center">
+            <a href="#" class="text-white text-xl font-bold">Context Aware 2024</a>
+            <button id="menuButton" class="text-white text-xl font-bold">Menu</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div id="mainContent" class="flex flex-1 overflow-hidden transition-all duration-300 ease-in-out">
+        <!-- Sidebar Menu -->
+        <div id="sidebar" class="fixed inset-y-0 right-0 bg-gray-800 z-40 transform transition-transform duration-300 ease-in-out">
+            <div class="w-full h-full bg-gray-900 text-white p-4">
+                <button id="closeSidebar" class="text-white text-xl mb-4">Close</button>
+                <ul>
+                    <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
+                    <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">About</a></li>
+                    <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">Contact</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div id="content" class="flex-1 p-4 flex items-center justify-center">
+            <div class="bg-gray-800 text-white p-8 rounded-lg shadow-lg">
+                <!-- Survey Content -->
+                <div class="mb-4">
+                    <h1 class="text-2xl mb-4">User Preference Survey</h1>
+                    <p class="mb-4">Please rate your experience:</p>
+                    <div class="flex items-center mb-4">
+                        <!-- Question -->
+                        <p class="mr-4">Rating:</p>
+                        <!-- Star Rating -->
+                        <div id="rating" class="flex">
+                            <span class="star" data-value="1">&#9733;</span>
+                            <span class="star" data-value="2">&#9733;</span>
+                            <span class="star" data-value="3">&#9733;</span>
+                            <span class="star" data-value="4">&#9733;</span>
+                            <span class="star" data-value="5">&#9733;</span>
+                        </div>
+                        <!-- Display selected rating -->
+                        <p id="ratingValue" class="ml-4">No rating selected</p>
+                    </div>
+                </div>
+                <!-- Repeat the survey block as needed -->
+            </div>
+        </div>
     </div>
+
+    <!-- Leaflet JS CDN -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
         function fetchApiTest() {
             fetch('/api/test')
@@ -49,6 +105,21 @@
                     document.getElementById('apiResponse').innerText = 'Error fetching API!';
                 });
         }
+
+        // Initialize Leaflet map
+        var map = L.map('map').setView([51.505, -0.09], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        L.marker([51.505, -0.09]).addTo(map)
+            .bindPopup('A pretty CSS3 popup.<br> Easily customizable.')
+            .openPopup();
     </script>
+
+    <script src="script.js"></script>
+
+   
 </body>
 </html>
