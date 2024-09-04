@@ -1,10 +1,14 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, send_from_directory
+import os
 
-app = Flask(__name__)
+# Usa il percorso assoluto per il frontend
+frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
+
+app = Flask(__name__, static_folder=frontend_path, static_url_path='')
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/api/test')
 def api_test():

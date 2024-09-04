@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   backend:
     build:
@@ -7,11 +6,12 @@ services:
       dockerfile: Dockerfilebe
     ports:
       - "5000:5000"
-    networks:
-      - app-network
     environment:
-      - FLASK_ENV=development
-      - DATABASE_URL=postgresql://user:password@db:5432/homezone
+      - DATABASE_URL=postgresql://postgres_user:postgres_password@db:5432/postgres_db
+    depends_on:
+      - db
+    volumes:
+      - ./frontend:/frontend  # Mappa la cartella frontend all'interno del container backend
 
   frontend:
     build:
@@ -19,24 +19,17 @@ services:
       dockerfile: Dockerfilefe
     ports:
       - "8080:80"
-    networks:
-      - app-network
 
   db:
-    image: postgres:13
-    environment:
-      POSTGRES_DB: homezone
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+    image: postgres:15
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
-    networks:
-      - app-network
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: postgres_db
+      POSTGRES_USER: postgres_user
+      POSTGRES_PASSWORD: postgres_password
 
 volumes:
-  db_data:
-
-networks:
-  app-network:
+  postgres_data:
