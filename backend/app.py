@@ -1,37 +1,33 @@
-from flask import Flask, jsonify, send_from_directory, render_template
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, jsonify, render_template, send_from_directory
+from config import Config
+from models import db, User
 import os
 
 # Usa il percorso assoluto per il frontend
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
 
 app = Flask(__name__, template_folder=frontend_path, static_folder=frontend_path, static_url_path='')
-app.config.from_object('config.Config')
+app.config.from_object(Config)
 
 # Inizializza SQLAlchemy
-db = SQLAlchemy(app)
-
-# Definisci un modello per le stringhe
-class MyString(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(255), nullable=False)
+db.init_app(app)
 
 @app.before_request
 def initialize_database():
     if not hasattr(app, 'db_initialized'):
-        db.create_all()
-        if MyString.query.count() == 0:
-            db.session.add_all([
-                MyString(content='First string'),
-                MyString(content='Second string'),
-                MyString(content='Third string')
-            ])
-            db.session.commit()
+        with app.app_context():
+            db.create_all()
+            if User.query.count() == 0:
+                db.session.add_all([
+                    User(content_poi=['First string', 'Another string']),
+                    User(content_poi=['First string', 'Another string'])
+                ])
+                db.session.commit()
         app.db_initialized = True
 
 @app.route('/')
 def index():
-    strings = MyString.query.all()
+    strings = User.query.all()
     return render_template('index.html', strings=strings)
 
 @app.route('/api/test')
