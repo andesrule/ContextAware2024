@@ -8,7 +8,9 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <!-- Leaflet CSS CDN -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
+<<<<<<< Updated upstream
     <style>
         /* Additional custom styles can go here */
         .star {
@@ -48,6 +50,8 @@
             border-radius: 8px; /* Optional: for rounded corners */
         }
     </style>
+=======
+>>>>>>> Stashed changes
 </head>
 <body class="bg-gray-700 flex flex-col h-screen">
     <!-- Navbar -->
@@ -73,7 +77,11 @@
         </div>
 
         <!-- Content Area -->
+<<<<<<< Updated upstream
         <div id="content" class="flex-1 p-4 flex flex-col items-center justify-center">
+=======
+        <div id="content" class="flex-1 p-4 flex flex-col items-center">
+>>>>>>> Stashed changes
             <div class="bg-gray-800 text-white p-8 rounded-lg shadow-lg">
                 <!-- Survey Content -->
                 <div class="mb-4">
@@ -94,15 +102,21 @@
                         <p id="ratingValue" class="ml-4">No rating selected</p>
                     </div>
                 </div>
-                <!-- Repeat the survey block as needed -->
             </div>
+<<<<<<< Updated upstream
             <!-- Leaflet Map -->
             <div id="map"></div>
+=======
+
+            <!-- Leaflet Map -->
+            <div id="map" class="mt-8"></div>
+>>>>>>> Stashed changes
         </div>
     </div>
 
     <!-- Leaflet JS CDN -->
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<<<<<<< Updated upstream
     <script>
         // Initialize Leaflet map
         var map = L.map('map').setView([44.4949, 11.3426], 13); // Coordinates for Bologna
@@ -116,6 +130,9 @@
             .openPopup();
     </script>
 
+=======
+    <!-- Custom JavaScript -->
+>>>>>>> Stashed changes
     <script src="script.js"></script>
 </body>
 </html>

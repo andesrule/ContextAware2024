@@ -29,3 +29,10 @@
 .sidebar-open #sidebar {
     transform: translateX(100%); /* Move the sidebar out of view to the right */
 }
+
+/* Style for the Leaflet map */
+#map {
+    height: 800px; /* Adjust height */
+    width: 100%; /* Full width */
+    max-width: 1500px; /* Maximum width */
+}
