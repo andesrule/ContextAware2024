@@ -40,6 +40,13 @@
         .sidebar-open #sidebar {
             transform: translateX(-100%); /* Move the sidebar out of view */
         }
+        /* Map container style */
+        #map {
+            height: 400px; /* Adjust height as needed */
+            width: 100%; /* Full width */
+            margin-top: 2rem; /* Space above the map */
+            border-radius: 8px; /* Optional: for rounded corners */
+        }
     </style>
 </head>
 <body class="bg-gray-700 flex flex-col h-screen">
@@ -66,7 +73,7 @@
         </div>
 
         <!-- Content Area -->
-        <div id="content" class="flex-1 p-4 flex items-center justify-center">
+        <div id="content" class="flex-1 p-4 flex flex-col items-center justify-center">
             <div class="bg-gray-800 text-white p-8 rounded-lg shadow-lg">
                 <!-- Survey Content -->
                 <div class="mb-4">
@@ -89,37 +96,26 @@
                 </div>
                 <!-- Repeat the survey block as needed -->
             </div>
+            <!-- Leaflet Map -->
+            <div id="map"></div>
         </div>
     </div>
 
     <!-- Leaflet JS CDN -->
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script>
-        function fetchApiTest() {
-            fetch('/api/test')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('apiResponse').innerText = data.message;
-                })
-                .catch(error => {
-                    document.getElementById('apiResponse').innerText = 'Error fetching API!';
-                });
-        }
-
         // Initialize Leaflet map
-        var map = L.map('map').setView([51.505, -0.09], 13);
+        var map = L.map('map').setView([44.4949, 11.3426], 13); // Coordinates for Bologna
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        L.marker([51.505, -0.09]).addTo(map)
-            .bindPopup('A pretty CSS3 popup.<br> Easily customizable.')
+        L.marker([44.4949, 11.3426]).addTo(map)
+            .bindPopup('Bologna, Italy')
             .openPopup();
     </script>
 
     <script src="script.js"></script>
-
-   
 </body>
 </html>
