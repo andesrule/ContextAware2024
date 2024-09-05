@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dati Geofence</title>
+
+    <!-- Tailwind CSS per lo stile base -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1f2937;
+        }
+
+        table {
+            width: 100%;
+            max-width: 800px;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #4b5563;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #374151;
+            color: #f3f4f6;
+        }
+
+        td {
+            background-color: #1f2937;
+            color: #f3f4f6;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 class="text-2xl font-bold text-white">Dati Geofence</h1>
+    <div id="sidebar" class="fixed inset-y-0 right-0 bg-gray-800 z-40 transform transition-transform duration-300 ease-in-out">
+        <div class="w-full h-full bg-gray-900 text-white p-4">
+            
+            <ul>
+                <li><a href="{{url_for('get_home')}}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
+                <li><button id="openModalButton" class="block py-2 px-4 hover:bg-gray-700 w-full text-left">Questionario</button></li>
+
+                <li><a href="{{url_for('test')}}" class="block py-2 px-4 hover:bg-gray-700">Test</a></li>
+                <li><a href="{{url_for('get_database')}}" class="block py-2 px-4 hover:bg-gray-700">Database</a></li>
+            </ul>
+        </div>
+    </div>
+    <!-- Tabella per visualizzare i dati -->
+    <table id="geofencesTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Markers</th>
+                <th>Geofences</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- I dati verranno inseriti qui da JavaScript -->
+        </tbody>
+    </table>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            fetch('/get-geofences')
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.querySelector('#geofencesTable tbody');
+                    tableBody.innerHTML = ''; // Pulisci la tabella esistente
+
+                    data.forEach(item => {
+                        const row = document.createElement('tr');
+
+                        const idCell = document.createElement('td');
+                        idCell.textContent = item.id;
+                        row.appendChild(idCell);
+
+                        const markersCell = document.createElement('td');
+                        markersCell.textContent = JSON.stringify(item.markers);
+                        row.appendChild(markersCell);
+
+                        const geofencesCell = document.createElement('td');
+                        geofencesCell.textContent = JSON.stringify(item.geofences);
+                        row.appendChild(geofencesCell);
+
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching geofences:', error);
+                });
+        });
+    </script>
+</body>
+
+</html>
