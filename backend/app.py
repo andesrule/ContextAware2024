@@ -13,7 +13,8 @@ app.config.from_object(Config)
 # Inizializza SQLAlchemy
 db.init_app(app)
 
-@app.before_request
+
+
 def reset_db():
     """Drop all tables from the database."""
     with app.app_context():
@@ -52,6 +53,7 @@ def get_geofences():
 @app.route('/get_database')
 def get_database():
     return render_template('database.html')
+
 @app.route('/Test')
 def test():
     strings = User.query.all()
