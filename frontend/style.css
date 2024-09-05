@@ -10,6 +10,7 @@
 .sidebar-open #mainContent {
     margin-right: 16rem; /* Adjust based on the width of the sidebar */
 }
+
 @media (max-width: 768px) {
     .sidebar-open #mainContent {
         margin-right: 0;

@@ -34,7 +34,7 @@
                     <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
                     <li><button id="openModalButton" class="block py-2 px-4 hover:bg-gray-700 w-full text-left">Questionario</button></li>
 
-                    <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">About</a></li>
+                    <li><a href="{{url_for('test')}}" class="block py-2 px-4 hover:bg-gray-700">Mappa</a></li>
                     <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">Contact</a></li>
                 </ul>
             </div>
@@ -66,7 +66,7 @@
         <!-- Repeat the survey block as needed -->
     </div>
 </div>
-    </div>
+</div>
 
 <h1>Strings Arrays from the Database</h1>
     <ul>
@@ -74,33 +74,7 @@
             <li>{{ string.content_poi }}</li>
         {% endfor %}
     </ul>
-  
-    <!-- Leaflet JS CDN -->
-    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-    <script>
-        function fetchApiTest() {
-            fetch('/api/test')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('apiResponse').innerText = data.message;
-                })
-                .catch(error => {
-                    document.getElementById('apiResponse').innerText = 'Error fetching API!';
-                });
-        }
-
-        // Initialize Leaflet map
-        var map = L.map('map').setView([51.505, -0.09], 13);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        L.marker([51.505, -0.09]).addTo(map)
-            .bindPopup('A pretty CSS3 popup.<br> Easily customizable.')
-            .openPopup();
-    </script>
-
+    
     <script src="script.js"></script>
 
    
