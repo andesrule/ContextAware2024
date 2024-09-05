@@ -32,6 +32,8 @@
                 <button id="closeSidebar" class="text-white text-xl mb-4">Close</button>
                 <ul>
                     <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
+                    <li><button id="openModalButton" class="block py-2 px-4 hover:bg-gray-700 w-full text-left">Questionario</button></li>
+
                     <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">About</a></li>
                     <li><a href="#" class="block py-2 px-4 hover:bg-gray-700">Contact</a></li>
                 </ul>
@@ -39,30 +41,31 @@
         </div>
 
         <!-- Content Area -->
-        <div id="content" class="flex-1 p-4 flex items-center justify-center">
-            <div class="bg-gray-800 text-white p-8 rounded-lg shadow-lg">
-                <!-- Survey Content -->
-                <div class="mb-4">
-                    <h1 class="text-2xl mb-4">User Preference Survey</h1>
-                    <p class="mb-4">Please rate your experience:</p>
-                    <div class="flex items-center mb-4">
-                        <!-- Question -->
-                        <p class="mr-4">Rating:</p>
-                        <!-- Star Rating -->
-                        <div id="rating" class="flex">
-                            <span class="star" data-value="1">&#9733;</span>
-                            <span class="star" data-value="2">&#9733;</span>
-                            <span class="star" data-value="3">&#9733;</span>
-                            <span class="star" data-value="4">&#9733;</span>
-                            <span class="star" data-value="5">&#9733;</span>
-                        </div>
-                        <!-- Display selected rating -->
-                        <p id="ratingValue" class="ml-4">No rating selected</p>
-                    </div>
+        <!-- Questionario content section (initially hidden) -->
+<div id="questionnaire" class="flex-1 p-4 flex items-center justify-center hidden">
+    <div class="bg-gray-800 text-white p-8 rounded-lg shadow-lg">
+        <!-- Survey Content -->
+        <div class="mb-4">
+            <h1 class="text-2xl mb-4">User Preference Survey</h1>
+            <p class="mb-4">Please rate your experience:</p>
+            <div class="flex items-center mb-4">
+                <!-- Question -->
+                <p class="mr-4">Rating:</p>
+                <!-- Star Rating -->
+                <div id="rating" class="flex">
+                    <span class="star" data-value="1">&#9733;</span>
+                    <span class="star" data-value="2">&#9733;</span>
+                    <span class="star" data-value="3">&#9733;</span>
+                    <span class="star" data-value="4">&#9733;</span>
+                    <span class="star" data-value="5">&#9733;</span>
                 </div>
-                <!-- Repeat the survey block as needed -->
+                <!-- Display selected rating -->
+                <p id="ratingValue" class="ml-4">No rating selected</p>
             </div>
         </div>
+        <!-- Repeat the survey block as needed -->
+    </div>
+</div>
     </div>
 
 <h1>Strings Arrays from the Database</h1>

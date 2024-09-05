@@ -19,7 +19,6 @@ def initialize_database():
             db.create_all()
             if User.query.count() == 0:
                 db.session.add_all([
-                    User(content_poi=['First string', 'Another string']),
                     User(content_poi=['First string', 'Another string'])
                 ])
                 db.session.commit()
@@ -30,9 +29,6 @@ def index():
     strings = User.query.all()
     return render_template('index.html', strings=strings)
 
-@app.route('/api/test')
-def api_test():
-    return jsonify({"message": "API is working!"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -7,6 +7,15 @@
     document.getElementById('closeSidebar').addEventListener('click', function() {
         document.body.classList.remove('sidebar-open');
     });
+// Open Questionnaire
+document.getElementById('openModalButton').addEventListener('click', function() {
+    const questionnaire = document.getElementById('questionnaire');
+    if (questionnaire.classList.contains('hidden')) {
+        questionnaire.classList.remove('hidden');
+    } else {
+        questionnaire.classList.add('hidden');
+    }
+});
 
     // JavaScript to handle star rating
     const stars = document.querySelectorAll('#rating .star');

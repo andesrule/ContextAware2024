@@ -19,6 +19,9 @@
         max-width: 20rem; /* Adjust based on your preference */
     }
 }
+.hidden {
+    display: none;
+}
 /* Initially visible sidebar */
 #sidebar {
     transform: translateX(0); /* Make the sidebar visible initially */
