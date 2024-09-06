@@ -17,3 +17,17 @@ class Geofence(db.Model):
     def __init__(self, markers=None, geofences=None):
         self.markers = markers or []
         self.geofences = geofences or []
+
+
+class QuestionnaireResponse(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    aree_verdi = db.Column(db.Integer)
+    parcheggi = db.Column(db.Integer)
+    fermate_bus = db.Column(db.Integer)
+    supermercati = db.Column(db.Integer)
+    scuole = db.Column(db.Integer)
+    ristoranti = db.Column(db.Integer)
+    ospedali = db.Column(db.Integer)
+    cinema = db.Column(db.Integer)
+    parchi_giochi = db.Column(db.Integer)
+    palestre = db.Column(db.Integer)

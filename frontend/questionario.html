@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Questionario Preferenze PoI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .question {
+            margin-bottom: 20px;
+        }
+
+        .question label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .question input {
+            margin-right: 5px;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Questionario Preferenze PoI</h1>
+    <form id="poi-form">
+        <div class="question">
+            <label>1. Quanto è importante la presenza di aree verdi nel vicinato?</label>
+            <input type="range" min="0" max="5" step="1" name="aree_verdi">
+        </div>
+
+        <div class="question">
+            <label>2. Quanto è importante avere parcheggi nelle vicinanze?</label>
+            <input type="range" min="0" max="5" step="1" name="parcheggi">
+        </div>
+
+        <div class="question">
+            <label>3. Quanto è importante la presenza di fermate autobus nel vicinato?</label>
+            <input type="range" min="0" max="5" step="1" name="fermate_bus">
+        </div>
+
+        <div class="question">
+            <label>4. Quanto è importante avere almeno 2 supermercati nelle vicinanze?</label>
+            <input type="range" min="0" max="5" step="1" name="supermercati">
+        </div>
+
+        <div class="question">
+            <label>5. Quanto è importante la presenza di scuole nel vicinato?</label>
+            <input type="range" min="0" max="5" step="1" name="scuole">
+        </div>
+
+        <div class="question">
+            <label>6. Quanto è importante avere almeno 3 ristoranti nel vicinato?</label>
+            <input type="range" min="0" max="5" step="1" name="ristoranti">
+        </div>
+
+        <div class="question">
+            <label>7. Quanto è importante la vicinanza di ospedali o cliniche?</label>
+            <input type="range" min="0" max="5" step="1" name="ospedali">
+        </div>
+
+        <div class="question">
+            <label>8. Quanto è importante avere almeno 2 cinema nel vicinato?</label>
+            <input type="range" min="0" max="5" step="1" name="cinema">
+        </div>
+
+        <div class="question">
+            <label>9. Quanto è importante la presenza di parchi giochi per bambini nel vicinato?</label>
+            <input type="range" min="0" max="5" step="1" name="parchi_giochi">
+        </div>
+
+        <div class="question">
+            <label>10. Quanto è importante avere almeno una palestra nelle vicinanze?</label>
+            <input type="range" min="0" max="5" step="1" name="palestre">
+        </div>
+
+        <button type="button" onclick="submitForm()">Invia Risposte</button>
+    </form>
+</div>
+
+<script>
+    function submitForm() {
+        // Ottieni le risposte dal questionario
+        const form = document.getElementById('poi-form');
+        const formData = new FormData(form);
+        const answers = {};
+
+        formData.forEach((value, key) => {
+            answers[key] = value;
+        });
+
+        // Invia i dati al server Flask
+        fetch('/submit-questionnaire', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(answers)
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert('Questionario inviato con successo!');
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+        });
+    }
+</script>
+
+</body>
+</html>

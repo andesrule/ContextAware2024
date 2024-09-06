@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dati Geofence</title>
+    <title>Dati Database</title>
 
     <!-- Tailwind CSS per lo stile base -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -47,20 +47,10 @@
 </head>
 
 <body>
-    <h1 class="text-2xl font-bold text-white">Dati Geofence</h1>
-    <div id="sidebar" class="fixed inset-y-0 right-0 bg-gray-800 z-40 transform transition-transform duration-300 ease-in-out">
-        <div class="w-full h-full bg-gray-900 text-white p-4">
-            
-            <ul>
-                <li><a href="{{url_for('get_home')}}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
-                <li><button id="openModalButton" class="block py-2 px-4 hover:bg-gray-700 w-full text-left">Questionario</button></li>
+    <h1 class="text-2xl font-bold text-white">Dati del Database</h1>
 
-                <li><a href="{{url_for('test')}}" class="block py-2 px-4 hover:bg-gray-700">Test</a></li>
-                <li><a href="{{url_for('get_database')}}" class="block py-2 px-4 hover:bg-gray-700">Database</a></li>
-            </ul>
-        </div>
-    </div>
-    <!-- Tabella per visualizzare i dati -->
+    <!-- Sezione per i Geofence -->
+    <h2 class="text-xl font-bold text-white mt-4">Dati Geofence</h2>
     <table id="geofencesTable">
         <thead>
             <tr>
@@ -74,8 +64,45 @@
         </tbody>
     </table>
 
+    <!-- Sezione per gli utenti -->
+    <h2 class="text-xl font-bold text-white mt-4">Utenti</h2>
+    <table id="usersTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Content POI</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- I dati verranno inseriti qui da JavaScript -->
+        </tbody>
+    </table>
+
+    <!-- Sezione per le risposte al questionario -->
+    <h2 class="text-xl font-bold text-white mt-4">Risposte al Questionario</h2>
+    <table id="questionnaireTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Aree Verdi</th>
+                <th>Parcheggi</th>
+                <th>Fermate Bus</th>
+                <th>Supermercati</th>
+                <th>Scuole</th>
+                <th>Ristoranti</th>
+                <th>Ospedali</th>
+                <th>Cinema</th>
+                <th>Parchi Giochi</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- I dati verranno inseriti qui da JavaScript -->
+        </tbody>
+    </table>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // Fetch dati Geofence
             fetch('/get-geofences')
                 .then(response => response.json())
                 .then(data => {
@@ -102,6 +129,88 @@
                 })
                 .catch(error => {
                     console.error('Error fetching geofences:', error);
+                });
+
+            // Fetch dati User
+            fetch('/get-users')
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.querySelector('#usersTable tbody');
+                    tableBody.innerHTML = ''; // Pulisci la tabella esistente
+
+                    data.forEach(item => {
+                        const row = document.createElement('tr');
+
+                        const idCell = document.createElement('td');
+                        idCell.textContent = item.id;
+                        row.appendChild(idCell);
+
+                        const contentCell = document.createElement('td');
+                        contentCell.textContent = JSON.stringify(item.content_poi);
+                        row.appendChild(contentCell);
+
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching users:', error);
+                });
+
+            // Fetch dati Questionario
+            fetch('/get-questionnaire-responses')
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.querySelector('#questionnaireTable tbody');
+                    tableBody.innerHTML = ''; // Pulisci la tabella esistente
+
+                    data.forEach(item => {
+                        const row = document.createElement('tr');
+
+                        const idCell = document.createElement('td');
+                        idCell.textContent = item.id;
+                        row.appendChild(idCell);
+
+                        const areeVerdiCell = document.createElement('td');
+                        areeVerdiCell.textContent = item.aree_verdi;
+                        row.appendChild(areeVerdiCell);
+
+                        const parcheggiCell = document.createElement('td');
+                        parcheggiCell.textContent = item.parcheggi;
+                        row.appendChild(parcheggiCell);
+
+                        const fermateBusCell = document.createElement('td');
+                        fermateBusCell.textContent = item.fermate_bus;
+                        row.appendChild(fermateBusCell);
+
+                        const supermercatiCell = document.createElement('td');
+                        supermercatiCell.textContent = item.supermercati;
+                        row.appendChild(supermercatiCell);
+
+                        const scuoleCell = document.createElement('td');
+                        scuoleCell.textContent = item.scuole;
+                        row.appendChild(scuoleCell);
+
+                        const ristorantiCell = document.createElement('td');
+                        ristorantiCell.textContent = item.ristoranti;
+                        row.appendChild(ristorantiCell);
+
+                        const ospedaliCell = document.createElement('td');
+                        ospedaliCell.textContent = item.ospedali;
+                        row.appendChild(ospedaliCell);
+
+                        const cinemaCell = document.createElement('td');
+                        cinemaCell.textContent = item.cinema;
+                        row.appendChild(cinemaCell);
+
+                        const parchiGiochiCell = document.createElement('td');
+                        parchiGiochiCell.textContent = item.parchi_giochi;
+                        row.appendChild(parchiGiochiCell);
+
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching questionnaire responses:', error);
                 });
         });
     </script>

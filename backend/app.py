@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, render_template, send_from_directory, request
 from config import Config
-from models import db, User, Geofence
+from models import db, User, Geofence, QuestionnaireResponse
 import os
 
 # Usa il percorso assoluto per il frontend
@@ -43,6 +43,10 @@ def index():
 def get_home():
     return render_template('index.html')
 
+@app.route('/Questionario')
+def get_quest():
+    return render_template('questionario.html')
+
 @app.route('/get-geofences')
 def get_geofences():
     geofences = Geofence.query.all()
@@ -75,7 +79,28 @@ def save_geofence():
     else:
         return jsonify({'status': 'error', 'message': 'Invalid data!'}), 400
     
+@app.route('/submit-questionnaire', methods=['POST'])
+def submit_questionnaire():
+    data = request.get_json()
+    
+    # Creare un nuovo oggetto per le risposte del questionario
+    response = QuestionnaireResponse(
+        aree_verdi=data.get('aree_verdi'),
+        parcheggi=data.get('parcheggi'),
+        fermate_bus=data.get('fermate_bus'),
+        supermercati=data.get('supermercati'),
+        scuole=data.get('scuole'),
+        ristoranti=data.get('ristoranti'),
+        ospedali=data.get('ospedali'),
+        cinema=data.get('cinema'),
+        parchi_giochi=data.get('parchi_giochi'),
+        palestre=data.get('palestre')
+    )
+    
+    db.session.add(response)
+    db.session.commit()
 
+    return jsonify({"message": "Questionario inviato con successo!"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
