@@ -1,3 +1,4 @@
+Riccardo Benedetti Unibo, [06/09/2024 17:37]
 <!DOCTYPE html>
 <html lang="en">
 
@@ -131,7 +132,8 @@
                     console.error('Error fetching geofences:', error);
                 });
 
-            // Fetch dati User
+
+// Fetch dati User
             fetch('/get-users')
                 .then(response => response.json())
                 .then(data => {
@@ -205,6 +207,10 @@
                         const parchiGiochiCell = document.createElement('td');
                         parchiGiochiCell.textContent = item.parchi_giochi;
                         row.appendChild(parchiGiochiCell);
+                        
+                        const palestreCell = document.createElement('td');
+                        palestreCell.textContent = item.palestre;
+                        row.appendChild(palestreCell);
 
                         tableBody.appendChild(row);
                     });

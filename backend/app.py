@@ -36,7 +36,7 @@ def initialize_database():
 
 @app.route('/')
 def index():
-    strings = User.query.all()
+    strings = QuestionnaireResponse.query.all()
     return render_template('index.html', strings=strings)
 
 @app.route('/Home')
@@ -45,6 +45,7 @@ def get_home():
 
 @app.route('/Questionario')
 def get_quest():
+
     return render_template('questionario.html')
 
 @app.route('/get-geofences')
