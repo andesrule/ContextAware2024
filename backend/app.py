@@ -1,11 +1,12 @@
-from flask import Flask, jsonify, render_template, send_from_directory, request
+from flask import Flask, jsonify, render_template, request
 from config import Config
 from models import db, User, Geofence, QuestionnaireResponse
 import os
+from flask_admin import Admin
+from flask_admin.contrib.sqla import ModelView  # Importa ModelView per l'admin
 
 # Usa il percorso assoluto per il frontend
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
-
 
 app = Flask(__name__, template_folder=frontend_path, static_folder=frontend_path, static_url_path='')
 app.config.from_object(Config)
@@ -13,7 +14,13 @@ app.config.from_object(Config)
 # Inizializza SQLAlchemy
 db.init_app(app)
 
+# Inizializza Flask-Admin
+admin = Admin(app, name='Admin Panel', template_mode='bootstrap3')
 
+# Aggiungi i modelli all'interfaccia di amministrazione
+admin.add_view(ModelView(User, db.session))
+admin.add_view(ModelView(Geofence, db.session))
+admin.add_view(ModelView(QuestionnaireResponse, db.session))
 
 def reset_db():
     """Drop all tables from the database."""
@@ -45,13 +52,11 @@ def get_home():
 
 @app.route('/Questionario')
 def get_quest():
-
     return render_template('questionario.html')
 
 @app.route('/get-geofences')
 def get_geofences():
     geofences = Geofence.query.all()
-    # Converti i dati in un formato JSON serializzabile
     geofences_data = [{'id': gf.id, 'markers': gf.markers, 'geofences': gf.geofences} for gf in geofences]
     return jsonify(geofences_data)
 
@@ -67,24 +72,20 @@ def test():
 @app.route('/save-geofence', methods=['POST'])
 def save_geofence():
     data = request.get_json()
-    print(f"Received data: {data}")
     markers = data.get('markers')
     geofences = data.get('geofences')
 
     if markers is not None or geofences is not None:
-        # Creare un nuovo oggetto Geofence
         new_entry = Geofence(markers=markers, geofences=geofences)
         db.session.add(new_entry)
         db.session.commit()
         return jsonify({'status': 'success', 'message': 'Geofence saved successfully!'}), 200
     else:
         return jsonify({'status': 'error', 'message': 'Invalid data!'}), 400
-    
+
 @app.route('/submit-questionnaire', methods=['POST'])
 def submit_questionnaire():
     data = request.get_json()
-    
-    # Creare un nuovo oggetto per le risposte del questionario
     response = QuestionnaireResponse(
         aree_verdi=data.get('aree_verdi'),
         parcheggi=data.get('parcheggi'),
