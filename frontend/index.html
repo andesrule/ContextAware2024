@@ -20,7 +20,12 @@
     <nav class="w-full bg-gray-800 p-4 sticky top-0 z-50 flex items-center">
         <div class="flex-1 flex justify-between items-center">
             <a href="#" class="text-white text-xl font-bold">Context Aware 2024</a>
-            <button id="menuButton" class="text-white text-xl font-bold">Menu</button>
+            
+            <div class="flex space-x-4">
+                <button id="menuButton" class="text-white text-xl font-bold">Menu</button>
+                <!-- Aggiungi il pulsante Admin -->
+                <a href="/admin" class="text-white text-xl font-bold hover:bg-gray-700 p-2 rounded">Admin</a>
+            </div>
         </div>
     </nav>
 
@@ -34,42 +39,36 @@
                     <li><a href="{{url_for('get_home')}}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
                     <li><button id="openModalButton" class="block py-2 px-4 hover:bg-gray-700 w-full text-left">Questionario</button></li>
                     <li><a href="{{url_for('test')}}" class="block py-2 px-4 hover:bg-gray-700">Test</a></li>                   
-                     <li><a href="{{url_for('get_quest')}}" class="block py-2 px-4 hover:bg-gray-700">Test_Questionario</a></li>
-
+                    <li><a href="{{url_for('get_quest')}}" class="block py-2 px-4 hover:bg-gray-700">Test_Questionario</a></li>
                     <li><a href="{{url_for('get_database')}}" class="block py-2 px-4 hover:bg-gray-700">Database</a></li>
                 </ul>
             </div>
         </div>
 
         <!-- Content Area -->
-        <!-- Questionario content section (initially hidden) -->
-<div id="questionnaire" class="flex-1 p-4 flex items-center justify-center hidden">
-    <div class="bg-gray-800 text-white p-8 rounded-lg shadow-lg">
-        <!-- Survey Content -->
-        <div class="mb-4">
-            <h1 class="text-2xl mb-4">User Preference Survey</h1>
-            <p class="mb-4">Please rate your experience:</p>
-            <div class="flex items-center mb-4">
-                <!-- Question -->
-                <p class="mr-4">Rating:</p>
-                <!-- Star Rating -->
-                <div id="rating" class="flex">
-                    <span class="star" data-value="1">&#9733;</span>
-                    <span class="star" data-value="2">&#9733;</span>
-                    <span class="star" data-value="3">&#9733;</span>
-                    <span class="star" data-value="4">&#9733;</span>
-                    <span class="star" data-value="5">&#9733;</span>
+        <div id="questionnaire" class="flex-1 p-4 flex items-center justify-center hidden">
+            <div class="bg-gray-800 text-white p-8 rounded-lg shadow-lg">
+                <!-- Survey Content -->
+                <div class="mb-4">
+                    <h1 class="text-2xl mb-4">User Preference Survey</h1>
+                    <p class="mb-4">Please rate your experience:</p>
+                    <div class="flex items-center mb-4">
+                        <p class="mr-4">Rating:</p>
+                        <div id="rating" class="flex">
+                            <span class="star" data-value="1">&#9733;</span>
+                            <span class="star" data-value="2">&#9733;</span>
+                            <span class="star" data-value="3">&#9733;</span>
+                            <span class="star" data-value="4">&#9733;</span>
+                            <span class="star" data-value="5">&#9733;</span>
+                        </div>
+                        <p id="ratingValue" class="ml-4">No rating selected</p>
+                    </div>
                 </div>
-                <!-- Display selected rating -->
-                <p id="ratingValue" class="ml-4">No rating selected</p>
             </div>
         </div>
-        <!-- Repeat the survey block as needed -->
     </div>
-</div>
-</div>
 
-<h1>Strings Arrays from the Database</h1>
+    <h1>Strings Arrays from the Database</h1>
     <ul>
         {% for string in strings %}
             <li>{{ string.palestre }}</li>
@@ -77,7 +76,6 @@
     </ul>
     
     <script src="script.js"></script>
-
-   
 </body>
+
 </html>
