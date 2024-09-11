@@ -60,6 +60,9 @@
             </ul>
         </div>
     </div>
+
+   
+    
     <!-- Contenitore per la mappa -->
     <div id="mapContainer">
         <div id="map"></div>
@@ -69,6 +72,9 @@
     
 
     
+
+</body>
+
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <!-- Leaflet Draw JS -->
@@ -76,7 +82,7 @@
 
     <script>
         // Inizializza la mappa
-        var map = L.map('map').setView([44.4936, 11.3430], 13);  // Coordinate per Bologna
+
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
@@ -153,8 +159,5 @@ function sendToServer(type, geojson) {
 }
 
     </script>
-
-
-</body>
 
 </html>
