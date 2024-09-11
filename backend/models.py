@@ -28,6 +28,6 @@ class QuestionnaireResponse(db.Model):
     scuole = db.Column(db.Integer)
     ristoranti = db.Column(db.Integer)
     ospedali = db.Column(db.Integer)
-    cinema = db.Column(db.Integer)
-    parchi_giochi = db.Column(db.Integer)
+    farmacia = db.Column(db.Integer)
+    luogo_culto = db.Column(db.Integer)
     palestre = db.Column(db.Integer)
