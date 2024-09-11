@@ -5,6 +5,3 @@ psycopg2-binary==2.9.6
 flask_admin
 requests
 flask_cors
-geoalchemy2
-shapely
-pyproj

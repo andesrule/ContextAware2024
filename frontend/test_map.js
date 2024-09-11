@@ -1,108 +1,44 @@
-// Aggiungi un listener per 'DOMContentLoaded' per assicurarti che il DOM sia completamente caricato prima di eseguire il codice
+// Inizializza la mappa centrata su Bologna
+let map = L.map('map').setView([44.4949, 11.3426], 13);
 
-    // Inizializza la mappa centrata su Bologna
-    let map = L.map('map').setView([44.4949, 11.3426], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+// Oggetto per tenere traccia dei marker per ciascuna categoria di POI
+let poiMarkers = {
+    aree_verdi: [],
+    parcheggi: [],
+    fermate_bus: [],
+    luoghi_interesse: [],
+    scuole: [],
+    cinema: [],
+    ospedali: [],
+    farmacia: [],
+    luogo_culto: [],
+    servizi: []
+};
 
-    // Oggetto per tenere traccia dei marker per ciascuna categoria di POI
-    let poiMarkers = {
-        aree_verdi: [],
-        parcheggi: [],
-        fermate_bus: [],
-        luoghi_interesse: [],
-        scuole: [],
-        cinema: [],
-        ospedali: [],
-        farmacia: [],
-        luogo_culto: [],
-        servizi: []
-    };
+// Variabili per la gestione dei poligoni
+let drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
 
-    // Variabili per la gestione dei poligoni
-    let drawnItems = new L.FeatureGroup();
-    map.addLayer(drawnItems);
+let drawControl = new L.Control.Draw({
+    edit: {
+        featureGroup: drawnItems
+    }
+});
+map.addControl(drawControl);
 
-    let drawControl = new L.Control.Draw({
-        edit: {
-            featureGroup: drawnItems
-        },
-        draw: {
-            polygon: true,
-            marker: true,
-            polyline: false,
-            rectangle: false,
-            circle: false
-        }
-    });
-    map.addControl(drawControl);
-
-    // Gestione degli eventi di disegno
+// Gestione degli eventi di disegno
 map.on(L.Draw.Event.CREATED, function (e) {
     let layer = e.layer;
-
-    if (layer instanceof L.Marker) {
-        // Usa l'icona rossa per i marker dell'utente
-        const latlng = layer.getLatLng();
-        const userMarker = L.marker([latlng.lat, latlng.lng], { icon: userMarkerIcon }).addTo(map);
-        userMarker.bindPopup('<b>Marker Utente</b>').openPopup();
-
-        // Salva il marker nel database
-        saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null);  // Salva il marker come punto singolo
-    } else if (layer instanceof L.Polygon) {
-        // Salva il poligono nel database
-        const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
-        saveGeofenceToDatabase(null, [coordinates]);  // Salva il poligono
-    }
-
-    // Aggiungi il layer alla mappa (usato per visualizzare sia marker che poligoni)
     drawnItems.addLayer(layer);
 });
 
-// Marker per i POI con colore blu (default)
-const poiMarkerIcon = L.divIcon({
-    className: 'poi-marker', // Classe per il marker
-    html: '<div style="background-color: blue; width: 25px; height: 25px; border-radius: 50%;"></div>', // Stile del marker
-    iconSize: [25, 25],
-    iconAnchor: [12, 12]
-});
-
-const userMarkerIcon = L.divIcon({
-    className: 'user-marker',
-    html: `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="25" height="25">
-            <path fill="red" d="M12 0C7.58 0 4 3.58 4 8c0 5.5 8 16 8 16s8-10.5 8-16c0-4.42-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
-        </svg>
-    `,
-    iconSize: [25, 25],
-    iconAnchor: [12, 25],
-    popupAnchor: [0, -25]
-});
-
-// Funzione per aggiungere un marker inserito dall'utente
-function addUserMarker(lat, lon) {
-    const marker = L.marker([lat, lon], { icon: userMarkerIcon }).addTo(map);
-    marker.bindPopup('<b>Marker Utente</b>').openPopup();
-    userMarkers.push(marker); // Salva i marker inseriti dall'utente
-}
-
-// Funzione per aggiungere un marker per i POI
-function addPOIMarker(lat, lon, poiType, name) {
-    const marker = L.marker([lat, lon], { icon: poiMarkerIcon }).bindPopup(`<b>${name}</b><br>${poiType}`);
-    marker.addTo(map);
-    poiMarkers[poiType].push(marker);
-}
-
-
 // Funzione per recuperare i dati dei POI dal server
-// Funzione generica per recuperare i dati dei POI dal server
-// Funzione generica per recuperare i dati dei POI dal server// Funzione generica per recuperare i dati dei POI dal server
 function getPOIData(poiType) {
     axios.get(`/api/poi/${poiType}`).then(response => {
-        console.log(`Dati ricevuti per ${poiType}:`, response.data);
-
         const results = response.data.results;
 
         if (!results || results.length === 0) {
@@ -112,56 +48,61 @@ function getPOIData(poiType) {
 
         results.forEach(record => {
             const poi = record;
+
             let lat, lon;
 
             // Gestisci diversi formati di coordinate
             if (poi.geo_point_2d) {
-                // Per geo_point_2d, le coordinate sono oggetti con lat/lon
                 lat = poi.geo_point_2d.lat;
                 lon = poi.geo_point_2d.lon;
-            } else if (poi.geopoint) {
-                // Gestisci sia lat/lon che latitude/longitude
-                lat = poi.geopoint.lat || poi.geopoint.latitude;
-                lon = poi.geopoint.lon || poi.geopoint.longitude;
             } else if (poi.coordinate) {
                 lat = poi.coordinate.lat;
                 lon = poi.coordinate.lon;
-            } else if (poi.point && poi.point.lat && poi.point.lon) {
-                lat = poi.point.lat;
-                lon = poi.point.lon;
-            } else if (poi.xcoord && poi.ycoord) {
-                lat = parseFloat(poi.ycoord);
-                lon = parseFloat(poi.xcoord);
+            } else if (poi.geopoint) {
+                lat = poi.geopoint.latitude;  // Assumi 'latitude' e 'longitude'
+                lon = poi.geopoint.longitude;
+            } else if (poi.point) {
+                lat = poi.point.ycoord;  // Assumi 'xcoord' e 'ycoord'
+                lon = poi.point.xcoord;
             } else {
                 console.warn(`POI senza dati geografici per ${poiType}:`, poi);
                 return;  // Salta questo POI se non ha coordinate
             }
 
-            // Verifica che lat e lon siano numeri validi
-            if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
-                console.warn(`Coordinate non valide per ${poiType}:`, lat, lon);
+            // Controlla se le coordinate sono valide
+            if (lat === undefined || lon === undefined) {
+                console.warn(`Coordinate mancanti per ${poiType}:`, poi);
                 return;
             }
 
-            const name = poi.denominazione_struttura || poi.denominazi || poi.name || 'POI';
+            // Verifica che lat e lon siano numeri validi
+            if (isNaN(lat) || isNaN(lon)) {
+                console.warn(`Coordinate non valide per ${poiType}:`, poi);
+                return;
+            }
+
+            const name = poi.name || poi.denominazione || 'POI';
 
             // Crea e aggiungi il marker alla mappa
             const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>${poiType}`);
-            marker.addTo(map);
-            poiMarkers[poiType].push(marker);  // Salva il marker per rimuoverlo successivamente se necessario
+            poiMarkers[poiType].push(marker);  // Salva il marker
         });
 
+        // Aggiungi i marker alla mappa dopo che sono stati caricati
+        if (document.getElementById(poiType).checked) {
+            poiMarkers[poiType].forEach(marker => marker.addTo(map));
+        }
     }).catch(error => {
         console.error(`Errore nel recupero dei POI per ${poiType}:`, error);
     });
 }
 
-
+// Funzione per mostrare o nascondere i POI sulla mappa
 function togglePOI(poiType) {
     if (document.getElementById(poiType).checked) {
         // Se non ci sono marker, carica i dati dal server
         if (poiMarkers[poiType].length === 0) {
-            getPOIData(poiType);  // Usa la funzione generica per tutti i tipi di POI
+            getPOIData(poiType);
         } else {
             // Aggiungi i marker già presenti alla mappa
             poiMarkers[poiType].forEach(marker => marker.addTo(map));
@@ -171,57 +112,64 @@ function togglePOI(poiType) {
         poiMarkers[poiType].forEach(marker => map.removeLayer(marker));
     }
 }
-let databaseMarkers = [];
-function loadDatabaseMarkers() {
-    fetch('/get_markers')
-        .then(response => response.json())
-        .then(data => {
-            // Rimuovi i marker esistenti
-            databaseMarkers.forEach(marker => map.removeLayer(marker));
-            databaseMarkers = [];
 
-            // Aggiungi i nuovi marker
-            data.forEach(markerData => {
-                const marker = L.marker([markerData.lat, markerData.lng], { icon: userMarkerIcon }).addTo(map);
-                marker.bindPopup('<b>Marker dal Database</b>');
-                databaseMarkers.push(marker);
-            });
+// Crea una funzione per ogni tipo di POI e associa a un checkbox
+const poiTypes = ['aree_verdi', 'parcheggi', 'fermate_bus', 'luoghi_interesse', 'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi'];
 
-            // Centra la mappa sui marker se ce ne sono
-            if (databaseMarkers.length > 0) {
-                let group = new L.featureGroup(databaseMarkers);
-                map.fitBounds(group.getBounds());
-            }
-        })
-        .catch(error => console.error('Errore nel caricamento dei marker dal database:', error));
-}
+poiTypes.forEach(poiType => {
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = poiType;
+    checkbox.addEventListener('change', () => togglePOI(poiType));
 
-// Definizione del controllo personalizzato
-var customControl = L.Control.extend({
-    options: {
-        position: 'topleft'
-    },
-    onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'leaflet-control-custom');
-        container.innerHTML = '📍';
-        container.style.backgroundColor = 'white';
-        container.style.width = '30px';
-        container.style.height = '30px';
-        container.style.lineHeight = '30px';
-        container.style.textAlign = 'center';
-        container.style.cursor = 'pointer';
-        container.title = 'Mostra marker dal database';
+    const label = document.createElement('label');
+    label.innerHTML = ` ${poiType.charAt(0).toUpperCase() + poiType.slice(1)}`;
+    label.prepend(checkbox);
 
-        container.onclick = function(){
-            loadDatabaseMarkers();
-        }
-
-        L.DomEvent.disableClickPropagation(container);
-
-        return container;
-    }
+    document.body.appendChild(label);
+    document.body.appendChild(document.createElement('br'));
 });
 
-// Aggiungi il controllo personalizzato alla mappa
-map.addControl(new customControl());
+// Pulsanti per la gestione dei poligoni
+const savePolygonButton = document.createElement('button');
+savePolygonButton.innerText = 'Salva Poligono';
+savePolygonButton.addEventListener('click', () => {
+    const layers = drawnItems.getLayers();
+    if (layers.length === 0) {
+        alert('Nessun poligono disegnato!');
+        return;
+    }
+    const polygons = layers.map(layer => {
+        return {
+            type: 'Polygon',
+            coordinates: layer.getLatLngs()[0].map(latlng => [latlng.lng, latlng.lat])
+        };
+    });
+    axios.post('/api/save_polygons', { polygons })
+        .then(response => alert('Poligoni salvati con successo!'))
+        .catch(error => console.error('Errore nel salvataggio dei poligoni:', error));
+});
+document.body.appendChild(savePolygonButton);
 
+// Pulsante per aggiungere marker ai poligoni
+const addMarkersButton = document.createElement('button');
+addMarkersButton.innerText = 'Aggiungi Marker ai Poligoni';
+addMarkersButton.addEventListener('click', () => {
+    const layers = drawnItems.getLayers();
+    if (layers.length === 0) {
+        alert('Nessun poligono disegnato!');
+        return;
+    }
+    layers.forEach(polygonLayer => {
+        const polygon = polygonLayer.getLatLngs()[0];
+        poiTypes.forEach(poiType => {
+            poiMarkers[poiType].forEach(marker => {
+                const markerLatLng = marker.getLatLng();
+                if (L.Polygon.prototype.isPointInPolygon.call(polygonLayer, markerLatLng)) {
+                    marker.addTo(polygonLayer); // Aggiungi marker al poligono
+                }
+            });
+        });
+    });
+});
+document.body.appendChild(addMarkersButton);
