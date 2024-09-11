@@ -26,7 +26,7 @@ class QuestionnaireResponse(db.Model):
     fermate_bus = db.Column(db.Integer)
     supermercati = db.Column(db.Integer)
     scuole = db.Column(db.Integer)
-    ristoranti = db.Column(db.Integer)
+    cinema = db.Column(db.Integer)
     ospedali = db.Column(db.Integer)
     farmacia = db.Column(db.Integer)
     luogo_culto = db.Column(db.Integer)
