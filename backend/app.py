@@ -90,13 +90,13 @@ def submit_questionnaire():
         aree_verdi=data.get('aree_verdi'),
         parcheggi=data.get('parcheggi'),
         fermate_bus=data.get('fermate_bus'),
-        supermercati=data.get('supermercati'),
+        luoghi_interesse=data.get('luoghi_interesse'),
         scuole=data.get('scuole'),
         ristoranti=data.get('ristoranti'),
         ospedali=data.get('ospedali'),
         cinema=data.get('cinema'),
         parchi_giochi=data.get('parchi_giochi'),
-        palestre=data.get('palestre')
+        servizi=data.get('servizi')
     )
     
     db.session.add(response)
