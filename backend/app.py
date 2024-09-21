@@ -2,9 +2,11 @@ from flask import Flask, jsonify, render_template, request
 from config import Config
 from models import db, User, Geofence, QuestionnaireResponse
 import os
+import json
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView  # Importa ModelView per l'admin
-
+import requests
+from flask_cors import CORS  # Aggiunta per gestire le richieste CORS
 # Usa il percorso assoluto per il frontend
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
 
@@ -92,10 +94,10 @@ def submit_questionnaire():
         fermate_bus=data.get('fermate_bus'),
         luoghi_interesse=data.get('luoghi_interesse'),
         scuole=data.get('scuole'),
-        ristoranti=data.get('ristoranti'),
-        ospedali=data.get('ospedali'),
         cinema=data.get('cinema'),
-        parchi_giochi=data.get('parchi_giochi'),
+        ospedali=data.get('ospedali'),
+        farmacia=data.get('farmacia'),
+        luogo_culto=data.get('luogo_culto'),
         servizi=data.get('servizi')
     )
     
@@ -103,6 +105,40 @@ def submit_questionnaire():
     db.session.commit()
 
     return jsonify({"message": "Questionario inviato con successo!"})
+
+@app.route('/api/poi/<poi_type>', methods=['GET'])
+def get_poi(poi_type):
+    base_urls = {
+        'parcheggi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/disponibilita-parcheggi-storico/records',
+        'cinema': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/teatri-cinema-teatri/records',
+        'farmacia': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/farmacie/records',
+        'ospedali': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/strutture-sanitarie/records',
+        'fermate_bus' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records',
+        'scuole' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/elenco-delle-scuole/records',
+        'aree_verdi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records',
+        'luogo_culto' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records?limit=2',
+        'servizi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
+        'luoghi_interesse' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/musei_gallerie_luoghi_e_teatri_storici/records'
+
+
+
+        
+        # Aggiungi altre categorie qui
+    }
+
+    if poi_type not in base_urls:
+        return jsonify({'error': f'POI type {poi_type} not recognized'}), 400
+
+    url = base_urls[poi_type]
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = response.json()
+        return jsonify(data)
+    else:
+        return jsonify({'error': f'Errore API: {response.status_code}'}), 500
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
