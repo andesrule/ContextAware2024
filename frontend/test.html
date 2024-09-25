@@ -16,6 +16,7 @@
     <!-- Il file CSS separato -->
     <link rel="stylesheet" href="style_test.css">
     <link rel="icon" href="data:,">
+    <script src="db_test_map.js"></script>
 
 
 </head>
@@ -55,13 +56,13 @@
         <br>
         
         <label for="fermate_bus">
-            <input type="checkbox" id="fermate_bus" onchange="togglePOI2d('fermate_bus')">
+            <input type="checkbox" id="fermate_bus" onchange="togglePOI('fermate_bus')">
             Fermate Bus
         </label>
         <br>
         
         <label for="luoghi_interesse">
-            <input type="checkbox" id="luoghi_interesse" onchange="togglePOI2d('luoghi_interesse')">
+            <input type="checkbox" id="luoghi_interesse" onchange="togglePOI('luoghi_interesse')">
             Luoghi Interesse
         </label>
         <br>
@@ -85,7 +86,7 @@
         <br>
         
         <label for="farmacia">
-            <input type="checkbox" id="farmacia" onchange="togglePOIFarmacia('farmacia')">
+            <input type="checkbox" id="farmacia" onchange="togglePOI('farmacia')">
             Farmacia
         </label>
         <br>
@@ -97,7 +98,7 @@
         <br>
         
         <label for="servizi">
-            <input type="checkbox" id="servizi" onchange="togglePOI2d('servizi')">
+            <input type="checkbox" id="servizi" onchange="togglePOI('servizi')">
             Servizi
         </label>
         <br>
@@ -124,6 +125,7 @@
         window.addEventListener('DOMContentLoaded', function() {
             const script = document.createElement('script');
             script.src = 'test_map.js';
+            
             document.body.appendChild(script);
         });
     </script>

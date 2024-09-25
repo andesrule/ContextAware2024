@@ -214,32 +214,18 @@ function getFarmaciaData() {
     });
 }
 
-
-
-
-
-
-// Funzione per mostrare o nascondere i POI sulla mappa
-function togglePOI2d(poiType) {
-    if (document.getElementById(poiType).checked) {
-        // Se non ci sono marker, carica i dati dal server
-        if (poiMarkers[poiType].length === 0) {
-            getPOIDataGeoPoint2D(poiType);
-        } else {
-            // Aggiungi i marker già presenti alla mappa
-            poiMarkers[poiType].forEach(marker => marker.addTo(map));
-        }
-    } else {
-        // Rimuovi i marker dalla mappa
-        poiMarkers[poiType].forEach(marker => map.removeLayer(marker));
-    }
-}
-
 function togglePOI(poiType) {
     if (document.getElementById(poiType).checked) {
         // Se non ci sono marker, carica i dati dal server
         if (poiMarkers[poiType].length === 0) {
-            getPOIDataGeopoint(poiType);
+            // Seleziona la funzione corretta per il caricamento dei POI
+            if (poiType === 'farmacia') {
+                getFarmaciaData(poiType);  // Chiamata per le farmacie
+            } else if (poiType === 'aree_verdi' || poiType === 'parcheggi' ||  poiType === 'scuole' || poiType === 'cinema' || poiType === 'ospedali' || poiType === 'luogo_culto') {
+                getPOIDataGeopoint(poiType);  
+            } else {
+                getPOIDataGeoPoint2D(poiType);  // Chiamata per 'geopoint'
+            }
         } else {
             // Aggiungi i marker già presenti alla mappa
             poiMarkers[poiType].forEach(marker => marker.addTo(map));
@@ -250,38 +236,6 @@ function togglePOI(poiType) {
     }
 }
 
-function togglePOIFarmacia(poiType) {
-    if (document.getElementById(poiType).checked) {
-        // Se non ci sono marker, carica i dati dal server
-        if (poiMarkers[poiType].length === 0) {
-            getFarmaciaData(poiType);
-        } else {
-            // Aggiungi i marker già presenti alla mappa
-            poiMarkers[poiType].forEach(marker => marker.addTo(map));
-        }
-    } else {
-        // Rimuovi i marker dalla mappa
-        poiMarkers[poiType].forEach(marker => map.removeLayer(marker));
-    }
-}
 
 
-
-    // Funzione per inviare i geofence (marker o poligoni) al backend
-    function saveGeofenceToDatabase(markers, geofences) {
-        fetch('/save-geofence', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ markers: markers, geofences: geofences }),
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Geofence salvato con successo:', data);
-        })
-        .catch(error => {
-            console.error('Errore durante il salvataggio del geofence:', error);
-        });
-    }
 
