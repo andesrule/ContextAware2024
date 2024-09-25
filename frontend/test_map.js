@@ -56,7 +56,7 @@
     });
 
 // Funzione per recuperare i dati dei POI dal server
-function getPOIData(poiType) {
+function getPOIDataGeopoint(poiType) {
     axios.get(`/api/poi/${poiType}`).then(response => {
         const results = response.data.results;
 
@@ -116,12 +116,145 @@ function getPOIData(poiType) {
     });
 }
 
+
+function getPOIDataGeoPoint2D(poiType) {
+    axios.get(`/api/poi/${poiType}`).then(response => {
+        console.log(`Dati ricevuti per ${poiType}:`, response.data);
+
+        // Accedi al campo 'results' invece di 'records'
+        const results = response.data.results;
+
+        if (!results || results.length === 0) {
+            console.warn(`Nessun POI trovato per ${poiType}`);
+            return;
+        }
+
+        results.forEach(record => {
+            const poi = record;  // I dati del POI si trovano direttamente in 'record'
+
+            let lat, lon;
+
+            // Supponiamo che le coordinate siano in 'geo_point_2d' o 'geopoint'
+            if (poi.geo_point_2d) {
+                lat = poi.geo_point_2d[0];
+                lon = poi.geo_point_2d[1];
+            } else if (poi.geopoint && poi.geopoint.lat && poi.geopoint.lon) {
+                lat = poi.geopoint.lat;
+                lon = poi.geopoint.lon;
+            } else {
+                console.warn(`POI senza dati geografici per ${poiType}:`, poi);
+                return;  // Salta questo POI se non ha coordinate
+            }
+
+            if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+                console.warn(`Coordinate non valide per ${poiType}:`, lat, lon);
+                return;
+            }
+
+            console.log(`Aggiungo POI: ${poiType}, lat: ${lat}, lon: ${lon}`);
+
+            const name = poi.nomevia || poi.denominazione || 'POI';  // Usa 'nomevia' o 'denominazione'
+
+            // Crea e aggiungi il marker alla mappa
+            const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>${poiType}`);
+            marker.addTo(map);  // Aggiunge il marker alla mappa
+            poiMarkers[poiType].push(marker);  // Salva il marker per rimuoverlo successivamente se necessario
+        });
+
+    }).catch(error => {
+        console.error(`Errore nel recupero dei POI per ${poiType}:`, error);
+    });
+}
+
+function getFarmaciaData() {
+    axios.get(`/api/poi/farmacia`).then(response => {
+        console.log(`Dati ricevuti per farmacia:`, response.data);
+
+        const results = response.data.results;
+
+        if (!results || results.length === 0) {
+            console.warn(`Nessun POI trovato per farmacia`);
+            return;
+        }
+
+        results.forEach(record => {
+            const poi = record;
+
+            let lat, lon;
+
+            // Verifica se le coordinate sono nel campo 'point'
+            if (poi.point && poi.point.lat && poi.point.lon) {
+                lat = poi.point.lat;
+                lon = poi.point.lon;
+            } 
+            // In alternativa, usa 'xcoord' e 'ycoord' se presenti
+            else if (poi.xcoord && poi.ycoord) {
+                lat = parseFloat(poi.ycoord);
+                lon = parseFloat(poi.xcoord);
+            } else {
+                console.warn(`POI senza dati geografici per farmacia:`, poi);
+                return;  // Salta questo POI se non ha coordinate
+            }
+
+            if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+                console.warn(`Coordinate non valide per farmacia:`, lat, lon);
+                return;
+            }
+
+            const name = poi.farmacia || 'Farmacia';
+
+            // Crea e aggiungi il marker alla mappa
+            const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>Farmacia`);
+            marker.addTo(map);
+            poiMarkers['farmacia'].push(marker);
+        });
+
+    }).catch(error => {
+        console.error(`Errore nel recupero dei POI per farmacia:`, error);
+    });
+}
+
+
+
+
+
+
 // Funzione per mostrare o nascondere i POI sulla mappa
+function togglePOI2d(poiType) {
+    if (document.getElementById(poiType).checked) {
+        // Se non ci sono marker, carica i dati dal server
+        if (poiMarkers[poiType].length === 0) {
+            getPOIDataGeoPoint2D(poiType);
+        } else {
+            // Aggiungi i marker già presenti alla mappa
+            poiMarkers[poiType].forEach(marker => marker.addTo(map));
+        }
+    } else {
+        // Rimuovi i marker dalla mappa
+        poiMarkers[poiType].forEach(marker => map.removeLayer(marker));
+    }
+}
+
 function togglePOI(poiType) {
     if (document.getElementById(poiType).checked) {
         // Se non ci sono marker, carica i dati dal server
         if (poiMarkers[poiType].length === 0) {
-            getPOIData(poiType);
+            getPOIDataGeopoint(poiType);
+        } else {
+            // Aggiungi i marker già presenti alla mappa
+            poiMarkers[poiType].forEach(marker => marker.addTo(map));
+        }
+    } else {
+        // Rimuovi i marker dalla mappa
+        poiMarkers[poiType].forEach(marker => map.removeLayer(marker));
+    }
+}
+
+function togglePOIFarmacia(poiType) {
+    if (document.getElementById(poiType).checked) {
+        // Se non ci sono marker, carica i dati dal server
+        if (poiMarkers[poiType].length === 0) {
+            getFarmaciaData(poiType);
         } else {
             // Aggiungi i marker già presenti alla mappa
             poiMarkers[poiType].forEach(marker => marker.addTo(map));

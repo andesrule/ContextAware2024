@@ -15,6 +15,8 @@
 
     <!-- Il file CSS separato -->
     <link rel="stylesheet" href="style_test.css">
+    <link rel="icon" href="data:,">
+
 
 </head>
 
@@ -35,74 +37,85 @@
         <div id="map"></div>
     </div>
 
-    <label for="aree_verdi">
-        <input type="checkbox" id="aree_verdi" onchange="togglePOI('aree_verdi')">
-        Aree Verdi
-    </label>
-    <br>
-    
-    <label for="parcheggi">
-        <input type="checkbox" id="parcheggi" onchange="togglePOI('parcheggi')">
-        Parcheggi
-    </label>
-    <br>
-    
-    <label for="fermate_bus">
-        <input type="checkbox" id="fermate_bus" onchange="togglePOI('fermate_bus')">
-        Fermate Bus
-    </label>
-    <br>
-    
-    <label for="luoghi_interesse">
-        <input type="checkbox" id="luoghi_interesse" onchange="togglePOI('luoghi_interesse')">
-        Luoghi Interesse
-    </label>
-    <br>
-    
-    <label for="scuole">
-        <input type="checkbox" id="scuole" onchange="togglePOI('scuole')">
-        Scuole
-    </label>
-    <br>
-    
-    <label for="cinema">
-        <input type="checkbox" id="cinema" onchange="togglePOI('cinema')">
-        Cinema
-    </label>
-    <br>
-    
-    <label for="ospedali">
-        <input type="checkbox" id="ospedali" onchange="togglePOI('ospedali')">
-        Ospedali
-    </label>
-    <br>
-    
-    <label for="farmacia">
-        <input type="checkbox" id="farmacia" onchange="togglePOI('farmacia')">
-        Farmacia
-    </label>
-    <br>
-    
-    <label for="luogo_culto">
-        <input type="checkbox" id="luogo_culto" onchange="togglePOI('luogo_culto')">
-        Luogo di Culto
-    </label>
-    <br>
-    
-    <label for="servizi">
-        <input type="checkbox" id="servizi" onchange="togglePOI('servizi')">
-        Servizi
-    </label>
-    <br>
-    
+    </br>
 
-    <!-- Selettore per visualizzare gli edifici -->
-    <div id="buildingToggle" class="mt-4">
-        <label class="text-white">
-            <input type="checkbox" id="showBuildings" checked>
-            Mostra edifici
+    <a href="#" class="block max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+
+        <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Toggle POI</h5>
+        <label for="aree_verdi">
+            <input type="checkbox" id="aree_verdi" onchange="togglePOI('aree_verdi')">
+            Aree Verdi
         </label>
-    </div>
+        <br>
+        
+        <label for="parcheggi">
+            <input type="checkbox" id="parcheggi" onchange="togglePOI('parcheggi')">
+            Parcheggi
+        </label>
+        <br>
+        
+        <label for="fermate_bus">
+            <input type="checkbox" id="fermate_bus" onchange="togglePOI2d('fermate_bus')">
+            Fermate Bus
+        </label>
+        <br>
+        
+        <label for="luoghi_interesse">
+            <input type="checkbox" id="luoghi_interesse" onchange="togglePOI2d('luoghi_interesse')">
+            Luoghi Interesse
+        </label>
+        <br>
+        
+        <label for="scuole">
+            <input type="checkbox" id="scuole" onchange="togglePOI('scuole')">
+            Scuole
+        </label>
+        <br>
+        
+        <label for="cinema">
+            <input type="checkbox" id="cinema" onchange="togglePOI('cinema')">
+            Cinema
+        </label>
+        <br>
+        
+        <label for="ospedali">
+            <input type="checkbox" id="ospedali" onchange="togglePOI('ospedali')">
+            Ospedali
+        </label>
+        <br>
+        
+        <label for="farmacia">
+            <input type="checkbox" id="farmacia" onchange="togglePOIFarmacia('farmacia')">
+            Farmacia
+        </label>
+        <br>
+        
+        <label for="luogo_culto">
+            <input type="checkbox" id="luogo_culto" onchange="togglePOI('luogo_culto')">
+            Luogo di Culto
+        </label>
+        <br>
+        
+        <label for="servizi">
+            <input type="checkbox" id="servizi" onchange="togglePOI2d('servizi')">
+            Servizi
+        </label>
+        <br>
+        
+    
+        <!-- Selettore per visualizzare gli edifici -->
+        <div id="buildingToggle" class="mt-4">
+            <label class="text-white">
+                <input type="checkbox" id="showBuildings" checked>
+                Mostra edifici
+            </label>
+        </div>
+        
+    </a>
+    
+    
+    
+    
 
     <!-- Caricamento degli script JS -->
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
