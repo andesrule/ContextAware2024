@@ -40,20 +40,57 @@
     map.addControl(drawControl);
 
     // Gestione degli eventi di disegno
-    map.on(L.Draw.Event.CREATED, function (e) {
-        let layer = e.layer;
-        drawnItems.addLayer(layer);
+map.on(L.Draw.Event.CREATED, function (e) {
+    let layer = e.layer;
 
-        if (layer instanceof L.Marker) {
-            // Salva il marker nel database
-            const latlng = layer.getLatLng();
-            saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null);  // Salva il marker come punto singolo
-        } else if (layer instanceof L.Polygon) {
-            // Salva il poligono nel database
-            const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
-            saveGeofenceToDatabase(null, [coordinates]);  // Salva il poligono
-        }
-    });
+    if (layer instanceof L.Marker) {
+        // Usa l'icona rossa per i marker dell'utente
+        const latlng = layer.getLatLng();
+        const userMarker = L.marker([latlng.lat, latlng.lng], { icon: userMarkerIcon }).addTo(map);
+        userMarker.bindPopup('<b>Marker Utente</b>').openPopup();
+
+        // Salva il marker nel database
+        saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null);  // Salva il marker come punto singolo
+    } else if (layer instanceof L.Polygon) {
+        // Salva il poligono nel database
+        const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
+        saveGeofenceToDatabase(null, [coordinates]);  // Salva il poligono
+    }
+
+    // Aggiungi il layer alla mappa (usato per visualizzare sia marker che poligoni)
+    drawnItems.addLayer(layer);
+});
+
+// Marker per i POI con colore blu (default)
+const poiMarkerIcon = L.divIcon({
+    className: 'poi-marker', // Classe per il marker
+    html: '<div style="background-color: blue; width: 25px; height: 25px; border-radius: 50%;"></div>', // Stile del marker
+    iconSize: [25, 25],
+    iconAnchor: [12, 12]
+});
+
+// Marker per i marker dell'utente con colore rosso
+const userMarkerIcon = L.divIcon({
+    className: 'user-marker', // Classe per il marker
+    html: '<div style="background-color: red; width: 25px; height: 25px; border-radius: 50%;"></div>', // Stile del marker
+    iconSize: [25, 25],
+    iconAnchor: [12, 12]
+});
+
+// Funzione per aggiungere un marker inserito dall'utente
+function addUserMarker(lat, lon) {
+    const marker = L.marker([lat, lon], { icon: userMarkerIcon }).addTo(map);
+    marker.bindPopup('<b>Marker Utente</b>').openPopup();
+    userMarkers.push(marker); // Salva i marker inseriti dall'utente
+}
+
+// Funzione per aggiungere un marker per i POI
+function addPOIMarker(lat, lon, poiType, name) {
+    const marker = L.marker([lat, lon], { icon: poiMarkerIcon }).bindPopup(`<b>${name}</b><br>${poiType}`);
+    marker.addTo(map);
+    poiMarkers[poiType].push(marker);
+}
+
 
 // Funzione per recuperare i dati dei POI dal server
 function getPOIDataGeopoint(poiType) {
