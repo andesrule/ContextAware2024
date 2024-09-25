@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,44 +9,16 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <!-- Leaflet CSS CDN -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
-
     <!-- Leaflet Draw CSS CDN -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
-    <!-- Leaflet JS CDN -->
-    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-    <script src="test_map.js"></script>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #1f2937;
-        }
+    <!-- Il file CSS separato -->
+    <link rel="stylesheet" href="style_test.css">
 
-        #mapContainer {
-            width: 100%;
-            max-width: 800px;
-            height: 500px;
-            margin-top: 20px;
-        }
-
-        #map {
-            width: 100%;
-            height: 100%;
-        }
-
-        #poiButtons, #buildingToggle {
-            margin-top: 10px;
-        }
-    </style>
 </head>
 
-<body>
+<body class="bg-gray-700">
     <div id="sidebar" class="fixed inset-y-0 right-0 bg-gray-800 z-40 transform transition-transform duration-300 ease-in-out">
         <div class="w-full h-full bg-gray-900 text-white p-4">
             <ul>
@@ -64,32 +35,85 @@
         <div id="map"></div>
     </div>
 
-    <!-- Bottoni per i POI -->
-    <div id="poiButtons">
-        <button onclick="fetchAndDisplayPOI('parcheggi')">Mostra Parcheggi</button>
-        <button onclick="fetchAndDisplayPOI('cinema')">Mostra Cinema</button>
-        <button onclick="fetchAndDisplayPOI('farmacia')">Mostra Farmacie</button>
-        <button onclick="fetchAndDisplayPOI('ospedali')">Mostra Ospedali</button>
-        <button onclick="fetchAndDisplayPOI('fermate_bus')">Mostra Fermate Bus</button>
-        <button onclick="fetchAndDisplayPOI('scuole')">Mostra Scuole</button>
-        <button onclick="fetchAndDisplayPOI('aree_verdi')">Mostra Aree Verdi</button>
-        <button onclick="fetchAndDisplayPOI('luogo_culto')">Mostra Luoghi di Culto</button>
-        <button onclick="fetchAndDisplayPOI('servizi')">Mostra Servizi</button>
-        <button onclick="fetchAndDisplayPOI('luoghi_interesse')">Mostra Luoghi di Interesse</button>
-    </div>
+    <label for="aree_verdi">
+        <input type="checkbox" id="aree_verdi" onchange="togglePOI('aree_verdi')">
+        Aree Verdi
+    </label>
+    <br>
+    
+    <label for="parcheggi">
+        <input type="checkbox" id="parcheggi" onchange="togglePOI('parcheggi')">
+        Parcheggi
+    </label>
+    <br>
+    
+    <label for="fermate_bus">
+        <input type="checkbox" id="fermate_bus" onchange="togglePOI('fermate_bus')">
+        Fermate Bus
+    </label>
+    <br>
+    
+    <label for="luoghi_interesse">
+        <input type="checkbox" id="luoghi_interesse" onchange="togglePOI('luoghi_interesse')">
+        Luoghi Interesse
+    </label>
+    <br>
+    
+    <label for="scuole">
+        <input type="checkbox" id="scuole" onchange="togglePOI('scuole')">
+        Scuole
+    </label>
+    <br>
+    
+    <label for="cinema">
+        <input type="checkbox" id="cinema" onchange="togglePOI('cinema')">
+        Cinema
+    </label>
+    <br>
+    
+    <label for="ospedali">
+        <input type="checkbox" id="ospedali" onchange="togglePOI('ospedali')">
+        Ospedali
+    </label>
+    <br>
+    
+    <label for="farmacia">
+        <input type="checkbox" id="farmacia" onchange="togglePOI('farmacia')">
+        Farmacia
+    </label>
+    <br>
+    
+    <label for="luogo_culto">
+        <input type="checkbox" id="luogo_culto" onchange="togglePOI('luogo_culto')">
+        Luogo di Culto
+    </label>
+    <br>
+    
+    <label for="servizi">
+        <input type="checkbox" id="servizi" onchange="togglePOI('servizi')">
+        Servizi
+    </label>
+    <br>
+    
 
     <!-- Selettore per visualizzare gli edifici -->
-    <div id="buildingToggle">
+    <div id="buildingToggle" class="mt-4">
         <label class="text-white">
             <input type="checkbox" id="showBuildings" checked>
             Mostra edifici
         </label>
     </div>
 
-    <!-- Leaflet JS -->
+    <!-- Caricamento degli script JS -->
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script src="test_map.js"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', function() {
+            const script = document.createElement('script');
+            script.src = 'test_map.js';
+            document.body.appendChild(script);
+        });
+    </script>
 </body>
 
 </html>

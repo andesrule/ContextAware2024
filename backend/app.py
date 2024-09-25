@@ -16,6 +16,9 @@ app.config.from_object(Config)
 # Inizializza SQLAlchemy
 db.init_app(app)
 
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'your-very-secret-key'
+
+
 # Inizializza Flask-Admin
 admin = Admin(app, name='Admin Panel', template_mode='bootstrap3')
 
@@ -116,7 +119,7 @@ def get_poi(poi_type):
         'fermate_bus' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records',
         'scuole' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/elenco-delle-scuole/records',
         'aree_verdi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records',
-        'luogo_culto' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records?limit=2',
+        'luogo_culto' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records',
         'servizi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
         'luoghi_interesse' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/musei_gallerie_luoghi_e_teatri_storici/records'
 

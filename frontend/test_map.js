@@ -1,155 +1,154 @@
-// Definisco le variabili buildingLayerGroup e poiLayerGroup globalmente
-var map;
-var buildingLayerGroup;
-var poiLayerGroup;
+// Aggiungi un listener per 'DOMContentLoaded' per assicurarti che il DOM sia completamente caricato prima di eseguire il codice
 
-// Funzione per inviare i dati al server
-function sendToServer(type, geojson) {
-    let markers = [];
-    let geofences = [];
+    // Inizializza la mappa centrata su Bologna
+    let map = L.map('map').setView([44.4949, 11.3426], 13);
 
-    if (type === 'marker') {
-        markers.push(geojson);
-    } else if (type === 'polygon') {
-        geofences.push(geojson);
-    }
-
-    fetch('/save-geofence', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            markers: markers,
-            geofences: geofences
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Geofence saved:', data);
-    })
-    .catch(error => {
-        console.error('Error saving geofence:', error);
-    });
-}
-
-// Funzione per caricare gli edifici (immobili)
-function fetchBuildings() {
-    var overpassUrl = 'https://overpass-api.de/api/interpreter';
-    var query = `
-        [out:json];
-        (
-          way["building"](44.485,11.30,44.505,11.36);
-        );
-        (._;>;);
-        out body;
-    `;
-    
-    fetch(overpassUrl, {
-        method: 'POST',
-        body: query,
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        buildingLayerGroup.clearLayers(); // Pulisci il layerGroup prima di aggiungere nuovi edifici
-        var nodes = {};
-        data.elements.forEach(element => {
-            if (element.type === 'node') {
-                nodes[element.id] = [element.lat, element.lon];
-            }
-        });
-
-        data.elements.forEach(element => {
-            if (element.type === 'way' && element.nodes) {
-                var latlngs = [];
-                element.nodes.forEach(nodeId => {
-                    if (nodes[nodeId]) {
-                        latlngs.push(nodes[nodeId]);
-                    }
-                });
-                if (latlngs.length > 0) {
-                    var polygon = L.polygon(latlngs, {color: 'blue'}).addTo(buildingLayerGroup);
-                    polygon.bindPopup('Edificio');
-                }
-            }
-        });
-    })
-    .catch(error => console.error('Errore nel recupero dei dati degli edifici:', error));
-}
-
-// Funzione per caricare i POI
-function fetchAndDisplayPOI(poiType) {
-    fetch('/api/poi/' + poiType)
-        .then(response => response.json())
-        .then(data => {
-            poiLayerGroup.clearLayers();
-            if (data.records) {
-                data.records.forEach(record => {
-                    var coords = record.geometry.coordinates;
-                    var lat = coords[1];
-                    var lng = coords[0];
-                    L.marker([lat, lng]).addTo(poiLayerGroup).bindPopup(record.record.fields.denominazione);
-                });
-            }
-        })
-        .catch(error => console.error('Errore nel recupero dei dati dei POI:', error));
-}
-
-// Inizializza la mappa all'interno dell'evento DOMContentLoaded
-document.addEventListener('DOMContentLoaded', function() {
-    if (map) {
-        console.log("Mappa già inizializzata.");
-        return; // Evita di inizializzare la mappa se è già stata inizializzata
-    }
-
-    map = L.map('map').setView([44.4936, 11.3430], 13);
-    buildingLayerGroup = L.layerGroup().addTo(map); // LayerGroup per gli edifici
-    poiLayerGroup = L.layerGroup().addTo(map); // LayerGroup per i POI
-
-    // Aggiungi il tile layer di OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Inizializza il controllo di disegno
-    var drawnItems = L.featureGroup().addTo(map);
-    var drawControl = new L.Control.Draw({
-        draw: {
-            polyline: false,   // Disabilita la creazione di linee
-            polygon: true,     // Abilita la creazione di poligoni
-            rectangle: false,  // Disabilita la creazione di rettangoli
-            circle: false,     // Disabilita la creazione di cerchi
-            marker: true,      // Abilita la creazione di marker
-            circlemarker: false
-        },
+    // Oggetto per tenere traccia dei marker per ciascuna categoria di POI
+    let poiMarkers = {
+        aree_verdi: [],
+        parcheggi: [],
+        fermate_bus: [],
+        luoghi_interesse: [],
+        scuole: [],
+        cinema: [],
+        ospedali: [],
+        farmacia: [],
+        luogo_culto: [],
+        servizi: []
+    };
+
+    // Variabili per la gestione dei poligoni
+    let drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    let drawControl = new L.Control.Draw({
         edit: {
-            featureGroup: drawnItems,
-            remove: true       // Abilita la rimozione delle geometrie esistenti
+            featureGroup: drawnItems
+        },
+        draw: {
+            polygon: true,
+            marker: true,
+            polyline: false,
+            rectangle: false,
+            circle: false
         }
     });
     map.addControl(drawControl);
 
-    // Gestione del checkbox per mostrare/nascondere gli edifici
-    document.getElementById('showBuildings').addEventListener('change', function(e) {
-        if (this.checked) {
-            fetchBuildings();
-        } else {
-            buildingLayerGroup.clearLayers();
+    // Gestione degli eventi di disegno
+    map.on(L.Draw.Event.CREATED, function (e) {
+        let layer = e.layer;
+        drawnItems.addLayer(layer);
+
+        if (layer instanceof L.Marker) {
+            // Salva il marker nel database
+            const latlng = layer.getLatLng();
+            saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null);  // Salva il marker come punto singolo
+        } else if (layer instanceof L.Polygon) {
+            // Salva il poligono nel database
+            const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
+            saveGeofenceToDatabase(null, [coordinates]);  // Salva il poligono
         }
     });
 
-    // Carica gli edifici inizialmente se il checkbox è selezionato
-    if (document.getElementById('showBuildings').checked) {
-        fetchBuildings();
+// Funzione per recuperare i dati dei POI dal server
+function getPOIData(poiType) {
+    axios.get(`/api/poi/${poiType}`).then(response => {
+        const results = response.data.results;
+
+        if (!results || results.length === 0) {
+            console.warn(`Nessun POI trovato per ${poiType}`);
+            return;
+        }
+
+        results.forEach(record => {
+            const poi = record;
+
+            let lat, lon;
+
+            // Gestisci diversi formati di coordinate
+            if (poi.geo_point_2d) {
+                lat = poi.geo_point_2d.lat;
+                lon = poi.geo_point_2d.lon;
+            } else if (poi.coordinate) {
+                lat = poi.coordinate.lat;
+                lon = poi.coordinate.lon;
+            } else if (poi.geopoint) {
+                lat = poi.geopoint.latitude;  // Assumi 'latitude' e 'longitude'
+                lon = poi.geopoint.longitude;
+            } else if (poi.point) {
+                lat = poi.point.ycoord;  // Assumi 'xcoord' e 'ycoord'
+                lon = poi.point.xcoord;
+            } else {
+                console.warn(`POI senza dati geografici per ${poiType}:`, poi);
+                return;  // Salta questo POI se non ha coordinate
+            }
+
+            // Controlla se le coordinate sono valide
+            if (lat === undefined || lon === undefined) {
+                console.warn(`Coordinate mancanti per ${poiType}:`, poi);
+                return;
+            }
+
+            // Verifica che lat e lon siano numeri validi
+            if (isNaN(lat) || isNaN(lon)) {
+                console.warn(`Coordinate non valide per ${poiType}:`, poi);
+                return;
+            }
+
+            const name = poi.name || poi.denominazione || 'POI';
+
+            // Crea e aggiungi il marker alla mappa
+            const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>${poiType}`);
+            poiMarkers[poiType].push(marker);  // Salva il marker
+        });
+
+        // Aggiungi i marker alla mappa dopo che sono stati caricati
+        if (document.getElementById(poiType).checked) {
+            poiMarkers[poiType].forEach(marker => marker.addTo(map));
+        }
+    }).catch(error => {
+        console.error(`Errore nel recupero dei POI per ${poiType}:`, error);
+    });
+}
+
+// Funzione per mostrare o nascondere i POI sulla mappa
+function togglePOI(poiType) {
+    if (document.getElementById(poiType).checked) {
+        // Se non ci sono marker, carica i dati dal server
+        if (poiMarkers[poiType].length === 0) {
+            getPOIData(poiType);
+        } else {
+            // Aggiungi i marker già presenti alla mappa
+            poiMarkers[poiType].forEach(marker => marker.addTo(map));
+        }
+    } else {
+        // Rimuovi i marker dalla mappa
+        poiMarkers[poiType].forEach(marker => map.removeLayer(marker));
+    }
+}
+
+
+
+    // Funzione per inviare i geofence (marker o poligoni) al backend
+    function saveGeofenceToDatabase(markers, geofences) {
+        fetch('/save-geofence', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ markers: markers, geofences: geofences }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Geofence salvato con successo:', data);
+        })
+        .catch(error => {
+            console.error('Errore durante il salvataggio del geofence:', error);
+        });
     }
 
-    // Esegui il fetch degli edifici al caricamento della mappa
-    map.on('moveend', function() {
-        if (document.getElementById('showBuildings').checked) {
-            fetchBuildings();
-        }
-    });
-});
