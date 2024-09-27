@@ -7,9 +7,9 @@ from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView  # Importa ModelView per l'admin
 import requests
 from flask_cors import CORS  # Aggiunta per gestire le richieste CORS
-from ranking import calculate_marker_score
 from geoalchemy2.elements import WKTElement
-from geoalchemy2.shape import from_shape
+from geoalchemy2.shape import from_shape, to_shape
+from shapely.geometry import mapping
 from shapely.geometry import Point, Polygon
 from shapely.wkt import loads
 
@@ -73,7 +73,21 @@ def get_quest():
 @app.route('/get-geofences')
 def get_geofences():
     geofences = Geofence.query.all()
-    geofences_data = [{'id': gf.id, 'markers': gf.markers, 'geofences': gf.geofences} for gf in geofences]
+    geofences_data = []
+
+    for gf in geofences:
+        geofence_data = {'id': gf.id}
+
+        if gf.marker is not None:
+            point = to_shape(gf.marker)
+            geofence_data['marker'] = mapping(point)
+        
+        if gf.geofence is not None:
+            polygon = to_shape(gf.geofence)
+            geofence_data['geofence'] = mapping(polygon)
+        
+        geofences_data.append(geofence_data)
+
     return jsonify(geofences_data)
 
 @app.route('/get_database')
@@ -180,23 +194,6 @@ def get_poi(poi_type):
     else:
         return jsonify({'error': f'Errore API: {response.status_code}'}), 500
 
-
-
-
-@app.route('/rank-marker/<int:marker_id>', methods=['GET'])
-def rank_marker(marker_id):
-    marker_entry = Geofence.query.get(marker_id)
-    if not marker_entry:
-        return jsonify({'error': 'Marker non trovato'}), 404
-
-    questionnaire_responses = QuestionnaireResponse.query.first()  # Modifica per ottenere le risposte giuste
-    
-    if not questionnaire_responses:
-        return jsonify({'error': 'Risposte del questionario non trovate'}), 404
-
-    score = calculate_marker_score(marker_entry.markers[0], questionnaire_responses)
-
-    return jsonify({'marker_id': marker_id, 'score': score})
 
 
 if __name__ == '__main__':
