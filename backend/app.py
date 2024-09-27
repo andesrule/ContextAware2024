@@ -101,7 +101,11 @@ def submit_questionnaire():
         ospedali=data.get('ospedali'),
         farmacia=data.get('farmacia'),
         luogo_culto=data.get('luogo_culto'),
-        servizi=data.get('servizi')
+        servizi=data.get('servizi'),
+        densita_aree_verdi=data.get('densita_aree_verdi'),
+        densita_cinema=data.get('densita_cinema'),
+        densita_fermate_bus=data.get('densita_fermate_bus')
+
     )
     
     db.session.add(response)
@@ -121,7 +125,7 @@ def get_poi(poi_type):
         'aree_verdi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records',
         'luogo_culto' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records',
         'servizi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
-        'luoghi_interesse' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/musei_gallerie_luoghi_e_teatri_storici/records'
+        'luoghi_interesse' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/musei_gallerie_luoghi_e_teatri_storici/records?&refine=macrozona%3A%22Bologna%22 '
 
 
 
@@ -143,5 +147,24 @@ def get_poi(poi_type):
 
 
 
+
+@app.route('/rank-marker/<int:marker_id>', methods=['GET'])
+def rank_marker(marker_id):
+    marker_entry = Geofence.query.get(marker_id)
+    if not marker_entry:
+        return jsonify({'error': 'Marker non trovato'}), 404
+
+    questionnaire_responses = QuestionnaireResponse.query.first()  # Modifica per ottenere le risposte giuste
+    
+    if not questionnaire_responses:
+        return jsonify({'error': 'Risposte del questionario non trovate'}), 404
+
+    score = calculate_marker_score(marker_entry.markers[0], questionnaire_responses)
+
+    return jsonify({'marker_id': marker_id, 'score': score})
+
+
 if __name__ == '__main__':
+    reset_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
+    reset_db()

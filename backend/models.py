@@ -31,3 +31,8 @@ class QuestionnaireResponse(db.Model):
     farmacia = db.Column(db.Integer)
     luogo_culto = db.Column(db.Integer)
     servizi = db.Column(db.Integer)
+    densita_aree_verdi = db.Column(db.Integer)
+    densita_cinema = db.Column(db.Integer)
+    densita_fermate_bus = db.Column(db.Integer)
+
+
