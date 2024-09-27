@@ -9,6 +9,9 @@ import requests
 from flask_cors import CORS  # Aggiunta per gestire le richieste CORS
 from ranking import calculate_marker_score
 from geoalchemy2.elements import WKTElement
+from geoalchemy2.shape import from_shape
+from shapely.geometry import Point, Polygon
+from shapely.wkt import loads
 
 # Usa il percorso assoluto per il frontend
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
@@ -84,46 +87,42 @@ def test():
 
 @app.route('/save-geofence', methods=['POST'])
 def save_geofence():
-    try:
-        data = request.get_json()
-        print(f"Received data: {data}")  # Logga i dati ricevuti
-
-        new_entry = None  # Inizializza new_entry
-
-        # Controllo dei dati: se ci sono marker (singolo punto)
-        if 'marker' in data:
-            marker = data['marker']
-            lat = marker['lat']
-            lng = marker['lng']
-            # Crea un WKTElement per il marker (POINT)
-            new_entry = Geofence(marker=WKTElement(f'POINT({lng} {lat})', srid=4326))
-
-        # Controllo dei dati: se ci sono geofence (poligono)
-        elif 'geofence' in data:
-            geofence = data['geofence']
-            print(f"Geofence data received: {geofence}")  # Aggiungi questo log
-
-            # Verifica se geofence è una lista di dizionari con chiavi lat e lng
-            if isinstance(geofence, list) and all(isinstance(point, dict) and 'lat' in point and 'lng' in point for point in geofence):
-                # Crea il WKTElement per il geofence (POLYGON)
-                polygon_points = ', '.join([f'{point["lng"]} {point["lat"]}' for point in geofence])
-                new_entry = Geofence(geofence=WKTElement(f'POLYGON(({polygon_points}))', srid=4326))
+    data = request.json
+    
+    if 'marker' in data:
+        # Salvataggio del marker
+        lat = data['marker']['lat']
+        lng = data['marker']['lng']
+        point = Point(lng, lat)
+        new_geofence = Geofence(marker=from_shape(point, srid=4326))
+    elif 'geofence' in data:
+        # Salvataggio del geofence
+        try:
+            # Se il geofence è già una stringa WKT
+            if isinstance(data['geofence'], str):
+                polygon = loads(data['geofence'])
             else:
-                print(f"Geofence format error: {geofence}")  # Aggiungi questo log per errori di formato
-                return jsonify({'status': 'error', 'message': 'Invalid geofence data format!'}), 400
+                # Se il geofence è una lista di coordinate
+                coords = [(p['lng'], p['lat']) for p in data['geofence']]
+                # Assicuriamoci che il poligono sia chiuso
+                if coords[0] != coords[-1]:
+                    coords.append(coords[0])
+                polygon = Polygon(coords)
+            
+            new_geofence = Geofence(geofence=from_shape(polygon, srid=4326))
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+    else:
+        return jsonify({'status': 'error', 'message': 'Invalid data'}), 400
 
-        if new_entry:
-            # Salva il nuovo marker o geofence nel database
-            db.session.add(new_entry)
-            db.session.commit()
-            return jsonify({'status': 'success', 'message': 'Geofence or marker saved successfully!'}), 200
-        else:
-            return jsonify({'status': 'error', 'message': 'No valid data provided!'}), 400
-
+    try:
+        db.session.add(new_geofence)
+        db.session.commit()
+        return jsonify({'status': 'success', 'id': new_geofence.id})
     except Exception as e:
-        print(f"Error saving geofence: {e}")  # Logga l'errore
+        db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
+    
 @app.route('/submit-questionnaire', methods=['POST'])
 def submit_questionnaire():
     data = request.get_json()
