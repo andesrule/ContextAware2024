@@ -7,6 +7,9 @@ from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView  # Importa ModelView per l'admin
 import requests
 from flask_cors import CORS  # Aggiunta per gestire le richieste CORS
+from ranking import calculate_marker_score
+from geoalchemy2 import Geometry
+
 # Usa il percorso assoluto per il frontend
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
 
@@ -22,10 +25,15 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'your-very-secret-key
 # Inizializza Flask-Admin
 admin = Admin(app, name='Admin Panel', template_mode='bootstrap3')
 
+
+# Personalizza ModelView per mostrare tutte le colonne
+class CustomModelView(ModelView):
+    column_display_pk = True  # Mostra sempre la chiave primaria (colonna 'id')
+
 # Aggiungi i modelli all'interfaccia di amministrazione
-admin.add_view(ModelView(User, db.session))
-admin.add_view(ModelView(Geofence, db.session))
-admin.add_view(ModelView(QuestionnaireResponse, db.session))
+admin.add_view(CustomModelView(User, db.session))
+admin.add_view(CustomModelView(Geofence, db.session))
+admin.add_view(CustomModelView(QuestionnaireResponse, db.session))
 
 def reset_db():
     """Drop all tables from the database."""
@@ -81,8 +89,8 @@ def save_geofence():
     geofences = data.get('geofences')
 
     if markers is not None or geofences is not None:
-        new_entry = Geofence(markers=markers, geofences=geofences)
-        db.session.add(new_entry)
+        new_geofence = Geofence(geofence=WKTElement('POLYGON((11.318 44.499, 11.32 44.5, 11.33 44.51, 11.318 44.499))', srid=4326))
+        db.session.add(new_geofence)
         db.session.commit()
         return jsonify({'status': 'success', 'message': 'Geofence saved successfully!'}), 200
     else:
