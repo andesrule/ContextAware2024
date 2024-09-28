@@ -197,60 +197,41 @@ def get_poi(poi_type):
 
 @app.route('/calculate-distance', methods=['GET'])
 def calculate_distance():
+    # Recupera i geofences dal database
     geofences = Geofence.query.all()
+
+    # Ottieni il tipo di POI dalla query string
     poi_type = request.args.get('poi_type', 'parcheggi')
+
+    # Effettua una richiesta per ottenere i POI dal tipo selezionato
     poi_response = requests.get(f'http://localhost:5000/api/poi/{poi_type}')
-    print(f"Risposta API: {poi_response.text}")  # Log per vedere il corpo della risposta
-    valid_poi_types = ['parcheggi', 'cinema', 'farmacie', 'ospedali', 'fermate_bus', 'scuole', 'aree_verdi', 'luogo_culto', 'servizi']
-    if poi_type not in valid_poi_types:
-       return jsonify({'error': f'Tipo di POI {poi_type} non riconosciuto', 'status_code': 400}), 400
-
+    
     if poi_response.status_code != 200:
-        return jsonify({'error': 'Errore durante il recupero dei POI', 'status_code': poi_response.status_code}), 500
+        return jsonify({'error': f'Errore API: {poi_response.status_code}'}), 500
 
+    # Estrarre i dati dei POI dalla risposta API
     poi_data = poi_response.json()
 
     distances = []
+    
+    # Itera sui geofences e calcola la distanza per i POI
     for gf in geofences:
         geofence_data = {'id': gf.id}
 
+        # Se il geofence ha un marker, calcola la distanza per il marker
         if gf.marker is not None:
             marker = to_shape(gf.marker)
             geofence_data['marker_distances'] = calculate_poi_distances(marker, poi_data)
 
+        # Se il geofence ha un poligono, calcola la distanza per il poligono
         if gf.geofence is not None:
             geofence = to_shape(gf.geofence)
             geofence_data['geofence_distances'] = calculate_poi_distances(geofence, poi_data)
         
         distances.append(geofence_data)
 
+    # Restituisce la lista delle distanze calcolate
     return jsonify(distances)
-
-
-
-def calculate_poi_distances(geometry, poi_data):
-    if 'records' not in poi_data:
-        print("Errore: 'records' non presente nella risposta API:", poi_data)
-        return []  # Restituisci una lista vuota se non ci sono record
-
-    distances = []
-    for record in poi_data['records']:
-        poi_geom = record['record']['fields']['geo_point_2d']
-        poi_point = Point(poi_geom[1], poi_geom[0])
-
-        # Calcola la distanza usando shapely
-        distance = geometry.distance(poi_point)
-        
-        # Log per verificare le distanze calcolate
-        print(f"POI {record['record']['fields'].get('nome', 'Unnamed POI')} distance: {distance}")
-        
-        distances.append({
-            'poi_name': record['record']['fields'].get('nome', 'Unnamed POI'),
-            'distance': distance
-        })
-    
-    return distances
-
 
 if __name__ == '__main__':
     reset_db()
