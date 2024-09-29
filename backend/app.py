@@ -12,6 +12,7 @@ from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import mapping, shape, Point, Polygon
 from shapely.wkt import loads
 from utils import calculate_poi_distances
+from ranking import get_pois_near_marker
 
 # Usa il percorso assoluto per il frontend
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
@@ -56,6 +57,7 @@ def initialize_database():
                 ])
                 db.session.commit()
         app.db_initialized = True
+
 
 @app.route('/')
 def index():
@@ -175,9 +177,6 @@ def get_poi(poi_type):
         'luogo_culto' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records',
         'servizi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
         'luoghi_interesse' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/musei_gallerie_luoghi_e_teatri_storici/records?&refine=macrozona%3A%22Bologna%22 '
-
-
-
         
         # Aggiungi altre categorie qui
     }
@@ -193,7 +192,7 @@ def get_poi(poi_type):
         return jsonify(data)
     else:
         return jsonify({'error': f'Errore API: {response.status_code}'}), 500
-
+ 
 
 @app.route('/calculate-distance', methods=['GET'])
 def calculate_distance():
@@ -233,7 +232,48 @@ def calculate_distance():
     # Restituisce la lista delle distanze calcolate
     return jsonify(distances)
 
+@app.route('/get_markers')
+def get_markers():
+    markers = Geofence.query.all()
+    marker_list = []
+    for marker in markers:
+        if marker.marker is not None:
+            # Converti WKBElement in un oggetto Shapely
+            point = to_shape(marker.marker)
+            # Converti l'oggetto Shapely in un dizionario GeoJSON
+            geojson = mapping(point)
+            marker_list.append({
+                'lat': geojson['coordinates'][1],
+                'lng': geojson['coordinates'][0]
+            })
+    return jsonify(marker_list)
+
+@app.route('/api/pois-near-marker/<int:marker_id>', methods=['GET'])
+def pois_near_marker(marker_id):
+    try:
+        print(f"Richiesta per marker_id: {marker_id}")  # Per confermare il marker_id
+        raggio = request.args.get('raggio', 500)
+        poi_type = request.args.get('poi_type', 'cinema')
+        print(f"POI type: {poi_type}, Raggio: {raggio}")  # Per confermare i parametri passati
+
+        results = get_pois_near_marker(marker_id=marker_id, poi_type=poi_type, raggio=int(raggio))
+
+        if results is None:
+            print("Marker non trovato")
+            return jsonify({'error': 'Marker not found'}), 404
+
+        pois_list = [dict(row) for row in results]
+        print(f"Risultati trovati: {pois_list}")
+        return jsonify(pois_list)
+
+    except Exception as e:
+        print(f"Errore durante l'elaborazione: {str(e)}")  # Questo mostrerà dettagli sugli errori
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
-    reset_db()
+    #reset_db()
+    
     app.run(host='0.0.0.0', port=5000, debug=True)
-    # reset_db()
+
+

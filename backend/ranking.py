@@ -1,16 +1,44 @@
 from sqlalchemy import text
 from models import db, QuestionnaireResponse
+from sqlalchemy.orm.exc import NoResultFound
+from models import Geofence
+from geoalchemy2 import Geometry
+from flask import jsonify
 
-def get_pois_near_marker(marker_geom, poi_type, raggio):
-    query = text(f"""
-        SELECT poi_type, ST_Distance(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326), poi.geom) AS distance
-        FROM poi
-        WHERE poi_type = :poi_type AND ST_DWithin(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326), poi.geom, :raggio)
-        ORDER BY distance ASC;
-    """)
-    result = db.session.execute(query, {'lng': marker_geom['lng'], 'lat': marker_geom['lat'], 'poi_type': poi_type, 'raggio': raggio})
-    return result.fetchall()
+def get_pois_near_marker(marker_id, poi_type, raggio):
+    try:
+        # Recupera il marker dalla tabella Geofence usando l'ID
+        marker = db.session.query(Geofence).filter_by(id=marker_id).one()
 
+        # Verifica se il marker esiste
+        if marker.marker is None:
+            return jsonify({"error": "Marker non trovato"}), 404
+
+        # Estrai le coordinate dal campo WKB (Well-Known Binary)
+        # Usa ST_AsText per convertire WKB in geometria leggibile
+        query = text(f"""
+            SELECT poi_type, ST_Distance(geofence.marker::geography, poi.geom::geography) AS distance
+            FROM poi
+            WHERE poi_type = :poi_type
+            AND ST_DWithin(geofence.marker::geography, poi.geom::geography, :raggio)
+            ORDER BY distance ASC;
+        """)
+        
+        result = db.session.execute(query, {'poi_type': poi_type, 'raggio': raggio})
+        pois = result.fetchall()
+        print(f'Results: {pois}')
+    # Verifica se ci sono risultati
+        if not pois:
+            return jsonify({'error': 'No POIs found within the specified range'}), 404
+
+    # Restituisce la lista dei POIs
+        return pois
+        
+
+    except NoResultFound:
+        return jsonify({"error": "Marker con l'ID fornito non esiste"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 def calcola_rank(marker, user_preferences, nearby_pois):
     """

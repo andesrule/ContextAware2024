@@ -2,9 +2,7 @@
 from shapely.geometry import Point
 from pyproj import Proj, Transformer
 
-# utils.py
-# utils.py
-# utils.py
+
 # utils.py
 def extract_poi_coordinates(record):
     """

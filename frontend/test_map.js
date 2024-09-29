@@ -69,12 +69,16 @@ const poiMarkerIcon = L.divIcon({
     iconAnchor: [12, 12]
 });
 
-// Marker per i marker dell'utente con colore rosso
 const userMarkerIcon = L.divIcon({
-    className: 'user-marker', // Classe per il marker
-    html: '<div style="background-color: red; width: 25px; height: 25px; border-radius: 50%;"></div>', // Stile del marker
+    className: 'user-marker',
+    html: `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="25" height="25">
+            <path fill="red" d="M12 0C7.58 0 4 3.58 4 8c0 5.5 8 16 8 16s8-10.5 8-16c0-4.42-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
+        </svg>
+    `,
     iconSize: [25, 25],
-    iconAnchor: [12, 12]
+    iconAnchor: [12, 25],
+    popupAnchor: [0, -25]
 });
 
 // Funzione per aggiungere un marker inserito dall'utente
@@ -167,8 +171,57 @@ function togglePOI(poiType) {
         poiMarkers[poiType].forEach(marker => map.removeLayer(marker));
     }
 }
+let databaseMarkers = [];
+function loadDatabaseMarkers() {
+    fetch('/get_markers')
+        .then(response => response.json())
+        .then(data => {
+            // Rimuovi i marker esistenti
+            databaseMarkers.forEach(marker => map.removeLayer(marker));
+            databaseMarkers = [];
 
+            // Aggiungi i nuovi marker
+            data.forEach(markerData => {
+                const marker = L.marker([markerData.lat, markerData.lng], { icon: userMarkerIcon }).addTo(map);
+                marker.bindPopup('<b>Marker dal Database</b>');
+                databaseMarkers.push(marker);
+            });
 
+            // Centra la mappa sui marker se ce ne sono
+            if (databaseMarkers.length > 0) {
+                let group = new L.featureGroup(databaseMarkers);
+                map.fitBounds(group.getBounds());
+            }
+        })
+        .catch(error => console.error('Errore nel caricamento dei marker dal database:', error));
+}
 
+// Definizione del controllo personalizzato
+var customControl = L.Control.extend({
+    options: {
+        position: 'topleft'
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'leaflet-control-custom');
+        container.innerHTML = '📍';
+        container.style.backgroundColor = 'white';
+        container.style.width = '30px';
+        container.style.height = '30px';
+        container.style.lineHeight = '30px';
+        container.style.textAlign = 'center';
+        container.style.cursor = 'pointer';
+        container.title = 'Mostra marker dal database';
 
+        container.onclick = function(){
+            loadDatabaseMarkers();
+        }
+
+        L.DomEvent.disableClickPropagation(container);
+
+        return container;
+    }
+});
+
+// Aggiungi il controllo personalizzato alla mappa
+map.addControl(new customControl());
 

@@ -24,3 +24,9 @@ body {
 #poiButtons, #buildingToggle {
     margin-top: 10px;
 }
+
+.leaflet-control-custom {
+    background-color: white;
+    padding: 5px;
+    cursor: pointer;
+}
