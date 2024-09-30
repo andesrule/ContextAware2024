@@ -12,7 +12,7 @@ from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import mapping, shape, Point, Polygon
 from shapely.wkt import loads
 from utils import calculate_poi_distances
-from ranking import get_pois_near_marker
+from ranking import *
 
 # Usa il percorso assoluto per il frontend
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
@@ -270,6 +270,60 @@ def pois_near_marker(marker_id):
         print(f"Errore durante l'elaborazione: {str(e)}")  # Questo mostrerà dettagli sugli errori
         return jsonify({'error': str(e)}), 500
 
+@app.route('/get_markers')
+def get_markers():
+    markers = Geofence.query.all()
+    marker_list = []
+    for marker in markers:
+        if marker.marker is not None:
+            # Converti WKBElement in un oggetto Shapely
+            point = to_shape(marker.marker)
+            # Converti l'oggetto Shapely in un dizionario GeoJSON
+            geojson = mapping(point)
+            marker_list.append({
+                'lat': geojson['coordinates'][1],
+                'lng': geojson['coordinates'][0]
+            })
+    return jsonify(marker_list)
+
+
+@app.route('/test/pois_near_marker', methods=['GET'])
+def test_pois_near_marker():
+    marker_id = request.args.get('marker_id', type=int)
+    poi_type = request.args.get('poi_type', type=str)
+    raggio = request.args.get('raggio', type=float, default=1.0)
+    
+    if not marker_id or not poi_type:
+        return jsonify({"error": "Marker ID e tipo POI sono richiesti"}), 400
+    
+    return get_pois_near_marker(marker_id, poi_type, raggio)
+
+@app.route('/api/calculate-rank', methods=['GET'])
+def calculate_rank():
+    try:
+        # Recupera i parametri dalla richiesta GET
+        marker_id = request.args.get('marker_id', type=int)
+        raggio = request.args.get('raggio', type=float, default=2.0)
+        questionnaire_id = request.args.get('questionnaire_id', type=int, default=1)
+
+        # Verifica se marker_id è stato fornito
+        if marker_id is None:
+            return jsonify({'error': 'marker_id is required'}), 400
+        
+        # Recupera le preferenze utente (questo può essere personalizzato)
+        user_preferences = get_questionnaire_by_id(questionnaire_id)
+
+        # Calcola il rank utilizzando la funzione calcola_rank
+        rank = calcola_rank(marker_id, user_preferences, raggio)
+
+        # Restituisce il rank come risposta JSON
+        return jsonify({
+            'marker_id': marker_id,
+            'rank': rank
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     #reset_db()
