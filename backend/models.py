@@ -1,6 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
+from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import ARRAY 
 from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.orm import relationship
 
 db = SQLAlchemy()
 
@@ -11,13 +13,12 @@ class User(db.Model):
     
 class Geofence(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    markers = db.Column(JSON)  # Memorizza i marker come JSON
-    geofences = db.Column(JSON)  # Memorizza i poligoni come JSON
+    marker = db.Column(Geometry(geometry_type='POINT', srid=4326))  # Memorizza i marker come POINT
+    geofence = db.Column(Geometry(geometry_type='POLYGON', srid=4326))  # Memorizza i poligoni come POLYGON
 
-    def __init__(self, markers=None, geofences=None):
-        self.markers = markers or []
-        self.geofences = geofences or []
-
+    def __init__(self, marker=None, geofence=None):
+        self.marker = marker
+        self.geofence = geofence
 
 class QuestionnaireResponse(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -31,3 +32,8 @@ class QuestionnaireResponse(db.Model):
     farmacia = db.Column(db.Integer)
     luogo_culto = db.Column(db.Integer)
     servizi = db.Column(db.Integer)
+    densita_aree_verdi = db.Column(db.Integer)
+    densita_cinema = db.Column(db.Integer)
+    densita_fermate_bus = db.Column(db.Integer)
+
+
