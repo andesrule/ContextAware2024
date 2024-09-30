@@ -270,21 +270,7 @@ def pois_near_marker(marker_id):
         print(f"Errore durante l'elaborazione: {str(e)}")  # Questo mostrerà dettagli sugli errori
         return jsonify({'error': str(e)}), 500
 
-@app.route('/get_markers')
-def get_markers():
-    markers = Geofence.query.all()
-    marker_list = []
-    for marker in markers:
-        if marker.marker is not None:
-            # Converti WKBElement in un oggetto Shapely
-            point = to_shape(marker.marker)
-            # Converti l'oggetto Shapely in un dizionario GeoJSON
-            geojson = mapping(point)
-            marker_list.append({
-                'lat': geojson['coordinates'][1],
-                'lng': geojson['coordinates'][0]
-            })
-    return jsonify(marker_list)
+
 
 
 @app.route('/test/pois_near_marker', methods=['GET'])
