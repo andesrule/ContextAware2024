@@ -99,7 +99,6 @@ function addPOIMarker(lat, lon, poiType, name) {
 // Funzione per recuperare i dati dei POI dal server
 // Funzione generica per recuperare i dati dei POI dal server
 // Funzione generica per recuperare i dati dei POI dal server// Funzione generica per recuperare i dati dei POI dal server
-// Function to fetch POIs and place them on the map
 function getPOIData(poiType) {
     axios.get(`/get_pois`).then(response => {
         console.log(`Dati ricevuti per ${poiType}:`, response.data);
@@ -116,17 +115,18 @@ function getPOIData(poiType) {
 
             // Handle different coordinate formats
             if (poi.additional_data.geo_point_2d) {
-                // For POIs with geo_point_2d
                 lat = poi.additional_data.geo_point_2d.lat;
                 lon = poi.additional_data.geo_point_2d.lon;
             } else if (poi.additional_data.geopoint) {
-                // For POIs with geopoint
                 lat = poi.additional_data.geopoint.lat;
                 lon = poi.additional_data.geopoint.lon;
             } else if (poi.additional_data.point) {
-                // For pharmacies and other POIs with point
                 lat = poi.additional_data.point.lat;
                 lon = poi.additional_data.point.lon;
+            } else if (poi.additional_data.coordinate) {
+                // Handle 'coordinate' for parking POIs
+                lat = poi.additional_data.coordinate.lat;
+                lon = poi.additional_data.coordinate.lon;
             } else {
                 console.warn(`POI senza dati geografici per ${poiType}:`, poi);
                 return;  // Skip this POI if no valid coordinates are found
@@ -141,27 +141,25 @@ function getPOIData(poiType) {
             const name = poi.additional_data.denominazione_struttura || poi.additional_data.denominazi || poi.additional_data.name || 'POI';
 
             // Create and add the marker to the map
-            const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>${poiType}`);
-            marker.addTo(map);
-            poiMarkers[poiType].push(marker);  // Save the marker for future toggling
+            addPOIMarker(lat, lon, poiType, name);
         });
     }).catch(error => {
         console.error(`Errore nel recupero dei POI per ${poiType}:`, error);
     });
 }
 
-// Function to toggle the visibility of POIs by type
+
 function togglePOI(poiType) {
     if (document.getElementById(poiType).checked) {
-        // If no markers exist, fetch and display POIs from the server
+        // Se non ci sono marker, carica i dati dal server
         if (poiMarkers[poiType].length === 0) {
-            getPOIData(poiType);
+            getPOIData(poiType);  // Usa la funzione generica per tutti i tipi di POI
         } else {
-            // Add markers to the map if they are already fetched
+            // Aggiungi i marker già presenti alla mappa
             poiMarkers[poiType].forEach(marker => marker.addTo(map));
         }
     } else {
-        // Remove markers from the map
+        // Rimuovi i marker dalla mappa
         poiMarkers[poiType].forEach(marker => map.removeLayer(marker));
     }
 }

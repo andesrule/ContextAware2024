@@ -79,14 +79,27 @@ def submit_questionnaire():
 def get_poi_coordinates(poi):
     """Estrae le coordinate dal PoI, gestendo diversi formati."""
     if 'geo_point_2d' in poi and 'lat' in poi['geo_point_2d'] and 'lon' in poi['geo_point_2d']:
+        # Handle geo_point_2d format
         return float(poi['geo_point_2d']['lat']), float(poi['geo_point_2d']['lon'])
+    elif 'geopoint' in poi and poi['geopoint'] is not None and 'lat' in poi['geopoint'] and 'lon' in poi['geopoint']:
+        # Handle geopoint format, ensuring geopoint is not None
+        return float(poi['geopoint']['lat']), float(poi['geopoint']['lon'])
+    elif 'coordinate' in poi and 'lat' in poi['coordinate'] and 'lon' in poi['coordinate']:
+        # Handle coordinate format for parking data
+        return float(poi['coordinate']['lat']), float(poi['coordinate']['lon'])
     elif 'ycoord' in poi and 'xcoord' in poi:
+        # Handle ycoord/xcoord format
         return float(poi['ycoord']), float(poi['xcoord'])
     elif 'geo_shape' in poi and 'geometry' in poi['geo_shape'] and 'coordinates' in poi['geo_shape']['geometry']:
+        # Handle geo_shape (GeoJSON) format
         coordinates = poi['geo_shape']['geometry']['coordinates']
         return float(coordinates[1]), float(coordinates[0])  # Nota: l'ordine è [lon, lat] in GeoJSON
+    elif 'geo_point' in poi and 'lat' in poi['geo_point'] and 'lon' in poi['geo_point']:
+        # Handle geo_point format
+        return float(poi['geo_point']['lat']), float(poi['geo_point']['lon'])
     else:
         raise ValueError("Formato coordinate non riconosciuto")
+
 
 @utils_bp.route('/api/poi/<poi_type>', methods=['GET'])
 def get_poi(poi_type):
@@ -172,6 +185,7 @@ def fetch_and_insert_pois(poi_type, api_url):
                 db.session.add(new_poi)
             except ValueError as e:
                 print(f"Errore nell'elaborazione del POI: {e}")
+                
         db.session.commit()
         return len(data.get('results', []))
     else:
