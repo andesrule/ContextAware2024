@@ -74,7 +74,23 @@ def test():
     strings = User.query.all()
     return render_template('test.html', strings=strings)
 
- 
+@app.route('/get_pois')
+def get_pois():
+    pois = POI.query.all()
+    poi_list = []
+    for poi in pois:
+        # Convert WKBElement to Shapely object
+        point = to_shape(poi.location)
+        # Convert Shapely object to GeoJSON
+        geojson = mapping(point)
+        poi_list.append({
+            'type': poi.type,
+            'lat': geojson['coordinates'][1],
+            'lng': geojson['coordinates'][0],
+            'additional_data': json.loads(poi.additional_data)
+        })
+    return jsonify(poi_list)
+
 if __name__ == '__main__':
     #reset_db()
     app.run(host='0.0.0.0', port=5000, debug=True)

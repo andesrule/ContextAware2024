@@ -99,75 +99,69 @@ function addPOIMarker(lat, lon, poiType, name) {
 // Funzione per recuperare i dati dei POI dal server
 // Funzione generica per recuperare i dati dei POI dal server
 // Funzione generica per recuperare i dati dei POI dal server// Funzione generica per recuperare i dati dei POI dal server
+// Function to fetch POIs and place them on the map
 function getPOIData(poiType) {
-    axios.get(`/api/poi/${poiType}`).then(response => {
+    axios.get(`/get_pois`).then(response => {
         console.log(`Dati ricevuti per ${poiType}:`, response.data);
 
-        const results = response.data.results;
+        const pois = response.data.filter(poi => poi.type === poiType);
 
-        if (!results || results.length === 0) {
+        if (!pois || pois.length === 0) {
             console.warn(`Nessun POI trovato per ${poiType}`);
             return;
         }
 
-        results.forEach(record => {
-            const poi = record;
+        pois.forEach(poi => {
             let lat, lon;
 
-            // Gestisci diversi formati di coordinate
-            if (poi.geo_point_2d) {
-                // Per geo_point_2d, le coordinate sono oggetti con lat/lon
-                lat = poi.geo_point_2d.lat;
-                lon = poi.geo_point_2d.lon;
-            } else if (poi.geopoint) {
-                // Gestisci sia lat/lon che latitude/longitude
-                lat = poi.geopoint.lat || poi.geopoint.latitude;
-                lon = poi.geopoint.lon || poi.geopoint.longitude;
-            } else if (poi.coordinate) {
-                lat = poi.coordinate.lat;
-                lon = poi.coordinate.lon;
-            } else if (poi.point && poi.point.lat && poi.point.lon) {
-                lat = poi.point.lat;
-                lon = poi.point.lon;
-            } else if (poi.xcoord && poi.ycoord) {
-                lat = parseFloat(poi.ycoord);
-                lon = parseFloat(poi.xcoord);
+            // Handle different coordinate formats
+            if (poi.additional_data.geo_point_2d) {
+                // For POIs with geo_point_2d
+                lat = poi.additional_data.geo_point_2d.lat;
+                lon = poi.additional_data.geo_point_2d.lon;
+            } else if (poi.additional_data.geopoint) {
+                // For POIs with geopoint
+                lat = poi.additional_data.geopoint.lat;
+                lon = poi.additional_data.geopoint.lon;
+            } else if (poi.additional_data.point) {
+                // For pharmacies and other POIs with point
+                lat = poi.additional_data.point.lat;
+                lon = poi.additional_data.point.lon;
             } else {
                 console.warn(`POI senza dati geografici per ${poiType}:`, poi);
-                return;  // Salta questo POI se non ha coordinate
+                return;  // Skip this POI if no valid coordinates are found
             }
 
-            // Verifica che lat e lon siano numeri validi
+            // Ensure that lat and lon are valid numbers
             if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
                 console.warn(`Coordinate non valide per ${poiType}:`, lat, lon);
                 return;
             }
 
-            const name = poi.denominazione_struttura || poi.denominazi || poi.name || 'POI';
+            const name = poi.additional_data.denominazione_struttura || poi.additional_data.denominazi || poi.additional_data.name || 'POI';
 
-            // Crea e aggiungi il marker alla mappa
+            // Create and add the marker to the map
             const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>${poiType}`);
             marker.addTo(map);
-            poiMarkers[poiType].push(marker);  // Salva il marker per rimuoverlo successivamente se necessario
+            poiMarkers[poiType].push(marker);  // Save the marker for future toggling
         });
-
     }).catch(error => {
         console.error(`Errore nel recupero dei POI per ${poiType}:`, error);
     });
 }
 
-
+// Function to toggle the visibility of POIs by type
 function togglePOI(poiType) {
     if (document.getElementById(poiType).checked) {
-        // Se non ci sono marker, carica i dati dal server
+        // If no markers exist, fetch and display POIs from the server
         if (poiMarkers[poiType].length === 0) {
-            getPOIData(poiType);  // Usa la funzione generica per tutti i tipi di POI
+            getPOIData(poiType);
         } else {
-            // Aggiungi i marker già presenti alla mappa
+            // Add markers to the map if they are already fetched
             poiMarkers[poiType].forEach(marker => marker.addTo(map));
         }
     } else {
-        // Rimuovi i marker dalla mappa
+        // Remove markers from the map
         poiMarkers[poiType].forEach(marker => map.removeLayer(marker));
     }
 }
