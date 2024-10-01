@@ -10,12 +10,11 @@ from flask_cors import CORS  # Aggiunta per gestire le richieste CORS
 from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
+from ranking import *
 
 
-# Usa il percorso assoluto per il frontend
-frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
 
-app = Flask(__name__, template_folder=frontend_path, static_folder=frontend_path, static_url_path='')
+app = Flask(__name__, template_folder=Config.FRONTEND_PATH, static_folder=Config.FRONTEND_PATH, static_url_path='')
 app.config.from_object(Config)
 
 # Inizializza SQLAlchemy
@@ -23,10 +22,8 @@ db.init_app(app)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'your-very-secret-key'
 
-
 # Inizializza Flask-Admin
 admin = Admin(app, name='Admin Panel', template_mode='bootstrap3')
-
 
 # Personalizza ModelView per mostrare tutte le colonne
 class CustomModelView(ModelView):
