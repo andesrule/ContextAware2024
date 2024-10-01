@@ -44,3 +44,4 @@ class POI(db.Model):
     additional_data = db.Column(db.String)  # Per memorizzare dati aggiuntivi in formato JSON
 
 
+
