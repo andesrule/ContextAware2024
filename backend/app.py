@@ -37,25 +37,19 @@ admin.add_view(CustomModelView(QuestionnaireResponse, db.session))
 admin.add_view(CustomModelView(POI, db.session))
 
 
-def reset_db():
-    """Drop all tables from the database."""
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
-        print("Database has been reset.")
 
 @app.before_request
 def initialize_database():
     if not hasattr(app, 'db_initialized'):
         with app.app_context():
-            db.create_all()
+            reset_db()
             if User.query.count() == 0:
                 db.session.add_all([
                     User(content_poi=['First string', 'Another string'])
                 ])
                 db.session.commit()
+            update_pois()
         app.db_initialized = True
-
 
 @app.route('/')
 def index():

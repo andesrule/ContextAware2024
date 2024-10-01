@@ -44,4 +44,9 @@ class POI(db.Model):
     additional_data = db.Column(db.String)  # Per memorizzare dati aggiuntivi in formato JSON
 
 
+def reset_db():
+    """Drop all tables from the database."""
+    db.drop_all()
+    db.create_all()
+    print("Database has been reset.")
 

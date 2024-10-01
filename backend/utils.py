@@ -117,7 +117,7 @@ def get_poi(poi_type):
     else:
         return jsonify({'error': f'Errore API: {response.status_code}'}), 500
 
-@utils_bp.route('/update_pois', methods=['POST'])
+
 def update_pois():
     poi_sources = {
         
@@ -138,7 +138,8 @@ def update_pois():
         count = fetch_and_insert_pois(poi_type, api_url)
         results[poi_type] = count
 
-    return jsonify(results), 200
+    
+    print(f"POI aggiornati: {results}")
 
 @utils_bp.route('/get_markers')
 def get_markers():
@@ -176,7 +177,6 @@ def fetch_and_insert_pois(poi_type, api_url):
     else:
         return 0
     
-
 @utils_bp.route('/get-geofences')
 def get_geofences():
     geofences = Geofence.query.all()
