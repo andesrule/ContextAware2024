@@ -1,18 +1,16 @@
 from flask import Flask, jsonify, render_template, request
 from config import Config
-from models import db, User, Geofence, QuestionnaireResponse
+from models import *
 import os
 import json
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView  # Importa ModelView per l'admin
 import requests
 from flask_cors import CORS  # Aggiunta per gestire le richieste CORS
-from geoalchemy2.elements import WKTElement
 from geoalchemy2.shape import from_shape, to_shape
-from shapely.geometry import mapping, shape, Point, Polygon
+from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
-from utils import calculate_poi_distances
-from ranking import *
+
 
 # Usa il percorso assoluto per il frontend
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../frontend'))
@@ -38,6 +36,8 @@ class CustomModelView(ModelView):
 admin.add_view(CustomModelView(User, db.session))
 admin.add_view(CustomModelView(Geofence, db.session))
 admin.add_view(CustomModelView(QuestionnaireResponse, db.session))
+admin.add_view(CustomModelView(POI, db.session))
+
 
 def reset_db():
     """Drop all tables from the database."""
@@ -193,44 +193,48 @@ def get_poi(poi_type):
     else:
         return jsonify({'error': f'Errore API: {response.status_code}'}), 500
  
-
-@app.route('/calculate-distance', methods=['GET'])
-def calculate_distance():
-    # Recupera i geofences dal database
-    geofences = Geofence.query.all()
-
-    # Ottieni il tipo di POI dalla query string
-    poi_type = request.args.get('poi_type', 'parcheggi')
-
-    # Effettua una richiesta per ottenere i POI dal tipo selezionato
-    poi_response = requests.get(f'http://localhost:5000/api/poi/{poi_type}')
+def fetch_and_insert_pois(poi_type, api_url):
+    response = requests.get(api_url)
+    if response.status_code == 200:
+        data = response.json()
+        for poi in data.get('results', []):
+            try:
+                lat, lon = get_poi_coordinates(poi)
+                new_poi = POI(
+                    type=poi_type,
+                    location=f'POINT({lon} {lat})',
+                    additional_data=json.dumps(poi)
+                )
+                db.session.add(new_poi)
+            except ValueError as e:
+                print(f"Errore nell'elaborazione del POI: {e}")
+        db.session.commit()
+        return len(data.get('results', []))
+    else:
+        return 0
     
-    if poi_response.status_code != 200:
-        return jsonify({'error': f'Errore API: {poi_response.status_code}'}), 500
-
-    # Estrarre i dati dei POI dalla risposta API
-    poi_data = poi_response.json()
-
-    distances = []
-    
-    # Itera sui geofences e calcola la distanza per i POI
-    for gf in geofences:
-        geofence_data = {'id': gf.id}
-
-        # Se il geofence ha un marker, calcola la distanza per il marker
-        if gf.marker is not None:
-            marker = to_shape(gf.marker)
-            geofence_data['marker_distances'] = calculate_poi_distances(marker, poi_data)
-
-        # Se il geofence ha un poligono, calcola la distanza per il poligono
-        if gf.geofence is not None:
-            geofence = to_shape(gf.geofence)
-            geofence_data['geofence_distances'] = calculate_poi_distances(geofence, poi_data)
+@app.route('/update_pois', methods=['POST'])
+def update_pois():
+    poi_sources = {
         
-        distances.append(geofence_data)
+        'parcheggi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/disponibilita-parcheggi-storico/records?limit=100',
+        'cinema': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/teatri-cinema-teatri/records?limit=100 ',
+        'farmacia': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/farmacie/records?limit=100',
+        'ospedali': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/strutture-sanitarie/records?limit=100',
+        'fermate_bus' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records?select=*&limit=100&refine=comune%3A"BOLOGNA"',
+        'scuole' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/elenco-delle-scuole/records?limit=100',
+        'aree_verdi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records?limit=100',
+        'luogo_culto' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records?limit=100',
+        'servizi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records?limit=100',
+        'luoghi_interesse' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/musei_gallerie_luoghi_e_teatri_storici/records?limit=100'
 
-    # Restituisce la lista delle distanze calcolate
-    return jsonify(distances)
+    }
+    results = {}
+    for poi_type, api_url in poi_sources.items():
+        count = fetch_and_insert_pois(poi_type, api_url)
+        results[poi_type] = count
+
+    return jsonify(results), 200
 
 @app.route('/get_markers')
 def get_markers():
@@ -248,72 +252,9 @@ def get_markers():
             })
     return jsonify(marker_list)
 
-@app.route('/api/pois-near-marker/<int:marker_id>', methods=['GET'])
-def pois_near_marker(marker_id):
-    try:
-        print(f"Richiesta per marker_id: {marker_id}")  # Per confermare il marker_id
-        raggio = request.args.get('raggio', 500)
-        poi_type = request.args.get('poi_type', 'cinema')
-        print(f"POI type: {poi_type}, Raggio: {raggio}")  # Per confermare i parametri passati
-
-        results = get_pois_near_marker(marker_id=marker_id, poi_type=poi_type, raggio=int(raggio))
-
-        if results is None:
-            print("Marker non trovato")
-            return jsonify({'error': 'Marker not found'}), 404
-
-        pois_list = [dict(row) for row in results]
-        print(f"Risultati trovati: {pois_list}")
-        return jsonify(pois_list)
-
-    except Exception as e:
-        print(f"Errore durante l'elaborazione: {str(e)}")  # Questo mostrerà dettagli sugli errori
-        return jsonify({'error': str(e)}), 500
-
-
-
-
-@app.route('/test/pois_near_marker', methods=['GET'])
-def test_pois_near_marker():
-    marker_id = request.args.get('marker_id', type=int)
-    poi_type = request.args.get('poi_type', type=str)
-    raggio = request.args.get('raggio', type=float, default=1.0)
-    
-    if not marker_id or not poi_type:
-        return jsonify({"error": "Marker ID e tipo POI sono richiesti"}), 400
-    
-    return get_pois_near_marker(marker_id, poi_type, raggio)
-
-@app.route('/api/calculate-rank', methods=['GET'])
-def calculate_rank():
-    try:
-        # Recupera i parametri dalla richiesta GET
-        marker_id = request.args.get('marker_id', type=int)
-        raggio = request.args.get('raggio', type=float, default=2.0)
-        questionnaire_id = request.args.get('questionnaire_id', type=int, default=1)
-
-        # Verifica se marker_id è stato fornito
-        if marker_id is None:
-            return jsonify({'error': 'marker_id is required'}), 400
-        
-        # Recupera le preferenze utente (questo può essere personalizzato)
-        user_preferences = get_questionnaire_by_id(questionnaire_id)
-
-        # Calcola il rank utilizzando la funzione calcola_rank
-        rank = calcola_rank(marker_id, user_preferences, raggio)
-
-        # Restituisce il rank come risposta JSON
-        return jsonify({
-            'marker_id': marker_id,
-            'rank': rank
-        }), 200
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     #reset_db()
-    
     app.run(host='0.0.0.0', port=5000, debug=True)
 
 

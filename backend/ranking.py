@@ -1,93 +1,13 @@
-from sqlalchemy import text
+
 from models import db, QuestionnaireResponse
 from sqlalchemy.orm.exc import NoResultFound
 from models import Geofence
-from geoalchemy2 import Geometry
 from flask import jsonify
-import json
 from flask import jsonify
 from sqlalchemy.orm.exc import NoResultFound
 from geoalchemy2.shape import to_shape
 import requests
-from math import radians, sin, cos, sqrt, atan2
 
-def get_questionnaire_by_id(response_id):
-    try:
-        # Esegui la query per recuperare la risposta al questionario con l'ID specificato
-        response = QuestionnaireResponse.query.filter_by(id=response_id).first()
-
-        # Verifica se la risposta esiste
-        if response is None:
-            return {"error": "Questionnaire response not found"}
-
-        # Converte l'oggetto in un dizionario
-        response_data = {
-            'id': response.id,
-            'aree_verdi': response.aree_verdi,
-            'parcheggi': response.parcheggi,
-            'fermate_bus': response.fermate_bus,
-            'luoghi_interesse': response.luoghi_interesse,
-            'scuole': response.scuole,
-            'cinema': response.cinema,
-            'ospedali': response.ospedali,
-            'farmacia': response.farmacia,
-            'luogo_culto': response.luogo_culto,
-            'servizi': response.servizi,
-            'densita_aree_verdi': response.densita_aree_verdi,
-            'densita_cinema': response.densita_cinema,
-            'densita_fermate_bus': response.densita_fermate_bus
-        }
-
-        return response_data
-
-    except Exception as e:
-        return {"error": str(e)}
-
-def haversine_distance(lat1, lon1, lat2, lon2):
-    R = 6371  # Raggio della Terra in km
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * atan2(sqrt(a), sqrt(1-a))
-    distance = R * c
-    return distance
-
-def count_pois_near_marker(marker_id, raggio):
-    poi_types = [
-        'aree_verdi', 'parcheggi', 'fermate_bus', 'luoghi_interesse',
-        'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi'
-    ]
-
-    # Dizionario per tenere traccia del numero di POI per ogni tipo
-    poi_counts = {
-        'aree_verdi': 0,
-        'parcheggi': 0,
-        'fermate_bus': 0,
-        'luoghi_interesse': 0,
-        'scuole': 0,
-        'cinema': 0,
-        'ospedali': 0,
-        'farmacia': 0,
-        'luogo_culto': 0,
-        'servizi': 0
-    }
-
-    # Itera su ciascun tipo di POI e chiama get_pois_near_marker
-    for poi_type in poi_types:
-        # Chiama get_pois_near_marker per ogni tipo di POI
-        response = get_pois_near_marker(marker_id, poi_type, raggio)
-
-        # Verifica se la risposta è valida
-        if response.status_code == 200:
-            poi_data = response.json()  # Estrai i dati JSON dalla risposta
-            
-            # Conta i POI vicini per quel tipo di POI
-            poi_counts[poi_type] = len(poi_data.get('nearby_pois', []))
-        else:
-            print(f"Errore nell'ottenere i dati per {poi_type}: {response.status_code}")
-
-    return poi_counts
 
 def get_poi_coordinates(poi):
     """Estrae le coordinate dal PoI, gestendo diversi formati."""
@@ -101,61 +21,6 @@ def get_poi_coordinates(poi):
     else:
         raise ValueError("Formato coordinate non riconosciuto")
 
-def get_pois_near_marker(marker_id, poi_type, raggio):
-    try:
-        # Recupera il marker dalla tabella Geofence usando l'ID
-        marker = db.session.query(Geofence).filter_by(id=marker_id).first()
-        
-        # Verifica se il marker esiste
-        if marker is None or marker.marker is None:
-            return jsonify({"error": "Marker non trovato"}), 404
-        
-        # Estrai le coordinate dal campo marker
-        marker_point = to_shape(marker.marker)
-        marker_lat, marker_lon = marker_point.y, marker_point.x
-
-        # Recupera i dati dei PoI dall'API esterna
-        poi_response = requests.get(f'http://localhost:5000/api/poi/{poi_type}')
-        
-        if poi_response.status_code != 200:
-            return jsonify({'error': f'Errore API: {poi_response.status_code}'}), 500
-        
-        poi_data = poi_response.json()
-        
-        nearby_pois = []
-
-        for poi in poi_data['results']:
-            try:
-                poi_lat, poi_lon = get_poi_coordinates(poi)
-                
-                distance = haversine_distance(marker_lat, marker_lon, poi_lat, poi_lon)
-                
-                if distance <= raggio:
-                    nearby_pois.append({
-                        'poi': poi,
-                        'distance': distance
-                    })
-            except ValueError as e:
-                print(f"Errore nel processare le coordinate del POI: {str(e)}")
-                continue
-
-        # Ordina i PoI per distanza
-        nearby_pois.sort(key=lambda x: x['distance'])
-
-        # Verifica se ci sono risultati
-        if not nearby_pois:
-            return jsonify({'error': 'Nessun POI trovato entro il raggio specificato'}), 404
-
-        return jsonify({
-            'marker_id': marker_id,
-            'marker_location': {'lat': marker_lat, 'lon': marker_lon},
-            'nearby_pois': nearby_pois
-        })
-
-    except NoResultFound:
-        return jsonify({"error": "Marker con l'ID fornito non esiste"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 def calcola_rank(marker_id, user_preferences, raggio):
     """

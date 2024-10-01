@@ -1,8 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import ARRAY 
-from sqlalchemy.dialects.postgresql import JSON
-from sqlalchemy.orm import relationship
+
 
 db = SQLAlchemy()
 
@@ -35,5 +34,13 @@ class QuestionnaireResponse(db.Model):
     densita_aree_verdi = db.Column(db.Integer)
     densita_cinema = db.Column(db.Integer)
     densita_fermate_bus = db.Column(db.Integer)
+
+class POI(db.Model):
+    __tablename__ = 'points_of_interest'
+
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String)
+    location = db.Column(Geometry(geometry_type='POINT', srid=4326))
+    additional_data = db.Column(db.String)  # Per memorizzare dati aggiuntivi in formato JSON
 
 
