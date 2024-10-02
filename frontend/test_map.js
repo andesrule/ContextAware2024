@@ -111,25 +111,42 @@ let poiLayers = {
     let databaseMarkers = L.markerClusterGroup();
 
     function loadDatabaseMarkers() {
-        fetch('/get_markers')
+        fetch('/get_ranked_markers')
             .then(response => response.json())
             .then(data => {
                 databaseMarkers.clearLayers();
-
+    
                 data.forEach(markerData => {
-                    const marker = L.marker([markerData.lat, markerData.lng]);
-                    marker.bindPopup('<b>Marker dal Database</b>');
+                    const color = getColorFromRank(markerData.rank);
+                    const marker = L.circleMarker([markerData.lat, markerData.lng], {
+                        radius: 8,
+                        fillColor: color,
+                        color: '#000',
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    });
+                    marker.bindPopup(`<b>Rank: ${markerData.rank.toFixed(2)}</b><br>Marker dal Database`);
                     databaseMarkers.addLayer(marker);
                 });
-
+    
                 map.addLayer(databaseMarkers);
-
+    
                 if (databaseMarkers.getLayers().length > 0) {
                     map.fitBounds(databaseMarkers.getBounds());
                 }
             })
             .catch(error => console.error('Errore nel caricamento dei marker dal database:', error));
     }
+    
+    function getColorFromRank(rank) {
+        if (rank < 20) return '#FF0000';      // Rosso
+        else if (rank < 40) return '#FFA500'; // Arancione
+        else if (rank < 60) return '#FFFF00'; // Giallo
+        else if (rank < 80) return '#90EE90'; // Verde chiaro
+        else return '#008000';                // Verde scuro
+    }
+
 
     var customControl = L.Control.extend({
         options: {

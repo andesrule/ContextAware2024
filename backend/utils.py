@@ -12,6 +12,7 @@ from flask import request, jsonify
 
 from geoalchemy2 import  WKBElement
 from geoalchemy2.functions import ST_DWithin, ST_Transform, ST_GeomFromWKB
+from geoalchemy2.functions import ST_X, ST_Y
 
 
 utils_bp = Blueprint('utils', __name__)
@@ -136,7 +137,6 @@ def get_poi_coordinates(poi):
     else:
         raise ValueError("Formato coordinate non riconosciuto")
 
-
 def count_nearby_pois(db, marker_id, distance_meters):
     # Ottieni il marker specifico dal database
     marker = db.session.query(Geofence).get(marker_id)
@@ -171,7 +171,6 @@ def count_nearby_pois(db, marker_id, distance_meters):
 
 
     return result
-
 
 @utils_bp.route('/api/count_nearby_pois', methods=['GET'])
 def api_count_nearby_pois():
@@ -280,7 +279,6 @@ def get_poi(poi_type):
     else:
         return jsonify({'error': f'Errore API: {response.status_code}'}), 500
 
-
 @utils_bp.route('/get_markers')
 def get_markers():
     markers = Geofence.query.all()
@@ -316,8 +314,25 @@ def get_geofences():
         geofences_data.append(geofence_data)
 
     return jsonify(geofences_data)    
-'''
-def calcola_rank(marker_id, user_preferences, raggio):
+
+def get_questionnaire_response_dict(response):
+    return {
+        'aree_verdi': response.aree_verdi,
+        'parcheggi': response.parcheggi,
+        'fermate_bus': response.fermate_bus,
+        'stazioni_ferroviarie': response.stazioni_ferroviarie,
+        'scuole': response.scuole,
+        'cinema': response.cinema,
+        'ospedali': response.ospedali,
+        'farmacia': response.farmacia,
+        'luogo_culto': response.luogo_culto,
+        'servizi': response.servizi,
+        'densita_aree_verdi': response.densita_aree_verdi,
+        'densita_cinema': response.densita_cinema,
+        'densita_fermate_bus': response.densita_fermate_bus
+    }
+
+def calcola_rank(marker_id, raggio):
     """
     Calcola il punteggio del marker tenendo conto dei pesi delle preferenze dell'utente e della presenza di PoI.
     :param marker: Marker dell'immobile
@@ -325,24 +340,22 @@ def calcola_rank(marker_id, user_preferences, raggio):
     :param nearby_pois: Dizionario con il numero di PoI vicini (reali)
     :return: Punteggio del marker
     """
-
+    nearby_pois= count_nearby_pois(db, marker_id= marker_id, distance_meters= raggio)
+    user_preferences = get_questionnaire_response_dict(response = QuestionnaireResponse.query.get(1))
     rank = 0
     
     # Definisci pesi per ciascun tipo di PoI (questi valori sono un esempio)
     pesi = {
         'aree_verdi': 0.8,
-        'parcheggi': 1.2,
+        'parcheggi': 1.0,
         'fermate_bus': 1.0,
-        'luoghi_interesse': 1.1,
-        'scuole': 0.9,
+        'stazioni_ferroviarie': 1.0,
+        'scuole': 0.7,
         'cinema': 0.6,
-        'ospedali': 1.5,
-        'farmacia': 1.3,
-        'luogo_culto': 0.5,
-        'servizi': 1.0,
-        'densita_aree_verdi': 1.3,
-        'densita_cinema': 0.5,
-        'fermate_bus2': 1.0
+        'ospedali': 1.0,
+        'farmacia': 0.5,
+        'luogo_culto': 0.2,
+        'servizi': 0.4,
     }
     
     # Aree Verdi
@@ -356,8 +369,8 @@ def calcola_rank(marker_id, user_preferences, raggio):
     rank += nearby_pois.get('fermate_bus', 0) * user_preferences['fermate_bus'] * pesi['fermate_bus']
     
     # Luoghi di interesse
-    if nearby_pois.get('luoghi_interesse', 0) >= 2:
-        rank += user_preferences['luoghi_interesse'] * pesi['luoghi_interesse']
+    if nearby_pois.get('stazioni_ferroviarie', 0) >= 2:
+        rank += user_preferences['stazioni_ferroviarie'] * pesi['stazioni_ferroviarie']
     
     # Scuole
     rank += nearby_pois.get('scuole', 0) * user_preferences['scuole'] * pesi['scuole']
@@ -380,16 +393,34 @@ def calcola_rank(marker_id, user_preferences, raggio):
     
     #Aree verdi densitá
     if nearby_pois.get('aree_verdi', 0) >= 2:
-        rank += user_preferences['densita_aree_verdi'] * pesi['densita_aree_verdi']
+        rank += user_preferences['densita_aree_verdi'] * pesi['aree_verdi']
 
     #Cinema densitá
     if nearby_pois.get('cinema', 0) >= 2:
-        rank += user_preferences['densita_cinema'] * pesi['densita_cinema']
+        rank += user_preferences['densita_cinema'] * pesi['cinema']
     
     #Fermate bus densitá
     if nearby_pois.get('fermate_bus', 0) >= 2:
-        rank += user_preferences['densita_fermate_bus'] * pesi['densita_fermate_bus']
+        rank += user_preferences['densita_fermate_bus'] * pesi['fermate_bus']
 
     return rank
 
-'''
+
+@utils_bp.route('/get_ranked_markers')
+def get_ranked_markers():
+    markers = Geofence.query.filter(Geofence.marker.isnot(None)).all()
+    ranked_markers = []
+
+    for marker in markers:
+        lat = db.session.scalar(ST_Y(marker.marker))
+        lng = db.session.scalar(ST_X(marker.marker))
+        rank = calcola_rank(marker.id, raggio=300)  # Usa il raggio che preferisci
+
+        ranked_markers.append({
+            'id': marker.id,
+            'lat': lat,
+            'lng': lng,
+            'rank': rank
+        })
+
+    return jsonify(ranked_markers)
