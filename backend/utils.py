@@ -1,17 +1,19 @@
 from flask import jsonify, request, Blueprint
 from geoalchemy2.shape import from_shape, to_shape
 from models import *
-import json
+import json, logging 
 import requests
+from geoalchemy2.functions import ST_DWithin
 from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
+from sqlalchemy import func
 
 utils_bp = Blueprint('utils', __name__)
 
 @utils_bp.route('/debug_poi_count')
 def debug_poi_count():
     total_count = POI.query.count()
-    parking_count = POI.query.filter_by(type='parcheggi').count()
+    parking_count = POI.query.filter_by(type='fermate_bus').count()
     return jsonify({
         'total_poi_count': total_count,
         'parking_poi_count': parking_count
@@ -86,7 +88,7 @@ def submit_questionnaire():
         aree_verdi=data.get('aree_verdi'),
         parcheggi=data.get('parcheggi'),
         fermate_bus=data.get('fermate_bus'),
-        luoghi_interesse=data.get('luoghi_interesse'),
+        stazioni_ferroviarie=data.get('stazioni_ferroviarie'),
         scuole=data.get('scuole'),
         cinema=data.get('cinema'),
         ospedali=data.get('ospedali'),
@@ -128,6 +130,91 @@ def get_poi_coordinates(poi):
     else:
         raise ValueError("Formato coordinate non riconosciuto")
 
+def count_nearby_pois(marker_id, distance_meters):
+    marker = Geofence.query.get(marker_id)
+    if not marker:
+        return None
+
+    # Query per contare i POI all'interno della distanza specificata
+    poi_counts = db.session.query(
+        POI.type,
+        func.count(POI.id).label('count')
+    ).filter(
+        ST_DWithin(POI.location, marker.marker, distance_meters)
+    ).group_by(POI.type).all()
+
+    logging.debug(f"POI counts: {poi_counts}")
+
+    result = {poi_type: 0 for poi_type in ['aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie', 
+                                           'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi']}
+    
+    for poi_type, count in poi_counts:
+        if poi_type in result:
+            result[poi_type] = count
+
+    return result
+
+def update_pois():
+    poi_sources = {
+        'parcheggi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/parcheggi/records',
+        'cinema': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/teatri-cinema-teatri/records',
+        'farmacia': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/farmacie/records',
+        'ospedali': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/strutture-sanitarie/records',
+        'fermate_bus': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records',
+        'scuole': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/elenco-delle-scuole/records',
+        'aree_verdi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records',
+        'luogo_culto': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records',
+        'servizi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
+        'stazioni_ferroviarie': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/stazioniferroviarie_20210401/records'
+    }
+    results = {}
+    for poi_type, api_url in poi_sources.items():
+        count = fetch_and_insert_pois(poi_type, api_url)
+        results[poi_type] = count
+    return results
+
+def fetch_and_insert_pois(poi_type, api_url):
+    total_count = 0
+    offset = 0
+    limit = 100  # Mantenuto a 100 per efficienza
+    
+    while True:
+        if "tper-fermate-autobus" in api_url:
+            paginated_url = f"{api_url}?limit={limit}&offset={offset}&refine=comune%3A%22BOLOGNA%22"
+        else:
+            paginated_url = f"{api_url}?limit={limit}&offset={offset}"
+        response = requests.get(paginated_url)
+        
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get('results', [])
+            
+            if not results:
+                break  # Nessun altro risultato, usciamo dal loop
+            
+            for poi in results:
+                try:
+                    lat, lon = get_poi_coordinates(poi)
+                    new_poi = POI(
+                        type=poi_type,
+                        location=f'POINT({lon} {lat})',
+                        additional_data=json.dumps(poi)
+                    )
+                    db.session.add(new_poi)
+                except ValueError as e:
+                    print(f"Errore nell'elaborazione del POI: {e}")
+            
+            db.session.commit()
+            total_count += len(results)
+            offset += limit
+            
+            print(f"Elaborati {total_count} POI di tipo {poi_type}")
+        else:
+            print(f"Errore nella richiesta API per {poi_type}: {response.status_code}")
+            break
+
+    return total_count
+
 @utils_bp.route('/api/poi/<poi_type>', methods=['GET'])
 def get_poi(poi_type):
     base_urls = {
@@ -140,7 +227,7 @@ def get_poi(poi_type):
         'aree_verdi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records',
         'luogo_culto' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records',
         'servizi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
-        'luoghi_interesse' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/musei_gallerie_luoghi_e_teatri_storici/records?&refine=macrozona%3A%22Bologna%22 '
+        'stazioni_ferroviarie': 'https://opendata.comune.bologna.it/api/api/explore/v2.1/catalog/datasets/stazioniferroviarie_20210401/records'
         
         # Aggiungi altre categorie qui
     }
@@ -157,28 +244,7 @@ def get_poi(poi_type):
     else:
         return jsonify({'error': f'Errore API: {response.status_code}'}), 500
 
-def update_pois():
-    poi_sources = {
-        
-        'parcheggi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/parcheggi/records?limit=100',
-        'cinema': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/teatri-cinema-teatri/records?limit=100',
-        'farmacia': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/farmacie/records?limit=100',
-        'ospedali': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/strutture-sanitarie/records?limit=100',
-        'fermate_bus' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records?select=*&limit=100&refine=comune%3A"BOLOGNA"',
-        'scuole' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/elenco-delle-scuole/records?limit=100',
-        'aree_verdi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records?limit=100',
-        'luogo_culto' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records?limit=100',
-        'servizi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records?limit=100',
-        'luoghi_interesse' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/musei_gallerie_luoghi_e_teatri_storici/records?limit=100'
 
-    }
-    results = {}
-    for poi_type, api_url in poi_sources.items():
-        count = fetch_and_insert_pois(poi_type, api_url)
-        results[poi_type] = count
-
-    
-    print(f"POI aggiornati: {results}")
 
 @utils_bp.route('/get_markers')
 def get_markers():
@@ -195,27 +261,6 @@ def get_markers():
                 'lng': geojson['coordinates'][0]
             })
     return jsonify(marker_list) 
-
-def fetch_and_insert_pois(poi_type, api_url):
-    response = requests.get(api_url)
-    if response.status_code == 200:
-        data = response.json()
-        for poi in data.get('results', []):
-            try:
-                lat, lon = get_poi_coordinates(poi)
-                new_poi = POI(
-                    type=poi_type,
-                    location=f'POINT({lon} {lat})',
-                    additional_data=json.dumps(poi)
-                )
-                db.session.add(new_poi)
-            except ValueError as e:
-                print(f"Errore nell'elaborazione del POI: {e}")
-                
-        db.session.commit()
-        return len(data.get('results', []))
-    else:
-        return 0
     
 @utils_bp.route('/get-geofences')
 def get_geofences():

@@ -12,7 +12,7 @@
         aree_verdi: [],
         parcheggi: [],
         fermate_bus: [],
-        luoghi_interesse: [],
+        stazioni_ferroviarie: [],
         scuole: [],
         cinema: [],
         ospedali: [],
