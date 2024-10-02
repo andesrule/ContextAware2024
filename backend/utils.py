@@ -8,6 +8,12 @@ from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
 from sqlalchemy import func
 
+from flask import request, jsonify
+
+from geoalchemy2 import  WKBElement
+from geoalchemy2.functions import ST_DWithin, ST_Transform, ST_GeomFromWKB
+
+
 utils_bp = Blueprint('utils', __name__)
 
 @utils_bp.route('/debug_poi_count')
@@ -130,29 +136,59 @@ def get_poi_coordinates(poi):
     else:
         raise ValueError("Formato coordinate non riconosciuto")
 
-def count_nearby_pois(marker_id, distance_meters):
-    marker = Geofence.query.get(marker_id)
+
+def count_nearby_pois(db, marker_id, distance_meters):
+    # Ottieni il marker specifico dal database
+    marker = db.session.query(Geofence).get(marker_id)
     if not marker:
         return None
 
-    # Query per contare i POI all'interno della distanza specificata
+    # Definisci i tipi di POI che vogliamo contare
+    poi_types = [
+        'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
+        'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi'
+    ]
+
+    # Inizializza il dizionario dei risultati
+    result = {poi_type: 0 for poi_type in poi_types}
+
+    # Esegui la query per contare i POI vicini
     poi_counts = db.session.query(
         POI.type,
         func.count(POI.id).label('count')
     ).filter(
-        ST_DWithin(POI.location, marker.marker, distance_meters)
+        ST_DWithin(
+            ST_Transform(POI.location, 3857),
+            ST_Transform(marker.marker, 3857),
+            distance_meters
+        )
     ).group_by(POI.type).all()
 
-    logging.debug(f"POI counts: {poi_counts}")
-
-    result = {poi_type: 0 for poi_type in ['aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie', 
-                                           'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi']}
-    
+    # Popola il dizionario dei risultati
     for poi_type, count in poi_counts:
         if poi_type in result:
             result[poi_type] = count
 
+
     return result
+
+
+@utils_bp.route('/api/count_nearby_pois', methods=['GET'])
+def api_count_nearby_pois():
+    marker_id = request.args.get('marker_id', type=int)
+    distance_meters = request.args.get('distance', type=float)
+
+    if not marker_id or not distance_meters:
+        return jsonify({"error": "Missing marker_id or distance parameter"}), 400
+
+    logging.debug(f"Received request with marker_id: {marker_id}, distance: {distance_meters}")
+
+    result = count_nearby_pois(db, marker_id, distance_meters)
+    if result is None:
+        return jsonify({"error": "Marker not found or no POIs in database"}), 404
+
+    logging.debug(f"Result: {result}")
+    return jsonify(result)
 
 def update_pois():
     poi_sources = {
@@ -243,7 +279,6 @@ def get_poi(poi_type):
         return jsonify(data)
     else:
         return jsonify({'error': f'Errore API: {response.status_code}'}), 500
-
 
 
 @utils_bp.route('/get_markers')
