@@ -176,21 +176,3 @@ let poiLayers = {
     map.addControl(new customControl());
 
 
-function saveGeofenceToDatabase(marker, geofence) {
-    const data = marker ? { marker } : { geofence };
-    
-    fetch('/save-geofence', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Success:', data);
-    })
-    .catch((error) => {
-        console.error('Error:', error);
-    });
-}
