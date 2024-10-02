@@ -119,7 +119,7 @@ let poiLayers = {
                 data.forEach(markerData => {
                     const color = getColorFromRank(markerData.rank);
                     const marker = L.circleMarker([markerData.lat, markerData.lng], {
-                        radius: 8,
+                        radius: 10,
                         fillColor: color,
                         color: '#000',
                         weight: 1,
@@ -140,10 +140,10 @@ let poiLayers = {
     }
     
     function getColorFromRank(rank) {
-        if (rank < 20) return '#FF0000';      // Rosso
-        else if (rank < 40) return '#FFA500'; // Arancione
-        else if (rank < 60) return '#FFFF00'; // Giallo
-        else if (rank < 80) return '#90EE90'; // Verde chiaro
+        if (rank < 70) return '#FF0000';      // Rosso
+        else if (rank < 90) return '#FFA500'; // Arancione
+        else if (rank < 120) return '#FFFF00'; // Giallo
+        else if (rank < 150) return '#90EE90'; // Verde chiaro
         else return '#008000';                // Verde scuro
     }
 
