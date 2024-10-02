@@ -1,4 +1,3 @@
-
 from flask import jsonify, request, Blueprint
 from geoalchemy2.shape import from_shape, to_shape
 from models import *
@@ -7,24 +6,39 @@ import requests
 from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
 
-
 utils_bp = Blueprint('utils', __name__)
+
+@utils_bp.route('/debug_poi_count')
+def debug_poi_count():
+    total_count = POI.query.count()
+    parking_count = POI.query.filter_by(type='parcheggi').count()
+    return jsonify({
+        'total_poi_count': total_count,
+        'parking_poi_count': parking_count
+    })
 
 @utils_bp.route('/get_pois')
 def get_pois():
     pois = POI.query.all()
+    print(f"Numero totale di POI nel database: {len(pois)}")
+    
     poi_list = []
-    for poi in pois:
+    for index, poi in enumerate(pois):
+        print(f"Elaborazione POI {index + 1}: Tipo = {poi.type}")
         # Convert WKBElement to Shapely object
         point = to_shape(poi.location)
         # Convert Shapely object to GeoJSON
         geojson = mapping(point)
-        poi_list.append({
+        poi_data = {
             'type': poi.type,
             'lat': geojson['coordinates'][1],
             'lng': geojson['coordinates'][0],
             'additional_data': json.loads(poi.additional_data)
-        })
+        }
+        print(f"Dati POI {index + 1}: {poi_data}")
+        poi_list.append(poi_data)
+    
+    print(f"Numero di POI restituiti: {len(poi_list)}")
     return jsonify(poi_list)
 
 @utils_bp.route('/save-geofence', methods=['POST'])
@@ -114,7 +128,6 @@ def get_poi_coordinates(poi):
     else:
         raise ValueError("Formato coordinate non riconosciuto")
 
-
 @utils_bp.route('/api/poi/<poi_type>', methods=['GET'])
 def get_poi(poi_type):
     base_urls = {
@@ -147,8 +160,8 @@ def get_poi(poi_type):
 def update_pois():
     poi_sources = {
         
-        'parcheggi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/disponibilita-parcheggi-storico/records?limit=100',
-        'cinema': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/teatri-cinema-teatri/records?limit=100 ',
+        'parcheggi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/parcheggi/records?limit=100',
+        'cinema': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/teatri-cinema-teatri/records?limit=100',
         'farmacia': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/farmacie/records?limit=100',
         'ospedali': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/strutture-sanitarie/records?limit=100',
         'fermate_bus' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records?select=*&limit=100&refine=comune%3A"BOLOGNA"',

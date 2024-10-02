@@ -16,7 +16,6 @@ def get_home():
 def get_quest():
     return render_template('questionario.html')
 
-
 @views.route('/get_database')
 def get_database():
     return render_template('database.html')
