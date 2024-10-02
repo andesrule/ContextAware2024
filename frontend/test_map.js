@@ -46,7 +46,7 @@ map.on(L.Draw.Event.CREATED, function (e) {
     if (layer instanceof L.Marker) {
         // Usa l'icona rossa per i marker dell'utente
         const latlng = layer.getLatLng();
-        const userMarker = L.marker([latlng.lat, latlng.lng], { icon: userMarkerIcon }).addTo(map);
+        const userMarker = L.marker([latlng.lat, latlng.lng]).addTo(map);
         userMarker.bindPopup('<b>Marker Utente</b>').openPopup();
 
         // Salva il marker nel database
@@ -61,39 +61,8 @@ map.on(L.Draw.Event.CREATED, function (e) {
     drawnItems.addLayer(layer);
 });
 
-// Marker per i POI con colore blu (default)
-const poiMarkerIcon = L.divIcon({
-    className: 'poi-marker', // Classe per il marker
-    html: '<div style="background-color: blue; width: 25px; height: 25px; border-radius: 50%;"></div>', // Stile del marker
-    iconSize: [25, 25],
-    iconAnchor: [12, 12]
-});
 
-const userMarkerIcon = L.divIcon({
-    className: 'user-marker',
-    html: `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="25" height="25">
-            <path fill="red" d="M12 0C7.58 0 4 3.58 4 8c0 5.5 8 16 8 16s8-10.5 8-16c0-4.42-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
-        </svg>
-    `,
-    iconSize: [25, 25],
-    iconAnchor: [12, 25],
-    popupAnchor: [0, -25]
-});
 
-// Funzione per aggiungere un marker inserito dall'utente
-function addUserMarker(lat, lon) {
-    const marker = L.marker([lat, lon], { icon: userMarkerIcon }).addTo(map);
-    marker.bindPopup('<b>Marker Utente</b>').openPopup();
-    userMarkers.push(marker); // Salva i marker inseriti dall'utente
-}
-
-// Funzione per aggiungere un marker per i POI
-function addPOIMarker(lat, lon, poiType, name) {
-    const marker = L.marker([lat, lon], { icon: poiMarkerIcon }).bindPopup(`<b>${name}</b><br>${poiType}`);
-    marker.addTo(map);
-    poiMarkers[poiType].push(marker);
-}
 
 
 // Funzione per recuperare i dati dei POI dal server
@@ -141,7 +110,11 @@ function getPOIData(poiType) {
             const name = poi.additional_data.denominazione_struttura || poi.additional_data.denominazi || poi.additional_data.name || 'POI';
 
             // Create and add the marker to the map
-            addPOIMarker(lat, lon, poiType, name);
+            
+    const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>${poiType}`);
+    marker.addTo(map);
+    poiMarkers[poiType].push(marker);
+    
         });
     }).catch(error => {
         console.error(`Errore nel recupero dei POI per ${poiType}:`, error);
@@ -216,4 +189,3 @@ var customControl = L.Control.extend({
 
 // Aggiungi il controllo personalizzato alla mappa
 map.addControl(new customControl());
-
