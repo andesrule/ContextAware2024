@@ -1,26 +1,26 @@
-// Assicurati che questo codice sia eseguito solo dopo che il DOM è completamente caricato
+// Inizializza la mappa centrata su Bologna
+let map = L.map('map').setView([44.4949, 11.3426], 13);
 
-    // Inizializza la mappa centrata su Bologna
-    let map = L.map('map').setView([44.4949, 11.3426], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+// Oggetto per tenere traccia dei layer group per ciascuna categoria di POI
+let poiLayers = {
+    aree_verdi: L.markerClusterGroup({ singleMarkerMode: true }),
+    parcheggi: L.markerClusterGroup({ singleMarkerMode: true }),
+    fermate_bus: L.markerClusterGroup({ singleMarkerMode: true }),
+    stazioni_ferroviarie: L.markerClusterGroup({ singleMarkerMode: true }),
+    scuole: L.markerClusterGroup({ singleMarkerMode: true }),
+    cinema: L.markerClusterGroup({ singleMarkerMode: true }),
+    ospedali: L.markerClusterGroup({ singleMarkerMode: true }),
+    farmacia: L.markerClusterGroup({ singleMarkerMode: true }),
+    luogo_culto: L.markerClusterGroup({ singleMarkerMode: true }),
+    servizi: L.markerClusterGroup({ singleMarkerMode: true })
+};
 
-    // Oggetto per tenere traccia dei layer group per ciascuna categoria di POI
-    let poiLayers = {
-        aree_verdi: L.markerClusterGroup(),
-        parcheggi: L.markerClusterGroup(),
-        fermate_bus: L.markerClusterGroup(),
-        stazioni_ferroviarie: L.markerClusterGroup(),
-        scuole: L.markerClusterGroup(),
-        cinema: L.markerClusterGroup(),
-        ospedali: L.markerClusterGroup(),
-        farmacia: L.markerClusterGroup(),
-        luogo_culto: L.markerClusterGroup(),
-        servizi: L.markerClusterGroup()
-    };
-    
+// Resto del codice rimane invariato
+
 
     // Variabili per la gestione dei poligoni
     let drawnItems = new L.FeatureGroup();
