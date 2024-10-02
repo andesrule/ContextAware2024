@@ -24,7 +24,6 @@
         window.addEventListener('DOMContentLoaded', function() {
             const script = document.createElement('script');
             script.src = 'test_map.js';
-            
             document.body.appendChild(script);
         });
     </script>
@@ -32,104 +31,68 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
-<!-- Aggiungi il JS di Leaflet MarkerCluster -->
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-
-
+    <!-- Aggiungi il JS di Leaflet MarkerCluster -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 </head>
 
-<body class="bg-gray-700">
-    <div id="sidebar" class="fixed inset-y-0 right-0 bg-gray-800 z-40 transform transition-transform duration-300 ease-in-out">
-        <div class="w-full h-full bg-gray-900 text-white p-4">
+<body class="bg-gray-700 h-screen">
+    <div class="flex h-full w-full justify-center items-center">
+        <!-- Contenitore per la mappa, ingrandita -->
+        <div id="mapContainer" class="flex justify-center items-center w-full h-full">
+            <div id="map" class="w-3/4 h-3/4"></div>
+        </div>
+
+        <!-- Sidebar posizionata fuori dal container, sulla destra -->
+        <div id="sidebar" class="fixed inset-y-0 right-0 w-64 bg-gray-800 text-white p-4 overflow-auto">
             <ul>
                 <li><a href="{{url_for('views.get_home')}}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
                 <li><a href="{{url_for('views.get_quest')}}" class="block py-2 px-4 hover:bg-gray-700">Test_Questionario</a></li>
                 <li><a href="/admin" class="block py-2 px-4 hover:bg-gray-700">Admin</a></li>
-
             </ul>
+
+            <!-- Pannello per le checkbox -->
+            <h5 class="mb-4 text-2xl font-bold tracking-tight text-white">Toggle POI</h5>
+            <label for="aree_verdi" class="block mb-2">
+                <input type="checkbox" id="aree_verdi" onchange="togglePOI('aree_verdi')" class="mr-2">
+                Aree Verdi
+            </label>
+            <label for="parcheggi" class="block mb-2">
+                <input type="checkbox" id="parcheggi" onchange="togglePOI('parcheggi')" class="mr-2">
+                Parcheggi
+            </label>
+            <label for="fermate_bus" class="block mb-2">
+                <input type="checkbox" id="fermate_bus" onchange="togglePOI('fermate_bus')" class="mr-2">
+                Fermate Bus
+            </label>
+            <label for="stazioni_ferroviarie" class="block mb-2">
+                <input type="checkbox" id="stazioni_ferroviarie" onchange="togglePOI('stazioni_ferroviarie')" class="mr-2">
+                Stazioni Ferroviarie
+            </label>
+            <label for="scuole" class="block mb-2">
+                <input type="checkbox" id="scuole" onchange="togglePOI('scuole')" class="mr-2">
+                Scuole
+            </label>
+            <label for="cinema" class="block mb-2">
+                <input type="checkbox" id="cinema" onchange="togglePOI('cinema')" class="mr-2">
+                Cinema
+            </label>
+            <label for="ospedali" class="block mb-2">
+                <input type="checkbox" id="ospedali" onchange="togglePOI('ospedali')" class="mr-2">
+                Ospedali
+            </label>
+            <label for="farmacia" class="block mb-2">
+                <input type="checkbox" id="farmacia" onchange="togglePOI('farmacia')" class="mr-2">
+                Farmacia
+            </label>
+            <label for="luogo_culto" class="block mb-2">
+                <input type="checkbox" id="luogo_culto" onchange="togglePOI('luogo_culto')" class="mr-2">
+                Luogo di Culto
+            </label>
+            <label for="servizi" class="block mb-2">
+                <input type="checkbox" id="servizi" onchange="togglePOI('servizi')" class="mr-2">
+                Servizi
+            </label>
         </div>
     </div>
-
-    <!-- Contenitore per la mappa -->
-    <div id="mapContainer">
-        <div id="map"></div>
-    </div>
-
-    </br>
-
-    <a href="#" class="block max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
-
-        <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Toggle POI</h5>
-        <label for="aree_verdi">
-            <input type="checkbox" id="aree_verdi" onchange="togglePOI('aree_verdi')">
-            Aree Verdi
-        </label>
-        <br>
-        
-        <label for="parcheggi">
-            <input type="checkbox" id="parcheggi" onchange="togglePOI('parcheggi')">
-            Parcheggi
-        </label>
-        <br>
-        
-        <label for="fermate_bus">
-            <input type="checkbox" id="fermate_bus" onchange="togglePOI('fermate_bus')">
-            Fermate Bus
-        </label>
-        <br>
-        
-        <label for="stazioni_ferroviarie">
-            <input type="checkbox" id="stazioni_ferroviarie" onchange="togglePOI('stazioni_ferroviarie')">
-            Stazioni Ferroviarie
-        </label>
-        <br>
-        
-        <label for="scuole">
-            <input type="checkbox" id="scuole" onchange="togglePOI('scuole')">
-            Scuole
-        </label>
-        <br>
-        
-        <label for="cinema">
-            <input type="checkbox" id="cinema" onchange="togglePOI('cinema')">
-            Cinema
-        </label>
-        <br>
-        
-        <label for="ospedali">
-            <input type="checkbox" id="ospedali" onchange="togglePOI('ospedali')">
-            Ospedali
-        </label>
-        <br>
-        
-        <label for="farmacia">
-            <input type="checkbox" id="farmacia" onchange="togglePOI('farmacia')">
-            Farmacia
-        </label>
-        <br>
-        
-        <label for="luogo_culto">
-            <input type="checkbox" id="luogo_culto" onchange="togglePOI('luogo_culto')">
-            Luogo di Culto
-        </label>
-        <br>
-        
-        <label for="servizi">
-            <input type="checkbox" id="servizi" onchange="togglePOI('servizi')">
-            Servizi
-        </label>
-        <br>
-        
-    
-       
-        
-    </a>
-    
-    
-    
-    
-
-    
 </body>
-
 </html>
