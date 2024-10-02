@@ -1,17 +1,31 @@
 
 from flask import jsonify, request, Blueprint
 from geoalchemy2.shape import from_shape, to_shape
-from shapely.geometry import Point, Polygon
-from shapely.wkt import loads
-from utils import *
 from models import *
 import json
 import requests
 from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
-from utils import *
+
 
 utils_bp = Blueprint('utils', __name__)
+
+@utils_bp.route('/get_pois')
+def get_pois():
+    pois = POI.query.all()
+    poi_list = []
+    for poi in pois:
+        # Convert WKBElement to Shapely object
+        point = to_shape(poi.location)
+        # Convert Shapely object to GeoJSON
+        geojson = mapping(point)
+        poi_list.append({
+            'type': poi.type,
+            'lat': geojson['coordinates'][1],
+            'lng': geojson['coordinates'][0],
+            'additional_data': json.loads(poi.additional_data)
+        })
+    return jsonify(poi_list)
 
 @utils_bp.route('/save-geofence', methods=['POST'])
 def save_geofence():
@@ -129,7 +143,6 @@ def get_poi(poi_type):
         return jsonify(data)
     else:
         return jsonify({'error': f'Errore API: {response.status_code}'}), 500
-
 
 def update_pois():
     poi_sources = {

@@ -21,10 +21,9 @@
         <div class="flex-1 flex justify-between items-center">
             <a href="#" class="text-white text-xl font-bold">Context Aware 2024</a>
             
-            <div class="flex space-x-4">
+            <div class="flex space-x-4"></div>
                 <button id="menuButton" class="text-white text-xl font-bold">Menu</button>
                 <!-- Aggiungi il pulsante Admin -->
-                <a href="/admin" class="text-white text-xl font-bold hover:bg-gray-700 p-2 rounded">Admin</a>
             </div>
         </div>
     </nav>
@@ -36,10 +35,11 @@
             <div class="w-full h-full bg-gray-900 text-white p-4">
                 <button id="closeSidebar" class="text-white text-xl mb-4">Close</button>
                 <ul>
-                    <li><a href="{{url_for('get_home')}}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
+                    <li><a href="{{url_for('views.get_home')}}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
                     <li><button id="openModalButton" class="block py-2 px-4 hover:bg-gray-700 w-full text-left">Questionario</button></li>
-                    <li><a href="{{url_for('test')}}" class="block py-2 px-4 hover:bg-gray-700">Test</a></li>                   
-                    <li><a href="{{url_for('get_quest')}}" class="block py-2 px-4 hover:bg-gray-700">Test_Questionario</a></li>
+                    <li><a href="{{url_for('views.test')}}" class="block py-2 px-4 hover:bg-gray-700">Test</a></li>                   
+                    <li><a href="{{url_for('views.get_quest')}}" class="block py-2 px-4 hover:bg-gray-700">Test_Questionario</a></li>
+                    <li><a href="/admin" class="block py-2 px-4 hover:bg-gray-700">Admin</a></li>
                 </ul>
             </div>
         </div>

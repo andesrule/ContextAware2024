@@ -25,10 +25,10 @@
     <div id="sidebar" class="fixed inset-y-0 right-0 bg-gray-800 z-40 transform transition-transform duration-300 ease-in-out">
         <div class="w-full h-full bg-gray-900 text-white p-4">
             <ul>
-                <li><a href="{{url_for('get_home')}}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
-                <li><button id="openModalButton" class="block py-2 px-4 hover:bg-gray-700 w-full text-left">Questionario</button></li>
-                <li><a href="{{url_for('test')}}" class="block py-2 px-4 hover:bg-gray-700">Test</a></li>
-                <li><a href="{{url_for('get_database')}}" class="block py-2 px-4 hover:bg-gray-700">Database</a></li>
+                <li><a href="{{url_for('views.get_home')}}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
+                <li><a href="{{url_for('views.get_quest')}}" class="block py-2 px-4 hover:bg-gray-700">Test_Questionario</a></li>
+                <li><a href="/admin" class="block py-2 px-4 hover:bg-gray-700">Admin</a></li>
+
             </ul>
         </div>
     </div>
