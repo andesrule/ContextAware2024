@@ -1,4 +1,4 @@
-// Aggiungi un listener per 'DOMContentLoaded' per assicurarti che il DOM sia completamente caricato prima di eseguire il codice
+// Assicurati che questo codice sia eseguito solo dopo che il DOM è completamente caricato
 
     // Inizializza la mappa centrata su Bologna
     let map = L.map('map').setView([44.4949, 11.3426], 13);
@@ -7,19 +7,20 @@
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Oggetto per tenere traccia dei marker per ciascuna categoria di POI
-    let poiMarkers = {
-        aree_verdi: [],
-        parcheggi: [],
-        fermate_bus: [],
-        stazioni_ferroviarie: [],
-        scuole: [],
-        cinema: [],
-        ospedali: [],
-        farmacia: [],
-        luogo_culto: [],
-        servizi: []
+    // Oggetto per tenere traccia dei layer group per ciascuna categoria di POI
+    let poiLayers = {
+        aree_verdi: L.markerClusterGroup(),
+        parcheggi: L.markerClusterGroup(),
+        fermate_bus: L.markerClusterGroup(),
+        stazioni_ferroviarie: L.markerClusterGroup(),
+        scuole: L.markerClusterGroup(),
+        cinema: L.markerClusterGroup(),
+        ospedali: L.markerClusterGroup(),
+        farmacia: L.markerClusterGroup(),
+        luogo_culto: L.markerClusterGroup(),
+        servizi: L.markerClusterGroup()
     };
+    
 
     // Variabili per la gestione dei poligoni
     let drawnItems = new L.FeatureGroup();
@@ -40,152 +41,139 @@
     map.addControl(drawControl);
 
     // Gestione degli eventi di disegno
-map.on(L.Draw.Event.CREATED, function (e) {
-    let layer = e.layer;
+    map.on(L.Draw.Event.CREATED, function (e) {
+        let layer = e.layer;
 
-    if (layer instanceof L.Marker) {
-        // Usa l'icona rossa per i marker dell'utente
-        const latlng = layer.getLatLng();
-        const userMarker = L.marker([latlng.lat, latlng.lng]).addTo(map);
-        userMarker.bindPopup('<b>Marker Utente</b>').openPopup();
+        if (layer instanceof L.Marker) {
+            const latlng = layer.getLatLng();
+            const userMarker = L.marker([latlng.lat, latlng.lng]).addTo(map);
+            userMarker.bindPopup('<b>Marker Utente</b>').openPopup();
 
-        // Salva il marker nel database
-        saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null);  // Salva il marker come punto singolo
-    } else if (layer instanceof L.Polygon) {
-        // Salva il poligono nel database
-        const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
-        saveGeofenceToDatabase(null, [coordinates]);  // Salva il poligono
-    }
-
-    // Aggiungi il layer alla mappa (usato per visualizzare sia marker che poligoni)
-    drawnItems.addLayer(layer);
-});
-
-
-
-
-
-// Funzione per recuperare i dati dei POI dal server
-// Funzione generica per recuperare i dati dei POI dal server
-// Funzione generica per recuperare i dati dei POI dal server// Funzione generica per recuperare i dati dei POI dal server
-function getPOIData(poiType) {
-    axios.get(`/get_pois`).then(response => {
-        console.log(`Dati ricevuti per ${poiType}:`, response.data);
-
-        const pois = response.data.filter(poi => poi.type === poiType);
-
-        if (!pois || pois.length === 0) {
-            console.warn(`Nessun POI trovato per ${poiType}`);
-            return;
+            saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null);
+        } else if (layer instanceof L.Polygon) {
+            const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
+            saveGeofenceToDatabase(null, [coordinates]);
         }
 
-        pois.forEach(poi => {
-            let lat, lon;
+        drawnItems.addLayer(layer);
+    });
 
-            // Handle different coordinate formats
-            if (poi.additional_data.geo_point_2d) {
-                lat = poi.additional_data.geo_point_2d.lat;
-                lon = poi.additional_data.geo_point_2d.lon;
-            } else if (poi.additional_data.geopoint) {
-                lat = poi.additional_data.geopoint.lat;
-                lon = poi.additional_data.geopoint.lon;
-            } else if (poi.additional_data.point) {
-                lat = poi.additional_data.point.lat;
-                lon = poi.additional_data.point.lon;
-            } else if (poi.additional_data.coordinate) {
-                // Handle 'coordinate' for parking POIs
-                lat = poi.additional_data.coordinate.lat;
-                lon = poi.additional_data.coordinate.lon;
+    function getPOIData(poiType) {
+        fetch(`/get_pois?type=${poiType}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log(`Dati ricevuti per ${poiType}:`, data);
+
+                const pois = data.filter(poi => poi.type === poiType);
+
+                if (!pois || pois.length === 0) {
+                    console.warn(`Nessun POI trovato per ${poiType}`);
+                    return;
+                }
+
+                pois.forEach(poi => {
+                    const lat = poi.lat;
+                    const lon = poi.lng;
+
+                    if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+                        console.warn(`Coordinate non valide per ${poiType}:`, lat, lon);
+                        return;
+                    }
+
+                    const name = poi.additional_data.denominazione_struttura || poi.additional_data.denominazi || poi.additional_data.name || 'POI';
+
+                    const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>${poiType}`);
+                    poiLayers[poiType].addLayer(marker);
+                });
+
+                map.addLayer(poiLayers[poiType]);
+            })
+            .catch(error => {
+                console.error(`Errore nel recupero dei POI per ${poiType}:`, error);
+            });
+    }
+
+    function togglePOI(poiType) {
+        if (document.getElementById(poiType).checked) {
+            if (poiLayers[poiType].getLayers().length === 0) {
+                getPOIData(poiType);
             } else {
-                console.warn(`POI senza dati geografici per ${poiType}:`, poi);
-                return;  // Skip this POI if no valid coordinates are found
+                map.addLayer(poiLayers[poiType]);
+            }
+        } else {
+            map.removeLayer(poiLayers[poiType]);
+        }
+    }
+
+    // Esponi la funzione togglePOI globalmente
+    window.togglePOI = togglePOI;
+
+    let databaseMarkers = L.markerClusterGroup();
+
+    function loadDatabaseMarkers() {
+        fetch('/get_markers')
+            .then(response => response.json())
+            .then(data => {
+                databaseMarkers.clearLayers();
+
+                data.forEach(markerData => {
+                    const marker = L.marker([markerData.lat, markerData.lng]);
+                    marker.bindPopup('<b>Marker dal Database</b>');
+                    databaseMarkers.addLayer(marker);
+                });
+
+                map.addLayer(databaseMarkers);
+
+                if (databaseMarkers.getLayers().length > 0) {
+                    map.fitBounds(databaseMarkers.getBounds());
+                }
+            })
+            .catch(error => console.error('Errore nel caricamento dei marker dal database:', error));
+    }
+
+    var customControl = L.Control.extend({
+        options: {
+            position: 'topleft'
+        },
+        onAdd: function(map) {
+            var container = L.DomUtil.create('div', 'leaflet-control-custom');
+            container.innerHTML = '📍';
+            container.style.backgroundColor = 'white';
+            container.style.width = '30px';
+            container.style.height = '30px';
+            container.style.lineHeight = '30px';
+            container.style.textAlign = 'center';
+            container.style.cursor = 'pointer';
+            container.title = 'Mostra marker dal database';
+
+            container.onclick = function(){
+                loadDatabaseMarkers();
             }
 
-            // Ensure that lat and lon are valid numbers
-            if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
-                console.warn(`Coordinate non valide per ${poiType}:`, lat, lon);
-                return;
-            }
+            L.DomEvent.disableClickPropagation(container);
 
-            const name = poi.additional_data.denominazione_struttura || poi.additional_data.denominazi || poi.additional_data.name || 'POI';
+            return container;
+        }
+    });
 
-            // Create and add the marker to the map
-            
-    const marker = L.marker([lat, lon]).bindPopup(`<b>${name}</b><br>${poiType}`);
-    marker.addTo(map);
-    poiMarkers[poiType].push(marker);
+    map.addControl(new customControl());
+
+
+function saveGeofenceToDatabase(marker, geofence) {
+    const data = marker ? { marker } : { geofence };
     
-        });
-    }).catch(error => {
-        console.error(`Errore nel recupero dei POI per ${poiType}:`, error);
+    fetch('/save-geofence', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Success:', data);
+    })
+    .catch((error) => {
+        console.error('Error:', error);
     });
 }
-
-
-function togglePOI(poiType) {
-    if (document.getElementById(poiType).checked) {
-        // Se non ci sono marker, carica i dati dal server
-        if (poiMarkers[poiType].length === 0) {
-            getPOIData(poiType);  // Usa la funzione generica per tutti i tipi di POI
-        } else {
-            // Aggiungi i marker già presenti alla mappa
-            poiMarkers[poiType].forEach(marker => marker.addTo(map));
-        }
-    } else {
-        // Rimuovi i marker dalla mappa
-        poiMarkers[poiType].forEach(marker => map.removeLayer(marker));
-    }
-}
-let databaseMarkers = [];
-function loadDatabaseMarkers() {
-    fetch('/get_markers')
-        .then(response => response.json())
-        .then(data => {
-            // Rimuovi i marker esistenti
-            databaseMarkers.forEach(marker => map.removeLayer(marker));
-            databaseMarkers = [];
-
-            // Aggiungi i nuovi marker
-            data.forEach(markerData => {
-                const marker = L.marker([markerData.lat, markerData.lng], { icon: userMarkerIcon }).addTo(map);
-                marker.bindPopup('<b>Marker dal Database</b>');
-                databaseMarkers.push(marker);
-            });
-
-            // Centra la mappa sui marker se ce ne sono
-            if (databaseMarkers.length > 0) {
-                let group = new L.featureGroup(databaseMarkers);
-                map.fitBounds(group.getBounds());
-            }
-        })
-        .catch(error => console.error('Errore nel caricamento dei marker dal database:', error));
-}
-
-// Definizione del controllo personalizzato
-var customControl = L.Control.extend({
-    options: {
-        position: 'topleft'
-    },
-    onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'leaflet-control-custom');
-        container.innerHTML = '📍';
-        container.style.backgroundColor = 'white';
-        container.style.width = '30px';
-        container.style.height = '30px';
-        container.style.lineHeight = '30px';
-        container.style.textAlign = 'center';
-        container.style.cursor = 'pointer';
-        container.title = 'Mostra marker dal database';
-
-        container.onclick = function(){
-            loadDatabaseMarkers();
-        }
-
-        L.DomEvent.disableClickPropagation(container);
-
-        return container;
-    }
-});
-
-// Aggiungi il controllo personalizzato alla mappa
-map.addControl(new customControl());

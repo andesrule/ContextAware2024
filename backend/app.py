@@ -32,7 +32,7 @@ admin.add_view(CustomModelView(QuestionnaireResponse, db.session))
 admin.add_view(CustomModelView(POI, db.session))
 
 
-@app.before_request
+""" @app.before_request
 def initialize_database():
     if not hasattr(app, 'db_initialized'):
         with app.app_context():
@@ -44,7 +44,7 @@ def initialize_database():
                 db.session.commit()
             update_pois()
         app.db_initialized = True
-
+ """
 
 @app.route('/api/count_nearby_pois', methods=['GET'])
 def api_count_nearby_pois():

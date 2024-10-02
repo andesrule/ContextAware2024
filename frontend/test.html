@@ -16,7 +16,24 @@
     <!-- Il file CSS separato -->
     <link rel="stylesheet" href="style_test.css">
     <link rel="icon" href="data:,">
-    <script src="db_test_map.js"></script>
+    <script src="db_test_map.js" defer></script>
+    <!-- Caricamento degli script JS -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" defer></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', function() {
+            const script = document.createElement('script');
+            script.src = 'test_map.js';
+            
+            document.body.appendChild(script);
+        });
+    </script>
+    <!-- Aggiungi il CSS di Leaflet MarkerCluster -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+<!-- Aggiungi il JS di Leaflet MarkerCluster -->
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
 
 </head>
@@ -112,17 +129,7 @@
     
     
 
-    <!-- Caricamento degli script JS -->
-    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script>
-        window.addEventListener('DOMContentLoaded', function() {
-            const script = document.createElement('script');
-            script.src = 'test_map.js';
-            
-            document.body.appendChild(script);
-        });
-    </script>
+    
 </body>
 
 </html>
