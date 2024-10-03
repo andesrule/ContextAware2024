@@ -1,5 +1,7 @@
 // Inizializza la mappa centrata su Bologna
 let map = L.map('map').setView([44.4949, 11.3426], 13);
+let neighborhoodRadius = 500; // Raggio iniziale in metri
+let circles = {};
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
@@ -41,22 +43,7 @@ let poiLayers = {
     map.addControl(drawControl);
 
     // Gestione degli eventi di disegno
-    map.on(L.Draw.Event.CREATED, function (e) {
-        let layer = e.layer;
 
-        if (layer instanceof L.Marker) {
-            const latlng = layer.getLatLng();
-            const userMarker = L.marker([latlng.lat, latlng.lng]).addTo(map);
-            userMarker.bindPopup('<b>Marker Utente</b>').openPopup();
-
-            saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null);
-        } else if (layer instanceof L.Polygon) {
-            const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
-            saveGeofenceToDatabase(null, [coordinates]);
-        }
-
-        drawnItems.addLayer(layer);
-    });
 
     function getPOIData(poiType) {
         fetch(`/get_pois?type=${poiType}`)
@@ -241,3 +228,93 @@ let poiLayers = {
     map.addControl(new geofenceControl());
 
 
+
+
+// Aggiungi questo codice per creare lo slider
+let radiusSlider = L.control({position: 'topright'});
+
+radiusSlider.onAdd = function(map) {
+    let div = L.DomUtil.create('div', 'info radius-slider');
+    div.innerHTML = '<h4>Raggio del vicinato: <span id="radiusValue">500</span> m</h4>' +
+                    '<input type="range" min="50" max="1000" value="500" class="slider" id="radiusSlider">';
+    return div;
+};
+
+radiusSlider.addTo(map);
+
+// Aggiungi l'evento per lo slider
+document.getElementById('radiusSlider').addEventListener('input', function(e) {
+    neighborhoodRadius = parseInt(e.target.value);
+    document.getElementById('radiusValue').textContent = neighborhoodRadius;
+    updateNeighborhoodCircles();
+    sendRadiusToBackend(neighborhoodRadius);
+});
+
+// Funzione per aggiornare i cerchi del vicinato
+function updateNeighborhoodCircles() {
+    Object.values(circles).forEach(circle => {
+        circle.setRadius(neighborhoodRadius);
+    });
+}
+// Funzione per inviare il raggio al backend
+function sendRadiusToBackend(radius) {
+    fetch('/get_radius', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ radius: radius })  // Passa il raggio come intero
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Success:', data);  // Ricevi la risposta dal backend
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+    });
+}
+// Modifica la gestione degli eventi di disegno per includere i cerchi del vicinato
+map.on(L.Draw.Event.CREATED, function (e) {
+    let layer = e.layer;
+
+    if (layer instanceof L.Marker) {
+        const latlng = layer.getLatLng();
+        const userMarker = L.marker([latlng.lat, latlng.lng]).addTo(map);
+        userMarker.bindPopup('<b>Marker Utente</b>').openPopup();
+
+        // Crea il cerchio del vicinato
+        const circle = L.circle([latlng.lat, latlng.lng], {
+            color: 'blue',
+            fillColor: '#30f',
+            fillOpacity: 0.2,
+            radius: neighborhoodRadius
+        }).addTo(map);
+
+        // Memorizza il cerchio
+        circles[userMarker._leaflet_id] = circle;
+
+        saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null);
+    } else if (layer instanceof L.Polygon) {
+        const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
+        saveGeofenceToDatabase(null, [coordinates]);
+    }
+
+    drawnItems.addLayer(layer);
+});
+
+// Aggiungi questo stile CSS per lo slider
+const style = document.createElement('style');
+style.textContent = `
+    .radius-slider {
+        background: white;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    .radius-slider h4 {
+        margin: 0 0 10px 0;
+    }
+    .slider {
+        width: 100%;
+    }
+`;
+document.head.appendChild(style);

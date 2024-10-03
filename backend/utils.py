@@ -43,6 +43,34 @@ def get_pois():
     print(f"Numero di POI restituiti: {len(poi_list)}")
     return jsonify(poi_list)
 
+@utils_bp.route('/get_radius', methods=['POST'])
+def get_radius():
+    # Stampa informazioni di debug
+    print("Content-Type:", request.headers.get('Content-Type'))
+    print("Dati ricevuti:", request.data)
+
+    # Prova a ottenere i dati JSON, anche se il Content-Type non è esattamente 'application/json'
+    try:
+        data = request.get_json(force=True)
+    except Exception as e:
+        return jsonify({"error": f"Errore nel parsing JSON: {str(e)}"}), 400
+
+    # Verifica se il parametro 'radius' è presente nei dati
+    if 'radius' not in data:
+        return jsonify({"error": "Il parametro 'radius' è mancante"}), 400
+
+    # Ottieni il valore del raggio
+    radius = data['radius']
+
+    # Verifica se il raggio è un numero intero
+    try:
+        radius = int(radius)
+    except ValueError:
+        return jsonify({"error": "Il raggio deve essere un numero intero"}), 400
+
+    # Restituisci il raggio come risposta
+    return jsonify({"radius": radius}), 200
+    
 @utils_bp.route('/save-geofence', methods=['POST'])
 def save_geofence():
     data = request.json
