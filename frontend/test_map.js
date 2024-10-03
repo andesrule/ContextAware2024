@@ -258,6 +258,7 @@ function updateNeighborhoodCircles() {
     });
 }
 // Funzione per inviare il raggio al backend
+// Funzione per inviare il raggio al backend
 function sendRadiusToBackend(radius) {
     fetch('/get_radius', {
         method: 'POST',
@@ -324,6 +325,8 @@ function deleteMarker(markerId) {
         }
     }
 }
+
+
 
 
 

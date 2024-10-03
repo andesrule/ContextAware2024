@@ -580,3 +580,4 @@ def get_ranked_geofences():
         })
     
     return jsonify(ranked_geofences)
+
