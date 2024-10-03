@@ -8,6 +8,7 @@ from shapely.wkt import loads
 from sqlalchemy import func
 from geoalchemy2.functions import *
 
+global_radius = 500
 utils_bp = Blueprint('utils', __name__)
 
 @utils_bp.route('/debug_poi_count')
@@ -45,31 +46,20 @@ def get_pois():
 
 @utils_bp.route('/get_radius', methods=['POST'])
 def get_radius():
-    # Stampa informazioni di debug
-    print("Content-Type:", request.headers.get('Content-Type'))
-    print("Dati ricevuti:", request.data)
-
-    # Prova a ottenere i dati JSON, anche se il Content-Type non è esattamente 'application/json'
+    global global_radius
     try:
         data = request.get_json(force=True)
-    except Exception as e:
-        return jsonify({"error": f"Errore nel parsing JSON: {str(e)}"}), 400
-
-    # Verifica se il parametro 'radius' è presente nei dati
-    if 'radius' not in data:
-        return jsonify({"error": "Il parametro 'radius' è mancante"}), 400
-
-    # Ottieni il valore del raggio
-    radius = data['radius']
-
-    # Verifica se il raggio è un numero intero
-    try:
-        radius = int(radius)
+        if 'radius' not in data:
+            return jsonify({"error": "Il parametro 'radius' è mancante"}), 400
+        
+        radius = int(data['radius'])
+        global_radius = radius  # Salva il raggio nella variabile globale
+        return jsonify({"message": f"Raggio aggiornato a {radius} metri", "radius": radius}), 200
+    
     except ValueError:
         return jsonify({"error": "Il raggio deve essere un numero intero"}), 400
-
-    # Restituisci il raggio come risposta
-    return jsonify({"radius": radius}), 200
+    except Exception as e:
+        return jsonify({"error": f"Errore imprevisto: {str(e)}"}), 500
     
 @utils_bp.route('/save-geofence', methods=['POST'])
 def save_geofence():
@@ -428,21 +418,22 @@ def calcola_rank(marker_id, raggio):
 
 @utils_bp.route('/get_ranked_markers')
 def get_ranked_markers():
+    global global_radius
+    
     markers = Geofence.query.filter(Geofence.marker.isnot(None)).all()
     ranked_markers = []
-
+    
     for marker in markers:
         lat = db.session.scalar(ST_Y(marker.marker))
         lng = db.session.scalar(ST_X(marker.marker))
-        rank = calcola_rank(marker.id, raggio=300)  # Usa il raggio che preferisci
-
+        rank = calcola_rank(marker.id, raggio=global_radius)  # Usa il raggio globale
         ranked_markers.append({
             'id': marker.id,
             'lat': lat,
             'lng': lng,
             'rank': rank
         })
-
+    
     return jsonify(ranked_markers)
 
 def count_pois_in_geofence(db, geofence_id):
