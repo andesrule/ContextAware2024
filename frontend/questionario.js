@@ -20,7 +20,7 @@ function submitForm() {
         // Controlla se la risposta è OK (codice HTTP 2xx)
         if (!response.ok) {
             throw new Error(`Errore di rete: ${response.status} - ${response.statusText}`);
-        }
+    }
         // Prova a fare il parsing JSON
         return response.json();
     })

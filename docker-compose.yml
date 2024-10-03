@@ -22,11 +22,12 @@ services:
       - ./frontend:/usr/share/nginx/html  # Mappa la cartella frontend al servizio frontend
 
   db:
-    image: postgres:15
+    image: postgis/postgis:15-3.3
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-postgis.sql:/docker-entrypoint-initdb.d/init-postgis.sql  # Aggiungi questa riga
     environment:
       POSTGRES_DB: postgres_db
       POSTGRES_USER: postgres_user

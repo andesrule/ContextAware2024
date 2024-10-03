@@ -1,134 +1,128 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mappa di Bologna con Geofence</title>
+{% extends "index.html" %}
 
-    <!-- Tailwind CSS per lo stile base -->
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <!-- Leaflet CSS CDN -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
-    <!-- Leaflet Draw CSS CDN -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+{% block title %}Mappa di Bologna con Geofence{% endblock %}
 
-    <!-- Il file CSS separato -->
-    <link rel="stylesheet" href="style_test.css">
-    <link rel="icon" href="data:,">
-    <script src="db_test_map.js"></script>
+{% block sidebar %}
+<ul>
+    <li><a href="{{ url_for('views.get_home') }}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
+    <li><a href="{{ url_for('views.get_quest') }}" class="block py-2 px-4 hover:bg-gray-700">Test_Questionario</a></li>
+    <li><a href="/admin" class="block py-2 px-4 hover:bg-gray-700">Admin</a></li>
+</ul>
 
+<!-- Pannello per le checkbox -->
+<h5 class="mb-4 text-2xl font-bold tracking-tight text-white">Toggle POI</h5>
+<label for="aree_verdi" class="block mb-2">
+    <input type="checkbox" id="aree_verdi" onchange="togglePOI('aree_verdi')" class="mr-2">
+    Aree Verdi
+</label>
+<label for="parcheggi" class="block mb-2">
+    <input type="checkbox" id="parcheggi" onchange="togglePOI('parcheggi')" class="mr-2">
+    Parcheggi
+</label>
+<label for="fermate_bus" class="block mb-2">
+    <input type="checkbox" id="fermate_bus" onchange="togglePOI('fermate_bus')" class="mr-2">
+    Fermate Bus
+</label>
+<label for="stazioni_ferroviarie" class="block mb-2">
+    <input type="checkbox" id="stazioni_ferroviarie" onchange="togglePOI('stazioni_ferroviarie')" class="mr-2">
+    Stazioni Ferroviarie
+</label>
+<label for="scuole" class="block mb-2">
+    <input type="checkbox" id="scuole" onchange="togglePOI('scuole')" class="mr-2">
+    Scuole
+</label>
+<label for="cinema" class="block mb-2">
+    <input type="checkbox" id="cinema" onchange="togglePOI('cinema')" class="mr-2">
+    Cinema
+</label>
+<label for="ospedali" class="block mb-2">
+    <input type="checkbox" id="ospedali" onchange="togglePOI('ospedali')" class="mr-2">
+    Ospedali
+</label>
+<label for="farmacia" class="block mb-2">
+    <input type="checkbox" id="farmacia" onchange="togglePOI('farmacia')" class="mr-2">
+    Farmacia
+</label>
+<label for="luogo_culto" class="block mb-2">
+    <input type="checkbox" id="luogo_culto" onchange="togglePOI('luogo_culto')" class="mr-2">
+    Luogo di Culto
+</label>
+<label for="servizi" class="block mb-2">
+    <input type="checkbox" id="servizi" onchange="togglePOI('servizi')" class="mr-2">
+    Servizi
+</label>
+{% endblock %}
 
-</head>
-
-<body class="bg-gray-700">
-    <div id="sidebar" class="fixed inset-y-0 right-0 bg-gray-800 z-40 transform transition-transform duration-300 ease-in-out">
-        <div class="w-full h-full bg-gray-900 text-white p-4">
-            <ul>
-                <li><a href="{{url_for('get_home')}}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
-                <li><button id="openModalButton" class="block py-2 px-4 hover:bg-gray-700 w-full text-left">Questionario</button></li>
-                <li><a href="{{url_for('test')}}" class="block py-2 px-4 hover:bg-gray-700">Test</a></li>
-                <li><a href="{{url_for('get_database')}}" class="block py-2 px-4 hover:bg-gray-700">Database</a></li>
-            </ul>
-        </div>
+{% block content %}
+    <!-- Mappa -->
+    <div id="mapContainer" class="flex-1 h-full">
+        <div id="map" class="w-full h-full"></div>
     </div>
 
-    <!-- Contenitore per la mappa -->
-    <div id="mapContainer">
-        <div id="map"></div>
-    </div>
+<!-- Caricamento degli script JS necessari -->
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" defer></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="db_test_map.js" defer></script>
+<script>
+    window.addEventListener('DOMContentLoaded', function() {
+        const script = document.createElement('script');
+        script.src = 'test_map.js';
+        document.body.appendChild(script);
+    });
 
-    </br>
+    const menuButton = document.getElementById('menuButton');
+    const sidebar = document.getElementById('sidebar');
+    const mapContainer = document.getElementById('mapContainer');
 
-    <a href="#" class="block max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+    // Funzione per toggle della sidebar
+    menuButton.addEventListener('click', () => {
+        if (document.body.classList.contains('sidebar-open')) {
+            document.body.classList.remove('sidebar-open');
+            mapContainer.style.width = '100%'; // Espandi la mappa
+        } else {
+            document.body.classList.add('sidebar-open');
+            mapContainer.style.width = 'calc(100% - 16rem)'; // Riduci la mappa
+        }
+    });
+</script>
+{% endblock %}
 
-        <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Toggle POI</h5>
-        <label for="aree_verdi">
-            <input type="checkbox" id="aree_verdi" onchange="togglePOI('aree_verdi')">
-            Aree Verdi
-        </label>
-        <br>
-        
-        <label for="parcheggi">
-            <input type="checkbox" id="parcheggi" onchange="togglePOI('parcheggi')">
-            Parcheggi
-        </label>
-        <br>
-        
-        <label for="fermate_bus">
-            <input type="checkbox" id="fermate_bus" onchange="togglePOI('fermate_bus')">
-            Fermate Bus
-        </label>
-        <br>
-        
-        <label for="luoghi_interesse">
-            <input type="checkbox" id="luoghi_interesse" onchange="togglePOI('luoghi_interesse')">
-            Luoghi Interesse
-        </label>
-        <br>
-        
-        <label for="scuole">
-            <input type="checkbox" id="scuole" onchange="togglePOI('scuole')">
-            Scuole
-        </label>
-        <br>
-        
-        <label for="cinema">
-            <input type="checkbox" id="cinema" onchange="togglePOI('cinema')">
-            Cinema
-        </label>
-        <br>
-        
-        <label for="ospedali">
-            <input type="checkbox" id="ospedali" onchange="togglePOI('ospedali')">
-            Ospedali
-        </label>
-        <br>
-        
-        <label for="farmacia">
-            <input type="checkbox" id="farmacia" onchange="togglePOI('farmacia')">
-            Farmacia
-        </label>
-        <br>
-        
-        <label for="luogo_culto">
-            <input type="checkbox" id="luogo_culto" onchange="togglePOI('luogo_culto')">
-            Luogo di Culto
-        </label>
-        <br>
-        
-        <label for="servizi">
-            <input type="checkbox" id="servizi" onchange="togglePOI('servizi')">
-            Servizi
-        </label>
-        <br>
-        
-    
-        <!-- Selettore per visualizzare gli edifici -->
-        <div id="buildingToggle" class="mt-4">
-            <label class="text-white">
-                <input type="checkbox" id="showBuildings" checked>
-                Mostra edifici
-            </label>
-        </div>
-        
-    </a>
-    
-    
-    
-    
+<style>
+  /* Stile per il layout reattivo */
+  #mapContainer {
+      position: relative;
+      transition: width 0.3s ease; /* Aggiunta della transizione per la mappa */
+  }
 
-    <!-- Caricamento degli script JS -->
-    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script>
-        window.addEventListener('DOMContentLoaded', function() {
-            const script = document.createElement('script');
-            script.src = 'test_map.js';
-            
-            document.body.appendChild(script);
-        });
-    </script>
-</body>
+  #map {
+      width: 100%;
+      height: 100%;
+  }
 
-</html>
+  /* Stile per rendere la sidebar e la mappa responsivi */
+  @media (max-width: 768px) {
+      .w-64 {
+          width: 50%; /* Sidebar più stretta su schermi piccoli */
+      }
+
+      #mapContainer {
+          width: 100%;
+      }
+  }
+
+  @media (max-width: 480px) {
+      .w-64 {
+          display: none; /* Nascondi la sidebar su schermi molto piccoli */
+      }
+
+      #mapContainer {
+          width: 100%; /* La mappa occupa tutto lo spazio disponibile */
+      }
+  }
+
+  /* Classe per sidebar aperta */
+  body.sidebar-open #sidebar {
+      transform: translateX(0);
+  }
+</style>

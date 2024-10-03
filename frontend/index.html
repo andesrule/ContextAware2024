@@ -3,72 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Context Aware 2024</title>
+    <title>{% block title %}Context Aware 2024{% endblock %}</title>
     <!-- Tailwind CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <!-- Leaflet CSS CDN -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
-
     <link rel="stylesheet" href="style.css">
 
-
+    <!-- Leaflet CSS CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <!-- Leaflet Draw CSS CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 
 <body class="bg-gray-700 flex flex-col h-screen">
+
     <!-- Navbar -->
     <nav class="w-full bg-gray-800 p-4 sticky top-0 z-50 flex items-center">
         <div class="flex-1 flex justify-between items-center">
-            <a href="#" class="text-white text-xl font-bold">Context Aware 2024</a>
-            
+            <a href="/" class="text-white text-xl font-bold">Context Aware 2024</a>
             <div class="flex space-x-4">
                 <button id="menuButton" class="text-white text-xl font-bold">Menu</button>
-                <!-- Aggiungi il pulsante Admin -->
-                <a href="/admin" class="text-white text-xl font-bold hover:bg-gray-700 p-2 rounded">Admin</a>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
     <div id="mainContent" class="flex flex-1 overflow-hidden transition-all duration-300 ease-in-out">
-        <!-- Sidebar Menu -->
+        <!-- Sidebar -->
         <div id="sidebar" class="fixed inset-y-0 right-0 bg-gray-800 z-40 transform transition-transform duration-300 ease-in-out">
             <div class="w-full h-full bg-gray-900 text-white p-4">
                 <button id="closeSidebar" class="text-white text-xl mb-4">Close</button>
                 <ul>
-                    <li><a href="{{url_for('get_home')}}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
-                    <li><button id="openModalButton" class="block py-2 px-4 hover:bg-gray-700 w-full text-left">Questionario</button></li>
-                    <li><a href="{{url_for('test')}}" class="block py-2 px-4 hover:bg-gray-700">Test</a></li>                   
-                    <li><a href="{{url_for('get_quest')}}" class="block py-2 px-4 hover:bg-gray-700">Test_Questionario</a></li>
+                    {% block sidebar %}
+                    <li><a href="{{ url_for('views.get_home') }}" class="block py-2 px-4 hover:bg-gray-700">Home</a></li>
+                    <li><a href="{{ url_for('views.test') }}" class="block py-2 px-4 hover:bg-gray-700">Test</a></li>
+                    <li><a href="{{ url_for('views.get_quest') }}" class="block py-2 px-4 hover:bg-gray-700">Questionario</a></li>
+                    <li><a href="/admin" class="block py-2 px-4 hover:bg-gray-700">Admin</a></li>
+                    {% endblock %}
                 </ul>
             </div>
         </div>
 
         <!-- Content Area -->
-        <div id="questionnaire" class="flex-1 p-4 flex items-center justify-center hidden">
-            <div class="bg-gray-800 text-white p-8 rounded-lg shadow-lg">
-                <!-- Survey Content -->
-                <div class="mb-4">
-                    <h1 class="text-2xl mb-4">User Preference Survey</h1>
-                    <p class="mb-4">Please rate your experience:</p>
-                    <div class="flex items-center mb-4">
-                        <p class="mr-4">Rating:</p>
-                        <div id="rating" class="flex">
-                            <span class="star" data-value="1">&#9733;</span>
-                            <span class="star" data-value="2">&#9733;</span>
-                            <span class="star" data-value="3">&#9733;</span>
-                            <span class="star" data-value="4">&#9733;</span>
-                            <span class="star" data-value="5">&#9733;</span>
-                        </div>
-                        <p id="ratingValue" class="ml-4">No rating selected</p>
-                    </div>
-                </div>
-            </div>
+        <div class="flex-1 p-4">
+            {% block content %}
+            <!-- Contenuto della pagina personalizzabile -->
+            {% endblock %}
         </div>
     </div>
 
-    
+    <!-- Caricamento degli script JS necessari -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" defer></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script src="script.js"></script>
 </body>
-
 </html>
