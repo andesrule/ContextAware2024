@@ -274,14 +274,12 @@ function sendRadiusToBackend(radius) {
         console.error('Error:', error);
     });
 }
-// Modifica la gestione degli eventi di disegno per includere i cerchi del vicinato
 map.on(L.Draw.Event.CREATED, function (e) {
     let layer = e.layer;
 
     if (layer instanceof L.Marker) {
         const latlng = layer.getLatLng();
         const userMarker = L.marker([latlng.lat, latlng.lng]).addTo(map);
-        userMarker.bindPopup('<b>Marker Utente</b>').openPopup();
 
         // Crea il cerchio del vicinato
         const circle = L.circle([latlng.lat, latlng.lng], {
@@ -291,17 +289,43 @@ map.on(L.Draw.Event.CREATED, function (e) {
             radius: neighborhoodRadius
         }).addTo(map);
 
-        // Memorizza il cerchio
+        // Memorizza il cerchio associato al marker
         circles[userMarker._leaflet_id] = circle;
+
+        // Aggiungi il popup con l'icona del cestino
+        userMarker.bindPopup(`
+            <b>Marker Utente</b><br>
+            <button class="delete-marker-btn" onclick="deleteMarker(${userMarker._leaflet_id})">
+                🗑 Elimina Marker
+            </button>
+        `).openPopup();
+
+        // Salva il marker e il cerchio nel layer group
+        drawnItems.addLayer(userMarker);
+        drawnItems.addLayer(circle);
 
         saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null);
     } else if (layer instanceof L.Polygon) {
         const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
         saveGeofenceToDatabase(null, [coordinates]);
+        drawnItems.addLayer(layer);
     }
-
-    drawnItems.addLayer(layer);
 });
+
+function deleteMarker(markerId) {
+    // Trova il marker e il cerchio associato
+    const marker = drawnItems.getLayer(markerId);
+    if (marker) {
+        // Rimuovi il marker e il cerchio associato
+        map.removeLayer(marker);
+        if (circles[markerId]) {
+            map.removeLayer(circles[markerId]);
+            delete circles[markerId];  // Rimuovi il cerchio dall'array
+        }
+    }
+}
+
+
 
 // Aggiungi questo stile CSS per lo slider
 const style = document.createElement('style');
