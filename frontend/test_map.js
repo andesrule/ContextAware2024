@@ -37,7 +37,8 @@ let poiLayers = {
             marker: true,
             polyline: false,
             rectangle: false,
-            circle: false
+            circle: false,
+            circlemarker: false
         }
     });
     map.addControl(drawControl);
