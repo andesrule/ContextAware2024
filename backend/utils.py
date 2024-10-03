@@ -3,17 +3,10 @@ from geoalchemy2.shape import from_shape, to_shape
 from models import *
 import json, logging 
 import requests
-from geoalchemy2.functions import ST_DWithin
 from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
 from sqlalchemy import func
-
-from flask import request, jsonify
-
-from geoalchemy2 import  WKBElement
-from geoalchemy2.functions import ST_DWithin, ST_Transform, ST_GeomFromWKB
-from geoalchemy2.functions import ST_X, ST_Y
-
+from geoalchemy2.functions import *
 
 utils_bp = Blueprint('utils', __name__)
 
@@ -189,25 +182,6 @@ def api_count_nearby_pois():
     logging.debug(f"Result: {result}")
     return jsonify(result)
 
-def update_pois():
-    poi_sources = {
-        'parcheggi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/parcheggi/records',
-        'cinema': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/teatri-cinema-teatri/records',
-        'farmacia': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/farmacie/records',
-        'ospedali': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/strutture-sanitarie/records',
-        'fermate_bus': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records',
-        'scuole': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/elenco-delle-scuole/records',
-        'aree_verdi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records',
-        'luogo_culto': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records',
-        'servizi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
-        'stazioni_ferroviarie': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/stazioniferroviarie_20210401/records'
-    }
-    results = {}
-    for poi_type, api_url in poi_sources.items():
-        count = fetch_and_insert_pois(poi_type, api_url)
-        results[poi_type] = count
-    return results
-
 def fetch_and_insert_pois(poi_type, api_url):
     total_count = 0
     offset = 0
@@ -249,6 +223,25 @@ def fetch_and_insert_pois(poi_type, api_url):
             break
 
     return total_count
+
+def update_pois():
+    poi_sources = {
+        'parcheggi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/parcheggi/records',
+        'cinema': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/teatri-cinema-teatri/records',
+        'farmacia': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/farmacie/records',
+        'ospedali': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/strutture-sanitarie/records',
+        'fermate_bus': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records',
+        'scuole': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/elenco-delle-scuole/records',
+        'aree_verdi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records',
+        'luogo_culto': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records',
+        'servizi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
+        'stazioni_ferroviarie': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/stazioniferroviarie_20210401/records'
+    }
+    results = {}
+    for poi_type, api_url in poi_sources.items():
+        count = fetch_and_insert_pois(poi_type, api_url)
+        results[poi_type] = count
+    return results
 
 @utils_bp.route('/api/poi/<poi_type>', methods=['GET'])
 def get_poi(poi_type):
@@ -405,7 +398,6 @@ def calcola_rank(marker_id, raggio):
 
     return rank
 
-
 @utils_bp.route('/get_ranked_markers')
 def get_ranked_markers():
     markers = Geofence.query.filter(Geofence.marker.isnot(None)).all()
@@ -424,3 +416,139 @@ def get_ranked_markers():
         })
 
     return jsonify(ranked_markers)
+
+def count_pois_in_geofence(db, geofence_id):
+    # Ottieni il geofence specifico dal database
+    geofence = db.session.query(Geofence).get(geofence_id)
+    if not geofence:
+        return None
+
+    # Definisci i tipi di POI che vogliamo contare
+    poi_types = [
+        'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
+        'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi'
+    ]
+
+    # Inizializza il dizionario dei risultati
+    result = {poi_type: 0 for poi_type in poi_types}
+
+    # Esegui la query per contare i POI all'interno del geofence
+    poi_counts = db.session.query(
+        POI.type,
+        func.count(POI.id).label('count')
+    ).filter(
+        ST_Contains(geofence.geofence, POI.location)
+    ).group_by(POI.type).all()
+
+    # Popola il dizionario dei risultati
+    for poi_type, count in poi_counts:
+        if poi_type in result:
+            result[poi_type] = count
+
+    return result
+
+def calcola_rank_geofence(geofence_id):
+    """
+    Calcola il punteggio del marker tenendo conto dei pesi delle preferenze dell'utente e della presenza di PoI.
+    :param marker: Marker dell'immobile
+    :param user_preferences: Dizionario con le preferenze dell'utente (da 0 a 5)
+    :param nearby_pois: Dizionario con il numero di PoI vicini (reali)
+    :return: Punteggio del marker
+    """
+    nearby_pois= count_pois_in_geofence(db, geofence_id=geofence_id)
+    user_preferences = get_questionnaire_response_dict(response = QuestionnaireResponse.query.get(1))
+    rank = 0
+    
+    # Definisci pesi per ciascun tipo di PoI (questi valori sono un esempio)
+    pesi = {
+        'aree_verdi': 0.8,
+        'parcheggi': 1.0,
+        'fermate_bus': 1.0,
+        'stazioni_ferroviarie': 1.0,
+        'scuole': 0.7,
+        'cinema': 0.6,
+        'ospedali': 1.0,
+        'farmacia': 0.5,
+        'luogo_culto': 0.2,
+        'servizi': 0.4,
+    }
+    
+    # Aree Verdi
+    rank += nearby_pois.get('aree_verdi', 0) * user_preferences['aree_verdi'] * pesi['aree_verdi']
+    
+    # Parcheggi
+    if nearby_pois.get('parcheggi', 0) >= 2:
+        rank += user_preferences['parcheggi'] * pesi['parcheggi']
+    
+    # Fermate Bus
+    rank += nearby_pois.get('fermate_bus', 0) * user_preferences['fermate_bus'] * pesi['fermate_bus']
+    
+    # Luoghi di interesse
+    if nearby_pois.get('stazioni_ferroviarie', 0) >= 2:
+        rank += user_preferences['stazioni_ferroviarie'] * pesi['stazioni_ferroviarie']
+    
+    # Scuole
+    rank += nearby_pois.get('scuole', 0) * user_preferences['scuole'] * pesi['scuole']
+    
+    # Cinema
+    rank += nearby_pois.get('cinema', 0) * user_preferences['cinema'] * pesi['cinema']
+    
+    # Ospedali
+    rank += nearby_pois.get('ospedali', 0) * user_preferences['ospedali'] * pesi['ospedali']
+    
+    # Farmacia
+    rank += nearby_pois.get('farmacia', 0) * user_preferences['farmacia'] * pesi['farmacia']
+    
+    # Luogo di Culto
+    rank += nearby_pois.get('luogo_culto', 0) * user_preferences['luogo_culto'] * pesi['luogo_culto']
+    
+    # Servizi
+    if nearby_pois.get('servizi', 0) >= 2:
+        rank += user_preferences['servizi'] * pesi['servizi']
+    
+    #Aree verdi densitá
+    if nearby_pois.get('aree_verdi', 0) >= 2:
+        rank += user_preferences['densita_aree_verdi'] * pesi['aree_verdi']
+
+    #Cinema densitá
+    if nearby_pois.get('cinema', 0) >= 2:
+        rank += user_preferences['densita_cinema'] * pesi['cinema']
+    
+    #Fermate bus densitá
+    if nearby_pois.get('fermate_bus', 0) >= 2:
+        rank += user_preferences['densita_fermate_bus'] * pesi['fermate_bus']
+
+    return rank
+
+@utils_bp.route('/get_ranked_geofences')
+def get_ranked_geofences():
+    geofences = Geofence.query.filter(Geofence.geofence.isnot(None)).all()
+    ranked_geofences = []
+    
+    for geofence in geofences:
+        # Ottieni il centroide del geofence (potrebbe essere utile per alcuni scopi)
+        centroid = db.session.scalar(ST_Centroid(geofence.geofence))
+        centroid_lat = db.session.scalar(func.ST_Y(centroid))
+        centroid_lng = db.session.scalar(func.ST_X(centroid))
+        
+        # Calcola il rank
+        rank = calcola_rank_geofence(geofence.id)
+        
+        # Ottieni il geofence come GeoJSON
+        geofence_geojson = db.session.scalar(ST_AsGeoJSON(geofence.geofence))
+        geofence_dict = json.loads(geofence_geojson)
+        
+        # Estrai le coordinate dal GeoJSON
+        coordinates = geofence_dict['coordinates'][0]  # Prendi il primo (e unico) anello di coordinate
+        
+        ranked_geofences.append({
+            'id': geofence.id,
+            'centroid': {
+                'lat': centroid_lat,
+                'lng': centroid_lng
+            },
+            'coordinates': coordinates,  # Questo è un array di [lng, lat] pairs
+            'rank': rank
+        })
+    
+    return jsonify(ranked_geofences)

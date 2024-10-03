@@ -110,7 +110,7 @@ let poiLayers = {
 
     let databaseMarkers = L.markerClusterGroup();
 
-    function loadDatabaseMarkers() {
+    function loadRankedMarkers() {
         fetch('/get_ranked_markers')
             .then(response => response.json())
             .then(data => {
@@ -147,6 +147,47 @@ let poiLayers = {
         else return '#008000';                // Verde scuro
     }
 
+    function loadRankedGeofences() {
+        fetch('/get_ranked_geofences')
+            .then(response => response.json())
+            .then(data => {
+                // Assicuriamoci che il layer dei geofences esista
+                if (!window.geofencesLayer) {
+                    window.geofencesLayer = L.layerGroup().addTo(map);
+                } else {
+                    window.geofencesLayer.clearLayers();
+                }
+    
+                data.forEach(geofenceData => {
+                    const color = getColorFromRank(geofenceData.rank);
+                    
+                    // Creiamo un poligono per ogni geofence
+                    const polygon = L.polygon(geofenceData.coordinates.map(coord => [coord[1], coord[0]]), {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.5,
+                        weight: 2
+                    });
+    
+                    // Aggiungiamo un popup al poligono
+                    polygon.bindPopup(`
+                        <b>Geofence ID: ${geofenceData.id}</b><br>
+                        Rank: ${geofenceData.rank.toFixed(2)}<br>
+                        Centroid: ${geofenceData.centroid.lat.toFixed(6)}, ${geofenceData.centroid.lng.toFixed(6)}
+                    `);
+    
+                    // Aggiungiamo il poligono al layer dei geofences
+                    window.geofencesLayer.addLayer(polygon);
+                });
+    
+                // Adattiamo la vista della mappa per includere tutti i geofences
+                if (window.geofencesLayer.getLayers().length > 0) {
+                    map.fitBounds(window.geofencesLayer.getBounds());
+                }
+            })
+            .catch(error => console.error('Errore nel caricamento dei geofences:', error));
+    }
+    
 
     var customControl = L.Control.extend({
         options: {
@@ -164,7 +205,7 @@ let poiLayers = {
             container.title = 'Mostra marker dal database';
 
             container.onclick = function(){
-                loadDatabaseMarkers();
+                loadRankedMarkers();
             }
 
             L.DomEvent.disableClickPropagation(container);
@@ -174,5 +215,29 @@ let poiLayers = {
     });
 
     map.addControl(new customControl());
+
+    var geofenceControl = L.Control.extend({
+        options: {
+            position: 'topleft'
+        },
+        onAdd: function(map) {
+            var container = L.DomUtil.create('div', 'leaflet-control-custom');
+            container.innerHTML = '🏠';  // Emoji casa per rappresentare geofence
+            container.style.backgroundColor = 'white';
+            container.style.width = '30px';
+            container.style.height = '30px';
+            container.style.lineHeight = '30px';
+            container.style.textAlign = 'center';
+            container.style.cursor = 'pointer';
+            container.title = 'Mostra Geofence';
+            container.onclick = function(){
+                loadRankedGeofences();
+            }
+            L.DomEvent.disableClickPropagation(container);
+            return container;
+        }
+    });
+
+    map.addControl(new geofenceControl());
 
 
