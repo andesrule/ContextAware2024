@@ -21,7 +21,39 @@ let poiLayers = {
     servizi: L.markerClusterGroup({ singleMarkerMode: true })
 };
 
-// Resto del codice rimane invariato
+// Funzione per centrare la mappa su Bologna
+function recenterMap() {
+    map.setView([44.4949, 11.3426], 13);
+}
+
+var recenterControl = L.Control.extend({
+    options: {
+        position: 'topright'
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'leaflet-control-custom');
+        container.innerHTML = '📍';
+        container.style.backgroundColor = 'white';
+        container.style.width = '30px';
+        container.style.height = '30px';
+        container.style.lineHeight = '30px';
+        container.style.textAlign = 'center';
+        container.style.cursor = 'pointer';
+        container.title = 'Ricentra su Bologna';
+
+        container.onclick = function(){
+            recenterMap();
+        }
+
+        L.DomEvent.disableClickPropagation(container);
+
+        return container;
+    }
+});
+
+// Aggiungiamo il nuovo controllo alla mappa
+map.addControl(new recenterControl());
+
 
 
     // Variabili per la gestione dei poligoni

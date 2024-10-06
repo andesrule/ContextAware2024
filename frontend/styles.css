@@ -119,3 +119,14 @@ body {
 #radiusValue {
     font-weight: bold;
 }
+
+.leaflet-control-custom {
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
