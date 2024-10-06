@@ -232,16 +232,8 @@ let poiLayers = {
 
 
 // Aggiungi questo codice per creare lo slider
-let radiusSlider = L.control({position: 'topright'});
 
-radiusSlider.onAdd = function(map) {
-    let div = L.DomUtil.create('div', 'info radius-slider');
-    div.innerHTML = '<h4>Raggio del vicinato: <span id="radiusValue">500</span> m</h4>' +
-                    '<input type="range" min="50" max="1000" value="500" class="slider" id="radiusSlider">';
-    return div;
-};
 
-radiusSlider.addTo(map);
 
 // Aggiungi l'evento per lo slider
 document.getElementById('radiusSlider').addEventListener('input', function(e) {
