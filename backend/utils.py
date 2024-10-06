@@ -572,3 +572,8 @@ def get_ranked_geofences():
     
     return jsonify(ranked_geofences)
 
+
+@utils_bp.route('/check-questionnaires')
+def check_questionnaires():
+    count = QuestionnaireResponse.query.count()
+    return jsonify({'count': count})

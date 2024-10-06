@@ -32,7 +32,7 @@ admin.add_view(CustomModelView(QuestionnaireResponse, db.session))
 admin.add_view(CustomModelView(POI, db.session))
 
 
-#@app.before_request
+@app.before_request
 def initialize_database():
     if not hasattr(app, 'db_initialized'):
         with app.app_context():
