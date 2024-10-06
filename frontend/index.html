@@ -47,13 +47,13 @@
             <div id="map"></div>
         </div>
 
-        <!-- Pannello di controllo -->
+       <!-- Pannello di controllo -->
         <div id="controlPanel" class="text-white">
             <div class="p-4 space-y-4">
-                <h2 class="text-xl font-bold">Alerts</h2>
-                <!-- Sezione Alert -->
-                <div id="alertsContainer">
-                    <!-- Gli alert verranno inseriti qui dinamicamente -->
+                <!-- Sezione Alert (inizialmente nascosta) -->
+                <div id="alertsSection" style="display: none;">
+                    <h2 class="text-xl font-bold">Alerts</h2>
+                    <div id="alertsContainer"></div>
                 </div>
 
                 <!-- Sezione Pannello di Controllo -->
@@ -61,12 +61,10 @@
                 <div class="space-y-4">
                     <label for="radiusSlider" class="block text-sm font-medium text-white">Raggio del vicinato: <span id="radiusValue">500</span> m</label>
                     <input type="range" min="50" max="1000" value="500" class="slider" id="radiusSlider">
-                    <button class="bg-blue-500 text-white px-4 py-2 rounded">Azione 1</button>
-                    <button class="bg-blue-500 text-white px-4 py-2 rounded">Azione 2</button>
-                    <button class="bg-blue-500 text-white px-4 py-2 rounded">Azione 3</button>
                 </div>
             </div>
         </div>
+
     </div>
 
     <!-- Scripts -->
