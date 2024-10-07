@@ -82,13 +82,14 @@ menuCheckbox.addEventListener('change', () => {
 
 function createAlert(message, type = 'warning') {
     const alertHTML = `
-        <div class="alert bg-yellow-900/50 border border-yellow-700 rounded-lg p-3 mb-4 flex items-start space-x-2 text-sm">
-            <svg class="h-4 w-4 text-yellow-400 mt-0.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+        <div class="alert bg-yellow-500 border border-yellow-600 rounded-lg p-3 mb-4 flex items-start space-x-2 text-sm">
+            <svg class="h-4 w-4 text-yellow-800 mt-0.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
             </svg>
             <div class="flex-1">
-                <p class="text-yellow-400">${message}</p>
+                <p class="text-yellow-800">${message}</p>
             </div>
+            <button class="text-yellow-800 font-bold ml-4" onclick="this.parentElement.remove()">X</button>
         </div>
     `;
 
@@ -100,6 +101,7 @@ function createAlert(message, type = 'warning') {
         newAlert.classList.add('show');
     }, 100);
 }
+
 
 async function checkQuestionnaires() {
     try {
