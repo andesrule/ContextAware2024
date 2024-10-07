@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+<html data-theme="forest"></html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Context Aware 2024</title>
     <!-- Tailwind CSS CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.12/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+
     <link rel="stylesheet" href="styles.css">
 
 <!-- Leaflet CSS e JS CDN (Ultima versione disponibile) -->
@@ -19,9 +24,9 @@
 </head>
 
 <!-- Aggiungi la classe 'panel-open' direttamente nel body -->
-<body class="bg-gray-700 flex flex-col h-screen panel-open">
+<body class="dark flex flex-col h-screen panel-open">
     <!-- Navbar -->
-    <nav class="w-full bg-gray-800 p-4 z-50 flex items-center">
+    <nav class="w-full dark p-4 z-50 flex items-center">
         <div class="flex-1 flex justify-between items-center">
             <a href="/" class="text-white text-xl font-bold">Context Aware 2024</a>    
             <div class="flex space-x-4 items-center">
@@ -48,12 +53,14 @@
         </div>
 
        <!-- Pannello di controllo -->
-        <div id="controlPanel" class="text-white">
+        <div id="controlPanel" class="text-white bg-base-200 dark ">
             <div class="p-4 space-y-4">
                 <!-- Sezione Alert (inizialmente nascosta) -->
                 <div id="alertsSection" style="display: none;">
                     <h2 class="text-xl font-bold">Alerts</h2>
-                    <div id="alertsContainer"></div>
+                    <div id="alertsContainer">
+                        
+                    </div>
                 </div>
 
                 <!-- Sezione Pannello di Controllo -->
