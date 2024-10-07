@@ -143,3 +143,112 @@ function createAlert(message, type = 'warning') {
         newAlert.classList.add('show');
     }, 100);
 }
+
+
+let currentPage = 1;
+const totalPages = 4;
+
+// Funzione per mostrare una pagina specifica
+function showPage(pageNumber) {
+    // Nascondi tutte le pagine
+    document.querySelectorAll('.questionnaire-page').forEach(page => {
+        page.classList.add('hidden');
+    });
+    
+    // Mostra la pagina corrente
+    const currentPageElement = document.querySelector(`[data-page="${pageNumber}"]`);
+    if (currentPageElement) {
+        currentPageElement.classList.remove('hidden');
+    }
+
+    // Aggiorna il numero di pagina corrente
+    document.getElementById('currentPage').textContent = pageNumber;
+
+    // Gestisci lo stato dei pulsanti
+    document.getElementById('prevButton').disabled = pageNumber === 1;
+    document.getElementById('nextButton').textContent = pageNumber === totalPages ? 'Fine' : 'Successiva';
+    
+    // Mostra/nascondi il pulsante di invio
+    const submitButton = document.getElementById('submitButton');
+    submitButton.classList.toggle('hidden', pageNumber !== totalPages);
+}
+
+// Funzione per passare alla pagina successiva
+function nextPage() {
+    if (currentPage < totalPages) {
+        currentPage++;
+        showPage(currentPage);
+    }
+}
+
+// Funzione per tornare alla pagina precedente
+function previousPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        showPage(currentPage);
+    }
+}
+
+// Funzione per gestire l'invio del questionario
+function submitForm() {
+    const form = document.getElementById('poi-form');
+    const formData = new FormData(form);
+    const answers = {};
+    
+    formData.forEach((value, key) => {
+        answers[key] = parseInt(value);
+    });
+
+    // Mostra un loading state sul pulsante
+    const submitButton = document.getElementById('submitButton');
+    const originalText = submitButton.innerHTML;
+    submitButton.innerHTML = '<span class="loading loading-spinner"></span> Invio...';
+    submitButton.disabled = true;
+
+    fetch('/submit-questionnaire', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(answers)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Errore di rete: ${response.status} - ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Risposta del server:', data);
+        showToast('success', 'Questionario inviato con successo!');
+        // Resetta il questionario alla prima pagina
+        currentPage = 1;
+        showPage(1);
+    })
+    .catch(error => {
+        console.error('Errore durante l\'invio del questionario:', error);
+        showToast('error', `Si è verificato un errore: ${error.message}`);
+    })
+    .finally(() => {
+        submitButton.innerHTML = originalText;
+        submitButton.disabled = false;
+    });
+}
+
+// Funzione per mostrare i toast
+function showToast(type, message) {
+    const toast = document.createElement('div');
+    toast.className = `alert ${type === 'success' ? 'alert-success' : 'alert-error'} fixed bottom-4 right-4 z-50`;
+    toast.innerHTML = `<span>${message}</span>`;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// Inizializza la prima pagina al caricamento
+document.addEventListener('DOMContentLoaded', () => {
+    showPage(1);
+});
