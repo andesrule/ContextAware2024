@@ -25,14 +25,14 @@ body {
     top: 0;
     bottom: 0;
     right: -16rem;
-    width: 16rem;
+    width: 24rem;
     transition: right 0.5s ease;
     overflow-y: auto;
 }
 
 /* Quando il pannello è aperto */
 .panel-open #mapContainer {
-    right: 16rem;
+    right: 24rem;
 }
 
 .panel-open #controlPanel {
@@ -129,3 +129,46 @@ body {
     align-items: center;
 }
 
+.custom-div-icon {
+    background: none;
+    border: none;
+    text-align: center;
+    line-height: 30px;
+    font-size: 20px;
+}
+
+.poi-popup {
+    padding: 5px;
+}
+
+.poi-popup h3 {
+    margin: 0 0 5px 0;
+    font-weight: bold;
+}
+
+.poi-popup p {
+    margin: 2px 0;
+}
+
+.quick-setting-btn {
+    border-color: var(--p) !important;
+    color: var(--p) !important;
+    background-color: transparent !important;
+  }
+  
+  .quick-setting-btn:hover,
+  .quick-setting-btn.btn-active {
+    background-color: var(--p) !important;
+    border-color: var(--p) !important;
+    color: var(--pc) !important;
+  }
+  
+  .quick-setting-btn:focus {
+    box-shadow: 0 0 0 2px var(--b1), 0 0 0 4px var(--p);
+  }
+  
+  /* Stile specifico per lo stato attivo */
+  .quick-setting-btn.btn-active {
+    background-color: var(--p) !important;
+    color: var(--pc) !important;
+  }

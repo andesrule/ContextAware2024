@@ -20,9 +20,5 @@ def get_quest():
 def get_database():
     return render_template('database.html')
 
-@views.route('/Test')
-def test():
-    strings = User.query.all()
-    return render_template('test.html', strings=strings)
 
 
