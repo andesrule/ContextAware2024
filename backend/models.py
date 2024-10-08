@@ -10,7 +10,6 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     content_poi = db.Column(ARRAY(db.String), nullable=False)
     
-
     
 class Geofence(db.Model):
     id = db.Column(db.Integer, primary_key=True)

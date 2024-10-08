@@ -290,6 +290,7 @@ function loadRankedGeofences() {
     fetch('/get_ranked_geofences')
         .then(response => response.json())
         .then(data => {
+            // Assicuriamoci che il layer dei geofences esista
             if (!window.geofencesLayer) {
                 window.geofencesLayer = L.layerGroup().addTo(map);
             } else {
@@ -299,6 +300,7 @@ function loadRankedGeofences() {
             data.forEach(geofenceData => {
                 const color = getColorFromRank(geofenceData.rank);
                 
+                // Creiamo un poligono per ogni geofence
                 const polygon = L.polygon(geofenceData.coordinates.map(coord => [coord[1], coord[0]]), {
                     color: color,
                     fillColor: color,
@@ -306,21 +308,25 @@ function loadRankedGeofences() {
                     weight: 2
                 });
 
+                // Aggiungiamo un popup al poligono
                 polygon.bindPopup(`
                     <b>Geofence ID: ${geofenceData.id}</b><br>
                     Rank: ${geofenceData.rank.toFixed(2)}<br>
                     Centroid: ${geofenceData.centroid.lat.toFixed(6)}, ${geofenceData.centroid.lng.toFixed(6)}
                 `);
 
+                // Aggiungiamo il poligono al layer dei geofences
                 window.geofencesLayer.addLayer(polygon);
             });
 
+            // Adattiamo la vista della mappa per includere tutti i geofences
             if (window.geofencesLayer.getLayers().length > 0) {
                 map.fitBounds(window.geofencesLayer.getBounds());
             }
         })
         .catch(error => console.error('Errore nel caricamento dei geofences:', error));
 }
+
 
 var customControl = L.Control.extend({
     options: {

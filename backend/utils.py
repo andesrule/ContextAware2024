@@ -7,6 +7,8 @@ from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
 from sqlalchemy import func
 from geoalchemy2.functions import *
+from shapely import wkb
+import binascii
 
 global_radius = 500
 utils_bp = Blueprint('utils', __name__)
@@ -577,3 +579,73 @@ def get_ranked_geofences():
 def check_questionnaires():
     count = QuestionnaireResponse.query.count()
     return jsonify({'count': count})
+
+def wkb_to_coordinates(wkb_input):
+    """Converte WKB in coordinate (lon, lat)"""
+    logging.debug(f"Received WKB input: {wkb_input}")
+    try:
+        if isinstance(wkb_input, float):
+            # Se riceviamo un float, lo trattiamo come una singola coordinata
+            return (wkb_input, wkb_input)
+        elif isinstance(wkb_input, (list, tuple)) and len(wkb_input) == 2:
+            # Se riceviamo una lista o tupla di due elementi, le trattiamo come lon, lat
+            return tuple(wkb_input)
+        elif isinstance(wkb_input, str):
+            # Rimuovi eventuali spazi bianchi e converti in minuscolo
+            wkb_hex = wkb_input.strip().lower()
+            # Rimuovi il prefisso '0x' se presente
+            if wkb_hex.startswith('0x'):
+                wkb_hex = wkb_hex[2:]
+            wkb_binary = binascii.unhexlify(wkb_hex)
+            point = wkb.loads(wkb_binary)
+            return (point.x, point.y)
+        else:
+            raise ValueError(f"Formato WKB non supportato: {type(wkb_input)}")
+    except Exception as e:
+        logging.error(f"Error in wkb_to_coordinates: {str(e)}")
+        raise ValueError(f"WKB non valido: {str(e)}")
+
+def calculate_travel_time(start_coords, end_coords, transport_mode='driving'):
+    """Calcola il tempo di percorrenza tra due punti usando OSRM."""
+    logging.debug(f"Calculating travel time from {start_coords} to {end_coords}")
+    base_url = "http://router.project-osrm.org/route/v1"
+    url = f"{base_url}/{transport_mode}/{start_coords[0]},{start_coords[1]};{end_coords[0]},{end_coords[1]}"
+    
+    params = {
+        "overview": "false",
+        "alternatives": "false",
+    }
+    
+    response = requests.get(url, params=params)
+    data = response.json()
+    
+    if response.status_code == 200 and data["code"] == "Ok":
+        duration_seconds = data["routes"][0]["duration"]
+        return duration_seconds / 60  # Converti in minuti
+    else:
+        logging.error(f"OSRM API error: {data}")
+        raise Exception("Errore nel calcolo del percorso")
+
+@utils_bp.route('/calculate_travel_time', methods=['POST'])
+def api_calculate_travel_time():
+    data = request.json
+    logging.debug(f"Received request data: {data}")
+    
+    start_wkb = data.get('start_wkb')
+    end_wkb = data.get('end_wkb')
+    transport_mode = data.get('transport_mode', 'driving')
+
+    if start_wkb is None or end_wkb is None:
+        return jsonify({"error": "Mancano le coordinate di partenza o arrivo"}), 400
+
+    try:
+        start_coords = wkb_to_coordinates(start_wkb)
+        end_coords = wkb_to_coordinates(end_wkb)
+        travel_time = calculate_travel_time(start_coords, end_coords, transport_mode)
+        return jsonify({"travel_time_minutes": travel_time})
+    except ValueError as e:
+        logging.error(f"ValueError in api_calculate_travel_time: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logging.error(f"Unexpected error in api_calculate_travel_time: {str(e)}")
+        return jsonify({"error": str(e)}), 500
