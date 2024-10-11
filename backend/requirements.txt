@@ -8,3 +8,4 @@ flask_cors
 geoalchemy2
 shapely
 pyproj
+flask_login

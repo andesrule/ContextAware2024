@@ -9,6 +9,8 @@ from sqlalchemy import func
 from geoalchemy2.functions import *
 from shapely import wkb
 import binascii
+from flask_login import current_user
+
 
 global_radius = 500
 utils_bp = Blueprint('utils', __name__)
@@ -104,27 +106,39 @@ def save_geofence():
 @utils_bp.route('/submit-questionnaire', methods=['POST'])
 def submit_questionnaire():
     data = request.get_json()
-    response = QuestionnaireResponse(
-        aree_verdi=data.get('aree_verdi'),
-        parcheggi=data.get('parcheggi'),
-        fermate_bus=data.get('fermate_bus'),
-        stazioni_ferroviarie=data.get('stazioni_ferroviarie'),
-        scuole=data.get('scuole'),
-        cinema=data.get('cinema'),
-        ospedali=data.get('ospedali'),
-        farmacia=data.get('farmacia'),
-        luogo_culto=data.get('luogo_culto'),
-        servizi=data.get('servizi'),
-        densita_aree_verdi=data.get('densita_aree_verdi'),
-        densita_cinema=data.get('densita_cinema'),
-        densita_fermate_bus=data.get('densita_fermate_bus')
-
-    )
     
-    db.session.add(response)
-    db.session.commit()
+    # Cerca se esiste già un questionario nel database
+    existing_questionnaire = QuestionnaireResponse.query.first()
 
-    return jsonify({"message": "questionario inviato con successo!"})
+    if existing_questionnaire:
+        # Se esiste, aggiorna i valori
+        for key, value in data.items():
+            setattr(existing_questionnaire, key, value)
+    else:
+        # Se non esiste, crea un nuovo questionario
+        new_questionnaire = QuestionnaireResponse(
+            aree_verdi=data.get('aree_verdi'),
+            parcheggi=data.get('parcheggi'),
+            fermate_bus=data.get('fermate_bus'),
+            stazioni_ferroviarie=data.get('stazioni_ferroviarie'),
+            scuole=data.get('scuole'),
+            cinema=data.get('cinema'),
+            ospedali=data.get('ospedali'),
+            farmacia=data.get('farmacia'),
+            luogo_culto=data.get('luogo_culto'),
+            servizi=data.get('servizi'),
+            densita_aree_verdi=data.get('densita_aree_verdi'),
+            densita_cinema=data.get('densita_cinema'),
+            densita_fermate_bus=data.get('densita_fermate_bus')
+        )
+        db.session.add(new_questionnaire)
+
+    try:
+        db.session.commit()
+        return jsonify({"message": "Questionario inviato con successo!"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 def get_poi_coordinates(poi):
     """Estrae le coordinate dal PoI, gestendo diversi formati."""
