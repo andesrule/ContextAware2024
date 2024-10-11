@@ -251,7 +251,14 @@ let databaseMarkers = L.markerClusterGroup();
 
 function loadRankedMarkers() {
     fetch('/get_ranked_markers')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.error || `HTTP error! status: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             databaseMarkers.clearLayers();
 
@@ -275,9 +282,28 @@ function loadRankedMarkers() {
                 map.fitBounds(databaseMarkers.getBounds());
             }
         })
-        .catch(error => console.error('Errore nel caricamento dei marker dal database:', error));
-}
+        .catch(error => {
+            console.error('Errore nel caricamento dei marker dal database:', error);
+            showToast('error', `Errore nel caricamento dei marker: ${error.message}`);
+            if (error.message === 'No questionnaires found') {
+                showNoQuestionnaireAlert();
+            }
+        });
 
+    }        
+function showNoQuestionnaireAlert() {
+    // Espandi la sezione degli alert
+    const alertsSection = document.getElementById('alertsSection');
+    if (alertsSection) {
+        alertsSection.style.display = 'block';
+    }
+
+    // Crea e mostra l'alert
+    createAlert('Non ci sono questionari nel database. Compilare almeno un questionario per visualizzare i dati.');
+
+    // Mostra una notifica pop-up
+    showToast('warning', 'Compila il questionario prima di visualizzare i marker.');
+}
 function getColorFromRank(rank) {
     if (rank < 70) return '#FF0000';      // Rosso
     else if (rank < 90) return '#FFA500'; // Arancione
@@ -288,7 +314,17 @@ function getColorFromRank(rank) {
 
 function loadRankedGeofences() {
     fetch('/get_ranked_geofences')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('No questionnaires found');
+                }
+                return response.text().then(text => {
+                    throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             // Assicuriamoci che il layer dei geofences esista
             if (!window.geofencesLayer) {
@@ -324,7 +360,14 @@ function loadRankedGeofences() {
                 map.fitBounds(window.geofencesLayer.getBounds());
             }
         })
-        .catch(error => console.error('Errore nel caricamento dei geofences:', error));
+        .catch(error => {
+            console.error('Errore nel caricamento dei geofences:', error);
+            if (error.message === 'No questionnaires found') {
+                showNoQuestionnaireAlert();
+            } else {
+                showToast('error', `Errore nel caricamento dei geofences: ${error.message}`);
+            }
+        });
 }
 
 
@@ -453,6 +496,19 @@ function deleteMarker(markerId) {
             delete circles[markerId];
         }
     }
+}
+
+
+function showToast(type, message) {
+    const toast = document.createElement('div');
+    toast.className = `alert ${type === 'success' ? 'alert-success' : 'alert-error'} fixed bottom-4 right-4 z-50`;
+    toast.innerHTML = `<span>${message}</span>`;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
 }
 
 // Stile CSS per lo slider

@@ -353,8 +353,13 @@ def calcola_rank(marker_id, raggio):
     :param nearby_pois: Dizionario con il numero di PoI vicini (reali)
     :return: Punteggio del marker
     """
-    nearby_pois= count_nearby_pois(db, marker_id= marker_id, distance_meters= raggio)
+    nearby_pois = count_nearby_pois(db, marker_id=marker_id, distance_meters=raggio)
+    response = QuestionnaireResponse.query.first()
     user_preferences = get_questionnaire_response_dict(response = QuestionnaireResponse.query.get(1))
+    if not user_preferences:
+        # Se non ci sono preferenze dell'utente, restituisci un rank di default
+        return 0
+
     rank = 0
     
     # Definisci pesi per ciascun tipo di PoI (questi valori sono un esempio)
@@ -420,23 +425,34 @@ def calcola_rank(marker_id, raggio):
 
 @utils_bp.route('/get_ranked_markers')
 def get_ranked_markers():
-    global global_radius
-    
-    markers = Geofence.query.filter(Geofence.marker.isnot(None)).all()
-    ranked_markers = []
-    
-    for marker in markers:
-        lat = db.session.scalar(ST_Y(marker.marker))
-        lng = db.session.scalar(ST_X(marker.marker))
-        rank = calcola_rank(marker.id, raggio=global_radius)  # Usa il raggio globale
-        ranked_markers.append({
-            'id': marker.id,
-            'lat': lat,
-            'lng': lng,
-            'rank': rank
-        })
-    
-    return jsonify(ranked_markers)
+    try:
+        # Controlla se ci sono questionari nel database
+        if QuestionnaireResponse.query.count() == 0:
+            return jsonify({"error": "No questionnaires found"}), 404
+
+        global global_radius
+        
+        markers = Geofence.query.filter(Geofence.marker.isnot(None)).all()
+        ranked_markers = []
+        
+        for marker in markers:
+            try:
+                lat = db.session.scalar(ST_Y(marker.marker))
+                lng = db.session.scalar(ST_X(marker.marker))
+                rank = calcola_rank(marker.id, raggio=global_radius)
+                ranked_markers.append({
+                    'id': marker.id,
+                    'lat': lat,
+                    'lng': lng,
+                    'rank': rank
+                })
+            except Exception as e:
+                print(f"Errore nell'elaborazione del marker {marker.id}: {str(e)}")
+        
+        return jsonify(ranked_markers)
+    except Exception as e:
+        print(f"Errore generale in get_ranked_markers: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 def count_pois_in_geofence(db, geofence_id):
     # Ottieni il geofence specifico dal database
@@ -543,37 +559,47 @@ def calcola_rank_geofence(geofence_id):
 
 @utils_bp.route('/get_ranked_geofences')
 def get_ranked_geofences():
-    geofences = Geofence.query.filter(Geofence.geofence.isnot(None)).all()
-    ranked_geofences = []
-    
-    for geofence in geofences:
-        # Ottieni il centroide del geofence (potrebbe essere utile per alcuni scopi)
-        centroid = db.session.scalar(ST_Centroid(geofence.geofence))
-        centroid_lat = db.session.scalar(func.ST_Y(centroid))
-        centroid_lng = db.session.scalar(func.ST_X(centroid))
-        
-        # Calcola il rank
-        rank = calcola_rank_geofence(geofence.id)
-        
-        # Ottieni il geofence come GeoJSON
-        geofence_geojson = db.session.scalar(ST_AsGeoJSON(geofence.geofence))
-        geofence_dict = json.loads(geofence_geojson)
-        
-        # Estrai le coordinate dal GeoJSON
-        coordinates = geofence_dict['coordinates'][0]  # Prendi il primo (e unico) anello di coordinate
-        
-        ranked_geofences.append({
-            'id': geofence.id,
-            'centroid': {
-                'lat': centroid_lat,
-                'lng': centroid_lng
-            },
-            'coordinates': coordinates,  # Questo è un array di [lng, lat] pairs
-            'rank': rank
-        })
-    
-    return jsonify(ranked_geofences)
+    try:
+        # Controlla se ci sono questionari nel database
+        if QuestionnaireResponse.query.count() == 0:
+            return jsonify({"error": "No questionnaires found"}), 404
 
+        geofences = Geofence.query.filter(Geofence.geofence.isnot(None)).all()
+        ranked_geofences = []
+        
+        for geofence in geofences:
+            try:
+                # Ottieni il centroide del geofence
+                centroid = db.session.scalar(ST_Centroid(geofence.geofence))
+                centroid_lat = db.session.scalar(func.ST_Y(centroid))
+                centroid_lng = db.session.scalar(func.ST_X(centroid))
+                
+                # Calcola il rank
+                rank = calcola_rank_geofence(geofence.id)
+                
+                # Ottieni il geofence come GeoJSON
+                geofence_geojson = db.session.scalar(ST_AsGeoJSON(geofence.geofence))
+                geofence_dict = json.loads(geofence_geojson)
+                
+                # Estrai le coordinate dal GeoJSON
+                coordinates = geofence_dict['coordinates'][0]  # Prendi il primo (e unico) anello di coordinate
+                
+                ranked_geofences.append({
+                    'id': geofence.id,
+                    'centroid': {
+                        'lat': centroid_lat,
+                        'lng': centroid_lng
+                    },
+                    'coordinates': coordinates,
+                    'rank': rank
+                })
+            except Exception as e:
+                print(f"Errore nell'elaborazione del geofence {geofence.id}: {str(e)}")
+        
+        return jsonify(ranked_geofences)
+    except Exception as e:
+        print(f"Errore generale in get_ranked_geofences: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @utils_bp.route('/check-questionnaires')
 def check_questionnaires():

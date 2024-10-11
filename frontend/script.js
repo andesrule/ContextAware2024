@@ -80,29 +80,56 @@ menuCheckbox.addEventListener('change', () => {
     }, 500);
 });
 
-function createAlert(message, type = 'warning') {
+function createAlert(message, type = 'warning', duration = 5000) {
     const alertHTML = `
-        <div class="alert bg-yellow-500 border border-yellow-600 rounded-lg p-3 mb-4 flex items-start space-x-2 text-sm">
-            <svg class="h-4 w-4 text-yellow-800 mt-0.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-            </svg>
-            <div class="flex-1">
+        <div class="alert bg-yellow-500 border border-yellow-600 rounded-lg p-3 mb-4 flex items-center justify-between space-x-2 text-sm opacity-0 transition-opacity duration-300">
+            <div class="flex items-center space-x-2 flex-1">
+                <svg class="h-4 w-4 text-yellow-800 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                </svg>
                 <p class="text-yellow-800">${message}</p>
             </div>
-            <button class="text-yellow-800 font-bold ml-4" onclick="this.parentElement.remove()">X</button>
+            <button class="text-yellow-800 hover:text-yellow-600 font-bold text-xl focus:outline-none" aria-label="Close alert">×</button>
         </div>
     `;
 
     const alertsContainer = document.getElementById('alertsContainer');
-    alertsContainer.insertAdjacentHTML('beforeend', alertHTML);
+    const alertElement = document.createElement('div');
+    alertElement.innerHTML = alertHTML;
+    const newAlert = alertElement.firstElementChild;
+    
+    // Aggiungi l'evento di chiusura al pulsante
+    const closeButton = newAlert.querySelector('button');
+    closeButton.addEventListener('click', () => {
+        newAlert.classList.remove('opacity-100');
+        newAlert.classList.add('opacity-0');
+        setTimeout(() => {
+            newAlert.remove();
+            if (alertsContainer.children.length === 0) {
+                const alertsSection = document.getElementById('alertsSection');
+                if (alertsSection) alertsSection.style.display = 'none';
+            }
+        }, 300);
+    });
 
+    alertsContainer.appendChild(newAlert);
+
+    // Mostra la sezione alerts
+    const alertsSection = document.getElementById('alertsSection');
+    if (alertsSection) alertsSection.style.display = 'block';
+
+    // Anima l'entrata dell'alert
     setTimeout(() => {
-        const newAlert = alertsContainer.lastElementChild;
-        newAlert.classList.add('show');
-    }, 100);
+        newAlert.classList.add('opacity-100');
+    }, 10);
+
+    // Rimuovi l'alert dopo la durata specificata
+    if (duration > 0) {
+        setTimeout(() => {
+            closeButton.click();
+        }, duration);
+    }
 }
-
-
 async function checkQuestionnaires() {
     try {
         const response = await fetch('/check-questionnaires');
