@@ -689,3 +689,22 @@ def api_calculate_travel_time():
     except Exception as e:
         logging.error(f"Unexpected error in api_calculate_travel_time: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
+
+
+
+@utils_bp.route('/delete-marker', methods=['POST'])
+def delete_marker():
+    data = request.json
+    marker_id = data.get('id')
+    
+    if marker_id:
+        marker = Geofence.query.get(marker_id)
+        if marker:
+            db.session.delete(marker)
+            db.session.commit()
+            return jsonify({"message": "Marker deleted successfully"}), 200
+        else:
+            return jsonify({"error": "Marker not found"}), 404
+    else:
+        return jsonify({"error": "No marker ID provided"}), 400

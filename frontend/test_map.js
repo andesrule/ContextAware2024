@@ -490,11 +490,27 @@ map.on(L.Draw.Event.CREATED, function (e) {
 function deleteMarker(markerId) {
     const marker = drawnItems.getLayer(markerId);
     if (marker) {
+        // Rimuovi il marker dalla mappa
         map.removeLayer(marker);
+        drawnItems.removeLayer(marker);
         if (circles[markerId]) {
             map.removeLayer(circles[markerId]);
             delete circles[markerId];
         }
+        
+        // Rimuovi il marker dal database
+        fetch('/delete-marker', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id: markerId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Marker eliminato dal database:', data);
+        })
+        .catch(error => console.error('Errore nell\'eliminazione del marker:', error));
     }
 }
 
@@ -510,6 +526,61 @@ function showToast(type, message) {
         toast.remove();
     }, 3000);
 }
+
+
+function loadMarkersFromDatabase() {
+    fetch('/get_markers')
+        .then(response => response.json())
+        .then(data => {
+            data.forEach(markerData => {
+                const marker = L.marker([markerData.lat, markerData.lng]).addTo(map);
+                marker.bindPopup(`
+                    <b>Marker dal Database</b><br>
+                    <button class="delete-marker-btn" onclick="deleteMarker(${marker._leaflet_id})">
+                        🗑 Elimina Marker
+                    </button>
+                `);
+                drawnItems.addLayer(marker);
+
+                const circle = L.circle([markerData.lat, markerData.lng], {
+                    color: 'blue',
+                    fillColor: '#30f',
+                    fillOpacity: 0.2,
+                    radius: neighborhoodRadius
+                }).addTo(map);
+
+                circles[marker._leaflet_id] = circle;
+                drawnItems.addLayer(circle);
+            });
+        })
+        .catch(error => console.error('Errore nel caricamento dei marker:', error));
+}
+
+function loadGeofencesFromDatabase() {
+    fetch('/get-geofences')
+        .then(response => response.json())
+        .then(data => {
+            data.forEach(geofenceData => {
+                if (geofenceData.geofence) {
+                    const polygon = L.polygon(geofenceData.geofence.coordinates[0].map(coord => [coord[1], coord[0]])).addTo(map);
+                    polygon.bindPopup(`
+                        <b>Geofence dal Database</b><br>
+                        ID: ${geofenceData.id}
+                    `);
+                    drawnItems.addLayer(polygon);
+                }
+            });
+        })
+        .catch(error => console.error('Errore nel caricamento dei geofence:', error));
+}
+
+// Carica i marker e i geofence quando la pagina è completamente caricata
+document.addEventListener('DOMContentLoaded', function() {
+    loadMarkersFromDatabase();
+    loadGeofencesFromDatabase();
+});
+
+
 
 // Stile CSS per lo slider
 const style = document.createElement('style');

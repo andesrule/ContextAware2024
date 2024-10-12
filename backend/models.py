@@ -17,14 +17,7 @@ class Geofence(db.Model):
     geofence = db.Column(Geometry(geometry_type='POLYGON', srid=4326))  # Memorizza i poligoni come POLYGON
 
     def __init__(self, marker=None, geofence=None):
-/*************  ✨ Codeium Command ⭐  *************/
-        """
-        Inizializza un nuovo oggetto Geofence con i parametri marker e geofence.
 
-        :param marker: Coordinate del marker come oggetto Geometry(Point)
-        :param geofence: Coordinate del poligono come oggetto Geometry(Polygon)
-        """
-/******  ae1eaf1b-e8dd-4770-9224-731528060578  *******/
         self.marker = marker
         self.geofence = geofence
 
