@@ -128,9 +128,7 @@ let drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
 
 let drawControl = new L.Control.Draw({
-    edit: {
-        featureGroup: drawnItems
-    },
+    edit: false,  // Questo rimuove i pulsanti di modifica ed eliminazione
     draw: {
         polygon: true,
         marker: true,
