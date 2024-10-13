@@ -682,21 +682,28 @@ def api_calculate_travel_time():
         logging.error(f"Unexpected error in api_calculate_travel_time: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
-
-
-
-@utils_bp.route('/delete-marker', methods=['POST'])
-def delete_marker():
-    data = request.json
-    marker_id = data.get('id')
+@utils_bp.route('/delete-all-geofences', methods=['POST'])
+def delete_all_geofences():
+    try:
+        Geofence.query.delete()
+        db.session.commit()
+        return jsonify({"message": "Tutti i geofence sono stati cancellati"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
     
-    if marker_id:
-        marker = Geofence.query.get(marker_id)
-        if marker:
-            db.session.delete(marker)
+
+
+@utils_bp.route('/delete-geofence/<int:geofence_id>', methods=['DELETE'])
+def delete_geofence(geofence_id):
+    try:
+        geofence = Geofence.query.get(geofence_id)
+        if geofence:
+            db.session.delete(geofence)
             db.session.commit()
-            return jsonify({"message": "Marker deleted successfully"}), 200
+            return jsonify({"message": f"Geofence con ID {geofence_id} eliminato con successo"}), 200
         else:
-            return jsonify({"error": "Marker not found"}), 404
-    else:
-        return jsonify({"error": "No marker ID provided"}), 400
+            return jsonify({"error": f"Geofence con ID {geofence_id} non trovato"}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500

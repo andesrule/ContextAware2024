@@ -458,60 +458,59 @@ map.on(L.Draw.Event.CREATED, function (e) {
 
     if (layer instanceof L.Marker) {
         const latlng = layer.getLatLng();
-        const userMarker = L.marker([latlng.lat, latlng.lng]).addTo(map);
+        saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null)
+            .then(response => response.json())
+            .then(data => {
+                const geofenceId = data.id;
+                const userMarker = L.marker([latlng.lat, latlng.lng]).addTo(map);
+                userMarker.bindPopup(createGeofencePopup(geofenceId, true)).openPopup();
+                userMarker.geofenceId = geofenceId;
 
-        const circle = L.circle([latlng.lat, latlng.lng], {
-            color: 'blue',
-            fillColor: '#30f',
-            fillOpacity: 0.2,
-            radius: neighborhoodRadius
-        }).addTo(map);
+                const circle = L.circle([latlng.lat, latlng.lng], {
+                    color: 'blue',
+                    fillColor: '#30f',
+                    fillOpacity: 0.2,
+                    radius: neighborhoodRadius
+                }).addTo(map);
 
-        circles[userMarker._leaflet_id] = circle;
+                circles[geofenceId] = circle;
 
-        userMarker.bindPopup(`
-            <b>Marker Utente</b><br>
-            <button class="delete-marker-btn" onclick="deleteMarker(${userMarker._leaflet_id})">
-                🗑 Elimina Marker
-            </button>
-        `).openPopup();
-
-        drawnItems.addLayer(userMarker);
-        drawnItems.addLayer(circle);
-
-        saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null);
+                drawnItems.addLayer(userMarker);
+                drawnItems.addLayer(circle);
+            })
+            .catch(error => console.error('Errore nel salvare il marker:', error));
     } else if (layer instanceof L.Polygon) {
         const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
-        saveGeofenceToDatabase(null, [coordinates]);
-        drawnItems.addLayer(layer);
+        saveGeofenceToDatabase(null, [coordinates])
+            .then(response => response.json())
+            .then(data => {
+                const geofenceId = data.id;
+                layer.bindPopup(createGeofencePopup(geofenceId, false));
+                layer.geofenceId = geofenceId;
+                drawnItems.addLayer(layer);
+            })
+            .catch(error => console.error('Errore nel salvare il geofence:', error));
     }
 });
 
-function deleteMarker(markerId) {
-    const marker = drawnItems.getLayer(markerId);
-    if (marker) {
-        // Rimuovi il marker dalla mappa
-        map.removeLayer(marker);
-        drawnItems.removeLayer(marker);
-        if (circles[markerId]) {
-            map.removeLayer(circles[markerId]);
-            delete circles[markerId];
-        }
-        
-        // Rimuovi il marker dal database
-        fetch('/delete-marker', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ id: markerId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Marker eliminato dal database:', data);
-        })
-        .catch(error => console.error('Errore nell\'eliminazione del marker:', error));
+function saveGeofenceToDatabase(markers, geofences) {
+    let data;
+    if (markers && markers.length === 1) {
+        data = { marker: markers[0] };
+    } else if (geofences && geofences.length > 0) {
+        data = { geofence: geofences[0] };
+    } else {
+        console.error('Nessun marker o geofence valido da salvare.');
+        return Promise.reject('Dati non validi');
     }
+
+    return fetch('/save-geofence', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    });
 }
 
 
@@ -534,12 +533,8 @@ function loadMarkersFromDatabase() {
         .then(data => {
             data.forEach(markerData => {
                 const marker = L.marker([markerData.lat, markerData.lng]).addTo(map);
-                marker.bindPopup(`
-                    <b>Marker dal Database</b><br>
-                    <button class="delete-marker-btn" onclick="deleteMarker(${marker._leaflet_id})">
-                        🗑 Elimina Marker
-                    </button>
-                `);
+                marker.bindPopup(createGeofencePopup(markerData.id, true));
+                marker.geofenceId = markerData.id;
                 drawnItems.addLayer(marker);
 
                 const circle = L.circle([markerData.lat, markerData.lng], {
@@ -549,7 +544,7 @@ function loadMarkersFromDatabase() {
                     radius: neighborhoodRadius
                 }).addTo(map);
 
-                circles[marker._leaflet_id] = circle;
+                circles[markerData.id] = circle;
                 drawnItems.addLayer(circle);
             });
         })
@@ -563,10 +558,8 @@ function loadGeofencesFromDatabase() {
             data.forEach(geofenceData => {
                 if (geofenceData.geofence) {
                     const polygon = L.polygon(geofenceData.geofence.coordinates[0].map(coord => [coord[1], coord[0]])).addTo(map);
-                    polygon.bindPopup(`
-                        <b>Geofence dal Database</b><br>
-                        ID: ${geofenceData.id}
-                    `);
+                    polygon.bindPopup(createGeofencePopup(geofenceData.id, false));
+                    polygon.geofenceId = geofenceData.id;
                     drawnItems.addLayer(polygon);
                 }
             });
@@ -580,6 +573,128 @@ document.addEventListener('DOMContentLoaded', function() {
     loadGeofencesFromDatabase();
 });
 
+
+var deleteAllControl = L.Control.extend({
+    options: {
+        position: 'topleft'
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'leaflet-control-custom');
+        container.innerHTML = '🗑️';
+        container.style.backgroundColor = 'white';
+        container.style.width = '30px';
+        container.style.height = '30px';
+        container.style.lineHeight = '30px';
+        container.style.textAlign = 'center';
+        container.style.cursor = 'pointer';
+        container.title = 'Cancella tutti i geofence';
+
+        container.onclick = function(){
+            if (confirm('Sei sicuro di voler cancellare tutti i geofence (marker e poligoni)?')) {
+                deleteAllGeofences();
+            }
+        }
+
+        L.DomEvent.disableClickPropagation(container);
+
+        return container;
+    }
+});
+
+map.addControl(new deleteAllControl());
+
+
+function deleteAllGeofences() {
+    fetch('/delete-all-geofences', {
+        method: 'POST',
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Tutti i geofence cancellati:', data);
+        // Rimuovi tutti i geofence dalla mappa
+        drawnItems.clearLayers();
+        // Rimuovi tutti i cerchi
+        Object.values(circles).forEach(circle => map.removeLayer(circle));
+        circles = {};
+        // Rimuovi i marker clusterizzati
+        databaseMarkers.clearLayers();
+        // Rimuovi il layer dei geofence se esiste
+        if (window.geofencesLayer) {
+            window.geofencesLayer.clearLayers();
+        }
+        showToast('success', 'Tutti i geofence sono stati cancellati');
+    })
+    .catch(error => {
+        console.error('Errore nella cancellazione dei geofence:', error);
+        showToast('error', 'Errore nella cancellazione dei geofence');
+    });
+}
+
+
+function removeGeofenceFromMap(geofenceId) {
+    console.log('Removing geofence from map:', geofenceId);
+    // Rimuovi il marker o il poligono dalla mappa
+    drawnItems.eachLayer(function (layer) {
+        if (layer.geofenceId === geofenceId) {
+            drawnItems.removeLayer(layer);
+            map.removeLayer(layer);
+        }
+    });
+
+    // Se è un marker, rimuovi anche il cerchio associato
+    if (circles[geofenceId]) {
+        map.removeLayer(circles[geofenceId]);
+        delete circles[geofenceId];
+    }
+
+    // Se stai usando un layer separato per i geofence, aggiorna anche quello
+    if (window.geofencesLayer) {
+        window.geofencesLayer.eachLayer(function (layer) {
+            if (layer.geofenceId === geofenceId) {
+                window.geofencesLayer.removeLayer(layer);
+            }
+        });
+    }
+
+    // Rimuovi anche dal layer dei marker del database, se presente
+    databaseMarkers.eachLayer(function (layer) {
+        if (layer.geofenceId === geofenceId) {
+            databaseMarkers.removeLayer(layer);
+        }
+    });
+}
+
+function createGeofencePopup(geofenceId, isMarker = true) {
+    let content = `
+        <b>${isMarker ? 'Marker' : 'Geofence'} ID: ${geofenceId}</b><br>
+        <button onclick="deleteGeofence(${geofenceId})">
+            🗑️ Elimina ${isMarker ? 'Marker' : 'Geofence'}
+        </button>
+    `;
+    return content;
+}
+
+function deleteGeofence(geofenceId) {
+    console.log('Deleting geofence with ID:', geofenceId);
+    fetch(`/delete-geofence/${geofenceId}`, {
+        method: 'DELETE',
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Geofence eliminato:', data);
+        removeGeofenceFromMap(geofenceId);
+        showToast('success', `Geofence ${geofenceId} eliminato con successo`);
+    })
+    .catch(error => {
+        console.error('Errore nell\'eliminazione del geofence:', error);
+        showToast('error', `Errore nell'eliminazione del geofence ${geofenceId}`);
+    });
+}
 
 
 // Stile CSS per lo slider
@@ -642,3 +757,7 @@ clusterStyle.textContent = `
     }
 `;
 document.head.appendChild(clusterStyle);
+
+
+
+
