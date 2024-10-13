@@ -128,7 +128,7 @@ def submit_questionnaire():
             luogo_culto=data.get('luogo_culto'),
             servizi=data.get('servizi'),
             densita_aree_verdi=data.get('densita_aree_verdi'),
-            densita_cinema=data.get('densita_cinema'),
+
             densita_fermate_bus=data.get('densita_fermate_bus')
         )
         db.session.add(new_questionnaire)
@@ -355,7 +355,6 @@ def get_questionnaire_response_dict(response):
         'luogo_culto': response.luogo_culto,
         'servizi': response.servizi,
         'densita_aree_verdi': response.densita_aree_verdi,
-        'densita_cinema': response.densita_cinema,
         'densita_fermate_bus': response.densita_fermate_bus
     }
 
@@ -427,10 +426,6 @@ def calcola_rank(marker_id, raggio):
     if nearby_pois.get('aree_verdi', 0) >= 2:
         rank += user_preferences['densita_aree_verdi'] * pesi['aree_verdi']
 
-    #Cinema densitá
-    if nearby_pois.get('cinema', 0) >= 2:
-        rank += user_preferences['densita_cinema'] * pesi['cinema']
-    
     #Fermate bus densitá
     if nearby_pois.get('fermate_bus', 0) >= 2:
         rank += user_preferences['densita_fermate_bus'] * pesi['fermate_bus']
@@ -561,10 +556,7 @@ def calcola_rank_geofence(geofence_id):
     if nearby_pois.get('aree_verdi', 0) >= 2:
         rank += user_preferences['densita_aree_verdi'] * pesi['aree_verdi']
 
-    #Cinema densitá
-    if nearby_pois.get('cinema', 0) >= 2:
-        rank += user_preferences['densita_cinema'] * pesi['cinema']
-    
+
     #Fermate bus densitá
     if nearby_pois.get('fermate_bus', 0) >= 2:
         rank += user_preferences['densita_fermate_bus'] * pesi['fermate_bus']
