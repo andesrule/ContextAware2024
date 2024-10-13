@@ -35,7 +35,6 @@ class QuestionnaireResponse(db.Model):
     luogo_culto = db.Column(db.Integer)
     servizi = db.Column(db.Integer)
     densita_aree_verdi = db.Column(db.Integer)
-    densita_cinema = db.Column(db.Integer)
     densita_fermate_bus = db.Column(db.Integer)
 
     user = db.relationship('User', backref=db.backref('questionnaire', uselist=False))
