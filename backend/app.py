@@ -8,12 +8,12 @@ from routes import *
 from flask import Flask 
 from flask_cors import CORS
 
+
 app = Flask(__name__, template_folder=Config.FRONTEND_PATH, static_folder=Config.FRONTEND_PATH, static_url_path='')
 app.config.from_object(Config)
 CORS(app)  # Abilita CORS per tutte le route
 # Inizializza SQLAlchemy
 db.init_app(app)
-
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'your-very-secret-key'
 
 app.register_blueprint(utils_bp)
@@ -33,7 +33,7 @@ admin.add_view(CustomModelView(QuestionnaireResponse, db.session))
 admin.add_view(CustomModelView(POI, db.session))
 
 
-@app.before_request
+#@app.before_request
 def initialize_database():
     if not hasattr(app, 'db_initialized'):
         with app.app_context():

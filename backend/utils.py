@@ -5,11 +5,13 @@ import json, logging
 import requests
 from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
-from sqlalchemy import func
+from sqlalchemy import func, text
 from geoalchemy2.functions import *
 from shapely import wkb
 import binascii
 from flask_login import current_user
+import numpy as np
+
 
 
 global_radius = 500
@@ -693,7 +695,6 @@ def delete_all_geofences():
         return jsonify({"error": str(e)}), 500
     
 
-
 @utils_bp.route('/delete-geofence/<int:geofence_id>', methods=['DELETE'])
 def delete_geofence(geofence_id):
     try:
@@ -706,4 +707,187 @@ def delete_geofence(geofence_id):
             return jsonify({"error": f"Geofence con ID {geofence_id} non trovato"}), 404
     except Exception as e:
         db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    
+
+
+
+ # ... [Importazioni e altro codice rimangono invariati]
+
+@utils_bp.route('/get_all_geofences')
+def get_all_geofences():
+    try:
+        # Controlla se ci sono questionari nel database
+        if QuestionnaireResponse.query.count() == 0:
+            return jsonify({"error": "No questionnaires found"}), 404
+
+        geofences = Geofence.query.all()
+        all_geofences = []
+        
+        for geofence in geofences:
+            try:
+                if geofence.marker is not None:
+                    # È un marker
+                    lat = db.session.scalar(ST_Y(geofence.marker))
+                    lng = db.session.scalar(ST_X(geofence.marker))
+                    rank = calcola_rank(geofence.id, raggio=global_radius)
+                    all_geofences.append({
+                        'id': geofence.id,
+                        'type': 'marker',
+                        'lat': lat,
+                        'lng': lng,
+                        'rank': rank
+                    })
+                elif geofence.geofence is not None:
+                    # È un poligono
+                    centroid = db.session.scalar(ST_Centroid(geofence.geofence))
+                    centroid_lat = db.session.scalar(func.ST_Y(centroid))
+                    centroid_lng = db.session.scalar(func.ST_X(centroid))
+                    rank = calcola_rank_geofence(geofence.id)
+                    geofence_geojson = db.session.scalar(ST_AsGeoJSON(geofence.geofence))
+                    geofence_dict = json.loads(geofence_geojson)
+                    coordinates = geofence_dict['coordinates'][0]
+                    all_geofences.append({
+                        'id': geofence.id,
+                        'type': 'polygon',
+                        'centroid': {
+                            'lat': centroid_lat,
+                            'lng': centroid_lng
+                        },
+                        'coordinates': coordinates,
+                        'rank': rank
+                    })
+            except Exception as e:
+                print(f"Errore nell'elaborazione del geofence {geofence.id}: {str(e)}")
+        
+        return jsonify(all_geofences)
+    except Exception as e:
+        print(f"Errore generale in get_all_geofences: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+def get_bologna_bounds():
+    # Coordinate approssimative di Bologna (in lat, lon)
+    return (44.4949, 11.3426, 44.4949, 11.3426)  # nord, est, sud, ovest
+
+def create_grid(bounds, grid_size):
+    north, east, south, west = bounds
+    lat_points = np.linspace(south, north, grid_size)
+    lon_points = np.linspace(west, east, grid_size)
+    return [(lat, lon) for lat in lat_points for lon in lon_points]
+
+def count_pois_near_point(db, lat, lon, radius):
+    point = f'POINT({lon} {lat})'
+    poi_counts = db.session.query(
+        POI.type,
+        func.count(POI.id).label('count')
+    ).filter(
+        ST_DWithin(
+            ST_Transform(POI.location, 3857),
+            ST_Transform(func.ST_GeomFromText(point, 4326), 3857),
+            radius
+        )
+    ).group_by(POI.type).all()
+    
+    return dict(poi_counts)
+
+def calculate_rank(poi_counts, user_preferences):
+    rank = 0
+    weights = {
+        'aree_verdi': 0.8, 'parcheggi': 1.0, 'fermate_bus': 1.0,
+        'stazioni_ferroviarie': 1.0, 'scuole': 0.7, 'cinema': 0.6,
+        'ospedali': 1.0, 'farmacia': 0.5, 'luogo_culto': 0.2, 'servizi': 0.4,
+    }
+    
+    for poi_type, count in poi_counts.items():
+        if poi_type in user_preferences and poi_type in weights:
+            rank += count * user_preferences[poi_type] * weights[poi_type]
+    
+    # Aggiungi bonus per densità se applicabile
+    if poi_counts.get('aree_verdi', 0) >= 2:
+        rank += user_preferences.get('densita_aree_verdi', 0) * weights['aree_verdi']
+    if poi_counts.get('fermate_bus', 0) >= 2:
+        rank += user_preferences.get('densita_fermate_bus', 0) * weights['fermate_bus']
+    
+    return rank
+
+@utils_bp.route('/calculate_optimal_locations', methods=['GET'])
+def calculate_optimal_locations():
+    try:
+        grid_size = 100
+        radius = 500  # metri
+
+        user_prefs = QuestionnaireResponse.query.first()
+        if not user_prefs:
+            return jsonify({"error": "Nessun questionario trovato. Completa il questionario prima."}), 400
+        
+        user_preferences = get_questionnaire_response_dict(user_prefs)
+
+        bounds = get_bologna_bounds()
+        grid_points = create_grid(bounds, grid_size)
+
+        # Creiamo una tabella temporanea con i punti della griglia
+        create_temp_table_query = text("""
+        CREATE TEMPORARY TABLE grid_points (
+            id SERIAL PRIMARY KEY,
+            geom GEOMETRY(POINT, 4326)
+        )
+        """)
+        db.session.execute(create_temp_table_query)
+
+        # Inseriamo i punti della griglia nella tabella temporanea
+        insert_points_query = text("""
+        INSERT INTO grid_points (geom)
+        VALUES (:point)
+        """)
+        for lat, lon in grid_points:
+            db.session.execute(insert_points_query, {"point": f"SRID=4326;POINT({lon} {lat})"})
+
+        # Eseguiamo la query spaziale
+        query = text("""
+        SELECT g.id, ST_X(g.geom) as lon, ST_Y(g.geom) as lat, 
+               poi.type, COUNT(poi.id) as count
+        FROM grid_points g
+        LEFT JOIN points_of_interest poi ON ST_DWithin(
+            ST_Transform(g.geom, 3857),
+            ST_Transform(poi.location, 3857),
+            :radius
+        )
+        GROUP BY g.id, g.geom, poi.type
+        """)
+
+        result = db.session.execute(query, {"radius": radius})
+
+        # Organizziamo i risultati
+        poi_counts = {}
+        for row in result:
+            point = (row.lat, row.lon)
+            if point not in poi_counts:
+                poi_counts[point] = {}
+            if row.type:
+                poi_counts[point][row.type] = row.count
+
+        # Calcola il rank per ogni punto
+        ranked_locations = []
+        for point, counts in poi_counts.items():
+            lat, lon = point
+            rank = calculate_rank(counts, user_preferences)
+            ranked_locations.append({"lat": lat, "lon": lon, "rank": rank})
+
+        # Ordina e prendi i top 5
+        top_locations = sorted(ranked_locations, key=lambda x: x['rank'], reverse=True)[:5]
+
+        # Pulizia: eliminiamo la tabella temporanea
+        db.session.execute(text("DROP TABLE IF EXISTS grid_points"))
+        db.session.commit()
+
+        return jsonify({
+            "message": "Ecco le 5 migliori posizioni suggerite per acquistare casa a Bologna:",
+            "suggestions": top_locations,
+            "user_preferences": user_preferences,
+            "total_locations_analyzed": len(ranked_locations)
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Errore in calculate_optimal_locations: {str(e)}")
         return jsonify({"error": str(e)}), 500
