@@ -369,56 +369,8 @@ function loadRankedGeofences() {
 }
 
 
-var customControl = L.Control.extend({
-    options: {
-        position: 'topleft'
-    },
-    onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'leaflet-control-custom');
-        container.innerHTML = '📍';
-        container.style.backgroundColor = 'white';
-        container.style.width = '30px';
-        container.style.height = '30px';
-        container.style.lineHeight = '30px';
-        container.style.textAlign = 'center';
-        container.style.cursor = 'pointer';
-        container.title = 'Mostra marker dal database';
 
-        container.onclick = function(){
-            loadRankedMarkers();
-        }
 
-        L.DomEvent.disableClickPropagation(container);
-
-        return container;
-    }
-});
-
-map.addControl(new customControl());
-
-var geofenceControl = L.Control.extend({
-    options: {
-        position: 'topleft'
-    },
-    onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'leaflet-control-custom');
-        container.innerHTML = '🏠';
-        container.style.backgroundColor = 'white';
-        container.style.width = '30px';
-        container.style.height = '30px';
-        container.style.lineHeight = '30px';
-        container.style.textAlign = 'center';
-        container.style.cursor = 'pointer';
-        container.title = 'Mostra Geofence';
-        container.onclick = function(){
-            loadRankedGeofences();
-        }
-        L.DomEvent.disableClickPropagation(container);
-        return container;
-    }
-});
-
-map.addControl(new geofenceControl());
 
 // Aggiungi l'evento per lo slider
 document.getElementById('radiusSlider').addEventListener('input', function(e) {
@@ -562,11 +514,20 @@ function showToast(type, message) {
 
 
 function loadMarkersFromDatabase() {
-    fetch('/get_markers')
+    fetch('/get_ranked_markers')
         .then(response => response.json())
         .then(data => {
             data.forEach(markerData => {
-                const marker = L.marker([markerData.lat, markerData.lng]).addTo(map);
+                const color = getColorFromRank(markerData.rank);
+                const marker = L.marker([markerData.lat, markerData.lng], {
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%;"></div>`,
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    })
+                }).addTo(map);
+                
                 marker.bindPopup(createGeofencePopup(markerData.id, true));
                 marker.geofenceId = markerData.id;
                 drawnItems.addLayer(marker);
@@ -586,12 +547,17 @@ function loadMarkersFromDatabase() {
 }
 
 function loadGeofencesFromDatabase() {
-    fetch('/get-geofences')
+    fetch('/get_ranked_geofences')
         .then(response => response.json())
         .then(data => {
             data.forEach(geofenceData => {
-                if (geofenceData.geofence) {
-                    const polygon = L.polygon(geofenceData.geofence.coordinates[0].map(coord => [coord[1], coord[0]])).addTo(map);
+                if (geofenceData.coordinates) {
+                    const color = getColorFromRank(geofenceData.rank);
+                    const polygon = L.polygon(geofenceData.coordinates.map(coord => [coord[1], coord[0]]), {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.5
+                    }).addTo(map);
                     polygon.bindPopup(createGeofencePopup(geofenceData.id, false));
                     polygon.geofenceId = geofenceData.id;
                     drawnItems.addLayer(polygon);
@@ -600,6 +566,7 @@ function loadGeofencesFromDatabase() {
         })
         .catch(error => console.error('Errore nel caricamento dei geofence:', error));
 }
+
 
 // Carica i marker e i geofence quando la pagina è completamente caricata
 document.addEventListener('DOMContentLoaded', function() {
