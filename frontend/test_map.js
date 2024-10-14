@@ -451,6 +451,8 @@ function sendRadiusToBackend(radius) {
     });
 }
 
+// ... [Codice precedente rimane invariato]
+
 map.on(L.Draw.Event.CREATED, function (e) {
     let layer = e.layer;
 
@@ -475,6 +477,23 @@ map.on(L.Draw.Event.CREATED, function (e) {
 
                 drawnItems.addLayer(userMarker);
                 drawnItems.addLayer(circle);
+
+                // Aggiunge immediatamente il ranking al marker
+                fetch(`/get_ranked_markers`)
+                    .then(response => response.json())
+                    .then(rankedMarkers => {
+                        const rankedMarker = rankedMarkers.find(m => m.id === geofenceId);
+                        if (rankedMarker) {
+                            const color = getColorFromRank(rankedMarker.rank);
+                            userMarker.setIcon(L.divIcon({
+                                className: 'custom-div-icon',
+                                html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%;"></div>`,
+                                iconSize: [20, 20],
+                                iconAnchor: [10, 10]
+                            }));
+                        }
+                    })
+                    .catch(error => console.error('Errore nel caricamento del ranking del marker:', error));
             })
             .catch(error => console.error('Errore nel salvare il marker:', error));
     } else if (layer instanceof L.Polygon) {
@@ -486,11 +505,28 @@ map.on(L.Draw.Event.CREATED, function (e) {
                 layer.bindPopup(createGeofencePopup(geofenceId, false));
                 layer.geofenceId = geofenceId;
                 drawnItems.addLayer(layer);
+
+                // Aggiunge immediatamente il ranking al geofence
+                fetch(`/get_ranked_geofences`)
+                    .then(response => response.json())
+                    .then(rankedGeofences => {
+                        const rankedGeofence = rankedGeofences.find(g => g.id === geofenceId);
+                        if (rankedGeofence) {
+                            const color = getColorFromRank(rankedGeofence.rank);
+                            layer.setStyle({
+                                fillColor: color,
+                                fillOpacity: 0.5,
+                                color: color
+                            });
+                        }
+                    })
+                    .catch(error => console.error('Errore nel caricamento del ranking del geofence:', error));
             })
             .catch(error => console.error('Errore nel salvare il geofence:', error));
     }
 });
 
+// ... [Resto del codice rimane invariato]
 function saveGeofenceToDatabase(markers, geofences) {
     let data;
     if (markers && markers.length === 1) {

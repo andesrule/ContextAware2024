@@ -130,18 +130,29 @@ function createAlert(message, type = 'warning', duration = 5000) {
         }, duration);
     }
 }
+
 async function checkQuestionnaires() {
     try {
         const response = await fetch('/check-questionnaires');
         const data = await response.json();
         
+        const alertsSection = document.querySelector('.collapse');
+        const alertsContainer = document.getElementById('alertsContainer');
+        
         if (data.count === 0) {
+            alertsSection.classList.add('collapse-open');
             createAlert('Non ci sono questionari nel database. Compilare almeno un questionario per visualizzare i dati.');
+        } else {
+            alertsSection.classList.remove('collapse-open');
+            alertsContainer.innerHTML = ''; // Pulisce gli alert esistenti
         }
     } catch (error) {
         console.error('Errore durante il controllo dei questionari:', error);
         createAlert('Errore durante il controllo dei questionari nel database.');
     }
+    document.addEventListener('DOMContentLoaded', function() {
+        checkQuestionnaires();
+    });
 }
 
 function createAlert(message, type = 'warning') {
