@@ -1,0 +1,189 @@
+body {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Stile per il contenitore principale */
+.main-container {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Stile per il contenitore della mappa */
+#mapContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transition: right 0.5s ease;
+}
+
+/* Stile per il pannello di controllo */
+#controlPanel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -16rem;
+    width: 24rem;
+    transition: right 0.5s ease;
+    overflow-y: auto;
+}
+
+/* Quando il pannello è aperto */
+.panel-open #mapContainer {
+    right: 24rem;
+}
+
+.panel-open #controlPanel {
+    right: 0;
+}
+
+/* Assicurati che la mappa occupi tutto lo spazio disponibile */
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+/* Stili per il menu hamburger */
+#menu_checkbox {
+    display: none;
+}
+
+.menu-label {
+    position: relative;
+    display: block;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    margin: 0;
+    padding-top: 3px;
+}
+
+.menu-label div {
+    position: relative;
+    top: 0;
+    height: 6px;
+    background-color: #fff;
+    margin-bottom: 6px;
+    transition: 0.3s ease transform, 0.3s ease top, 0.3s ease width, 0.3s ease right;
+    border-radius: 2px;
+}
+
+.menu-label div:first-child {
+    transform-origin: 0;
+}
+
+.menu-label div:last-child {
+    margin-bottom: 0;
+    transform-origin: 30px;
+}
+
+.menu-label div:nth-child(2) {
+    right: 0;
+    width: 30px;
+}
+
+#menu_checkbox:checked + .menu-label div:first-child {
+    top: -3px;
+    transform: rotateZ(45deg);
+}
+
+#menu_checkbox:checked + .menu-label div:last-child {
+    top: 3px;
+    transform: rotateZ(45deg);
+}
+
+#menu_checkbox:checked + .menu-label div:nth-child(2) {
+    width: 42px;
+    top: 0;
+    right: 6px;
+    transform: rotateZ(-45deg);
+}
+
+/* Stili per l'alert */
+.alert {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.alert.show {
+    opacity: 1;
+}
+
+.slider {
+    width: 100%;
+}
+
+#radiusValue {
+    font-weight: bold;
+}
+
+.leaflet-control-custom {
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.custom-div-icon {
+    background: none;
+    border: none;
+    text-align: center;
+    line-height: 30px;
+    font-size: 20px;
+}
+
+.poi-popup {
+    padding: 5px;
+}
+
+.poi-popup h3 {
+    margin: 0 0 5px 0;
+    font-weight: bold;
+}
+
+.poi-popup p {
+    margin: 2px 0;
+}
+
+.quick-setting-btn {
+    border-color: var(--p) !important;
+    color: var(--p) !important;
+    background-color: transparent !important;
+  }
+  
+  .quick-setting-btn:hover,
+  .quick-setting-btn.btn-active {
+    background-color: var(--p) !important;
+    border-color: var(--p) !important;
+    color: var(--pc) !important;
+  }
+  
+  .quick-setting-btn:focus {
+    box-shadow: 0 0 0 2px var(--b1), 0 0 0 4px var(--p);
+  }
+  
+  /* Stile specifico per lo stato attivo */
+  .quick-setting-btn.btn-active {
+    background-color: var(--p) !important;
+    color: var(--pc) !important;
+  }
+
+  .alert button {
+    padding: 0 5px;
+    line-height: 1;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.alert button:hover {
+    opacity: 0.7;
+}
+.alert {
+    transition: opacity 300ms ease-in-out;
+}

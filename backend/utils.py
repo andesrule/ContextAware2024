@@ -7,6 +7,10 @@ from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
 from sqlalchemy import func
 from geoalchemy2.functions import *
+from shapely import wkb
+import binascii
+from flask_login import current_user
+
 
 global_radius = 500
 utils_bp = Blueprint('utils', __name__)
@@ -102,27 +106,39 @@ def save_geofence():
 @utils_bp.route('/submit-questionnaire', methods=['POST'])
 def submit_questionnaire():
     data = request.get_json()
-    response = QuestionnaireResponse(
-        aree_verdi=data.get('aree_verdi'),
-        parcheggi=data.get('parcheggi'),
-        fermate_bus=data.get('fermate_bus'),
-        stazioni_ferroviarie=data.get('stazioni_ferroviarie'),
-        scuole=data.get('scuole'),
-        cinema=data.get('cinema'),
-        ospedali=data.get('ospedali'),
-        farmacia=data.get('farmacia'),
-        luogo_culto=data.get('luogo_culto'),
-        servizi=data.get('servizi'),
-        densita_aree_verdi=data.get('densita_aree_verdi'),
-        densita_cinema=data.get('densita_cinema'),
-        densita_fermate_bus=data.get('densita_fermate_bus')
-
-    )
     
-    db.session.add(response)
-    db.session.commit()
+    # Cerca se esiste già un questionario nel database
+    existing_questionnaire = QuestionnaireResponse.query.first()
 
-    return jsonify({"message": "questionario inviato con successo!"})
+    if existing_questionnaire:
+        # Se esiste, aggiorna i valori
+        for key, value in data.items():
+            setattr(existing_questionnaire, key, value)
+    else:
+        # Se non esiste, crea un nuovo questionario
+        new_questionnaire = QuestionnaireResponse(
+            aree_verdi=data.get('aree_verdi'),
+            parcheggi=data.get('parcheggi'),
+            fermate_bus=data.get('fermate_bus'),
+            stazioni_ferroviarie=data.get('stazioni_ferroviarie'),
+            scuole=data.get('scuole'),
+            cinema=data.get('cinema'),
+            ospedali=data.get('ospedali'),
+            farmacia=data.get('farmacia'),
+            luogo_culto=data.get('luogo_culto'),
+            servizi=data.get('servizi'),
+            densita_aree_verdi=data.get('densita_aree_verdi'),
+
+            densita_fermate_bus=data.get('densita_fermate_bus')
+        )
+        db.session.add(new_questionnaire)
+
+    try:
+        db.session.commit()
+        return jsonify({"message": "Questionario inviato con successo!"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 def get_poi_coordinates(poi):
     """Estrae le coordinate dal PoI, gestendo diversi formati."""
@@ -339,7 +355,6 @@ def get_questionnaire_response_dict(response):
         'luogo_culto': response.luogo_culto,
         'servizi': response.servizi,
         'densita_aree_verdi': response.densita_aree_verdi,
-        'densita_cinema': response.densita_cinema,
         'densita_fermate_bus': response.densita_fermate_bus
     }
 
@@ -351,8 +366,13 @@ def calcola_rank(marker_id, raggio):
     :param nearby_pois: Dizionario con il numero di PoI vicini (reali)
     :return: Punteggio del marker
     """
-    nearby_pois= count_nearby_pois(db, marker_id= marker_id, distance_meters= raggio)
+    nearby_pois = count_nearby_pois(db, marker_id=marker_id, distance_meters=raggio)
+    response = QuestionnaireResponse.query.first()
     user_preferences = get_questionnaire_response_dict(response = QuestionnaireResponse.query.get(1))
+    if not user_preferences:
+        # Se non ci sono preferenze dell'utente, restituisci un rank di default
+        return 0
+
     rank = 0
     
     # Definisci pesi per ciascun tipo di PoI (questi valori sono un esempio)
@@ -406,10 +426,6 @@ def calcola_rank(marker_id, raggio):
     if nearby_pois.get('aree_verdi', 0) >= 2:
         rank += user_preferences['densita_aree_verdi'] * pesi['aree_verdi']
 
-    #Cinema densitá
-    if nearby_pois.get('cinema', 0) >= 2:
-        rank += user_preferences['densita_cinema'] * pesi['cinema']
-    
     #Fermate bus densitá
     if nearby_pois.get('fermate_bus', 0) >= 2:
         rank += user_preferences['densita_fermate_bus'] * pesi['fermate_bus']
@@ -418,23 +434,34 @@ def calcola_rank(marker_id, raggio):
 
 @utils_bp.route('/get_ranked_markers')
 def get_ranked_markers():
-    global global_radius
-    
-    markers = Geofence.query.filter(Geofence.marker.isnot(None)).all()
-    ranked_markers = []
-    
-    for marker in markers:
-        lat = db.session.scalar(ST_Y(marker.marker))
-        lng = db.session.scalar(ST_X(marker.marker))
-        rank = calcola_rank(marker.id, raggio=global_radius)  # Usa il raggio globale
-        ranked_markers.append({
-            'id': marker.id,
-            'lat': lat,
-            'lng': lng,
-            'rank': rank
-        })
-    
-    return jsonify(ranked_markers)
+    try:
+        # Controlla se ci sono questionari nel database
+        if QuestionnaireResponse.query.count() == 0:
+            return jsonify({"error": "No questionnaires found"}), 404
+
+        global global_radius
+        
+        markers = Geofence.query.filter(Geofence.marker.isnot(None)).all()
+        ranked_markers = []
+        
+        for marker in markers:
+            try:
+                lat = db.session.scalar(ST_Y(marker.marker))
+                lng = db.session.scalar(ST_X(marker.marker))
+                rank = calcola_rank(marker.id, raggio=global_radius)
+                ranked_markers.append({
+                    'id': marker.id,
+                    'lat': lat,
+                    'lng': lng,
+                    'rank': rank
+                })
+            except Exception as e:
+                print(f"Errore nell'elaborazione del marker {marker.id}: {str(e)}")
+        
+        return jsonify(ranked_markers)
+    except Exception as e:
+        print(f"Errore generale in get_ranked_markers: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 def count_pois_in_geofence(db, geofence_id):
     # Ottieni il geofence specifico dal database
@@ -529,10 +556,7 @@ def calcola_rank_geofence(geofence_id):
     if nearby_pois.get('aree_verdi', 0) >= 2:
         rank += user_preferences['densita_aree_verdi'] * pesi['aree_verdi']
 
-    #Cinema densitá
-    if nearby_pois.get('cinema', 0) >= 2:
-        rank += user_preferences['densita_cinema'] * pesi['cinema']
-    
+
     #Fermate bus densitá
     if nearby_pois.get('fermate_bus', 0) >= 2:
         rank += user_preferences['densita_fermate_bus'] * pesi['fermate_bus']
@@ -541,34 +565,145 @@ def calcola_rank_geofence(geofence_id):
 
 @utils_bp.route('/get_ranked_geofences')
 def get_ranked_geofences():
-    geofences = Geofence.query.filter(Geofence.geofence.isnot(None)).all()
-    ranked_geofences = []
-    
-    for geofence in geofences:
-        # Ottieni il centroide del geofence (potrebbe essere utile per alcuni scopi)
-        centroid = db.session.scalar(ST_Centroid(geofence.geofence))
-        centroid_lat = db.session.scalar(func.ST_Y(centroid))
-        centroid_lng = db.session.scalar(func.ST_X(centroid))
-        
-        # Calcola il rank
-        rank = calcola_rank_geofence(geofence.id)
-        
-        # Ottieni il geofence come GeoJSON
-        geofence_geojson = db.session.scalar(ST_AsGeoJSON(geofence.geofence))
-        geofence_dict = json.loads(geofence_geojson)
-        
-        # Estrai le coordinate dal GeoJSON
-        coordinates = geofence_dict['coordinates'][0]  # Prendi il primo (e unico) anello di coordinate
-        
-        ranked_geofences.append({
-            'id': geofence.id,
-            'centroid': {
-                'lat': centroid_lat,
-                'lng': centroid_lng
-            },
-            'coordinates': coordinates,  # Questo è un array di [lng, lat] pairs
-            'rank': rank
-        })
-    
-    return jsonify(ranked_geofences)
+    try:
+        # Controlla se ci sono questionari nel database
+        if QuestionnaireResponse.query.count() == 0:
+            return jsonify({"error": "No questionnaires found"}), 404
 
+        geofences = Geofence.query.filter(Geofence.geofence.isnot(None)).all()
+        ranked_geofences = []
+        
+        for geofence in geofences:
+            try:
+                # Ottieni il centroide del geofence
+                centroid = db.session.scalar(ST_Centroid(geofence.geofence))
+                centroid_lat = db.session.scalar(func.ST_Y(centroid))
+                centroid_lng = db.session.scalar(func.ST_X(centroid))
+                
+                # Calcola il rank
+                rank = calcola_rank_geofence(geofence.id)
+                
+                # Ottieni il geofence come GeoJSON
+                geofence_geojson = db.session.scalar(ST_AsGeoJSON(geofence.geofence))
+                geofence_dict = json.loads(geofence_geojson)
+                
+                # Estrai le coordinate dal GeoJSON
+                coordinates = geofence_dict['coordinates'][0]  # Prendi il primo (e unico) anello di coordinate
+                
+                ranked_geofences.append({
+                    'id': geofence.id,
+                    'centroid': {
+                        'lat': centroid_lat,
+                        'lng': centroid_lng
+                    },
+                    'coordinates': coordinates,
+                    'rank': rank
+                })
+            except Exception as e:
+                print(f"Errore nell'elaborazione del geofence {geofence.id}: {str(e)}")
+        
+        return jsonify(ranked_geofences)
+    except Exception as e:
+        print(f"Errore generale in get_ranked_geofences: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@utils_bp.route('/check-questionnaires')
+def check_questionnaires():
+    count = QuestionnaireResponse.query.count()
+    return jsonify({'count': count})
+
+def wkb_to_coordinates(wkb_input):
+    """Converte WKB in coordinate (lon, lat)"""
+    logging.debug(f"Received WKB input: {wkb_input}")
+    try:
+        if isinstance(wkb_input, float):
+            # Se riceviamo un float, lo trattiamo come una singola coordinata
+            return (wkb_input, wkb_input)
+        elif isinstance(wkb_input, (list, tuple)) and len(wkb_input) == 2:
+            # Se riceviamo una lista o tupla di due elementi, le trattiamo come lon, lat
+            return tuple(wkb_input)
+        elif isinstance(wkb_input, str):
+            # Rimuovi eventuali spazi bianchi e converti in minuscolo
+            wkb_hex = wkb_input.strip().lower()
+            # Rimuovi il prefisso '0x' se presente
+            if wkb_hex.startswith('0x'):
+                wkb_hex = wkb_hex[2:]
+            wkb_binary = binascii.unhexlify(wkb_hex)
+            point = wkb.loads(wkb_binary)
+            return (point.x, point.y)
+        else:
+            raise ValueError(f"Formato WKB non supportato: {type(wkb_input)}")
+    except Exception as e:
+        logging.error(f"Error in wkb_to_coordinates: {str(e)}")
+        raise ValueError(f"WKB non valido: {str(e)}")
+
+def calculate_travel_time(start_coords, end_coords, transport_mode='driving'):
+    """Calcola il tempo di percorrenza tra due punti usando OSRM."""
+    logging.debug(f"Calculating travel time from {start_coords} to {end_coords}")
+    base_url = "http://router.project-osrm.org/route/v1"
+    url = f"{base_url}/{transport_mode}/{start_coords[0]},{start_coords[1]};{end_coords[0]},{end_coords[1]}"
+    
+    params = {
+        "overview": "false",
+        "alternatives": "false",
+    }
+    
+    response = requests.get(url, params=params)
+    data = response.json()
+    
+    if response.status_code == 200 and data["code"] == "Ok":
+        duration_seconds = data["routes"][0]["duration"]
+        return duration_seconds / 60  # Converti in minuti
+    else:
+        logging.error(f"OSRM API error: {data}")
+        raise Exception("Errore nel calcolo del percorso")
+
+@utils_bp.route('/calculate_travel_time', methods=['POST'])
+def api_calculate_travel_time():
+    data = request.json
+    logging.debug(f"Received request data: {data}")
+    
+    start_wkb = data.get('start_wkb')
+    end_wkb = data.get('end_wkb')
+    transport_mode = data.get('transport_mode', 'driving')
+
+    if start_wkb is None or end_wkb is None:
+        return jsonify({"error": "Mancano le coordinate di partenza o arrivo"}), 400
+
+    try:
+        start_coords = wkb_to_coordinates(start_wkb)
+        end_coords = wkb_to_coordinates(end_wkb)
+        travel_time = calculate_travel_time(start_coords, end_coords, transport_mode)
+        return jsonify({"travel_time_minutes": travel_time})
+    except ValueError as e:
+        logging.error(f"ValueError in api_calculate_travel_time: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logging.error(f"Unexpected error in api_calculate_travel_time: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+@utils_bp.route('/delete-all-geofences', methods=['POST'])
+def delete_all_geofences():
+    try:
+        Geofence.query.delete()
+        db.session.commit()
+        return jsonify({"message": "Tutti i geofence sono stati cancellati"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    
+
+
+@utils_bp.route('/delete-geofence/<int:geofence_id>', methods=['DELETE'])
+def delete_geofence(geofence_id):
+    try:
+        geofence = Geofence.query.get(geofence_id)
+        if geofence:
+            db.session.delete(geofence)
+            db.session.commit()
+            return jsonify({"message": f"Geofence con ID {geofence_id} eliminato con successo"}), 200
+        else:
+            return jsonify({"error": f"Geofence con ID {geofence_id} non trovato"}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
