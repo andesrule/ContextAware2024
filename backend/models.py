@@ -15,11 +15,12 @@ class Geofence(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     marker = db.Column(Geometry(geometry_type='POINT', srid=4326))  # Memorizza i marker come POINT
     geofence = db.Column(Geometry(geometry_type='POLYGON', srid=4326))  # Memorizza i poligoni come POLYGON
-
-    def __init__(self, marker=None, geofence=None):
+    marker_price = db.Column(db.Float)
+    def __init__(self, marker=None, geofence=None, marker_price= None):
 
         self.marker = marker
         self.geofence = geofence
+        self.marker_price = marker_price
 
 class QuestionnaireResponse(db.Model):
     id = db.Column(db.Integer, primary_key=True)

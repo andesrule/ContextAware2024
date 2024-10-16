@@ -613,6 +613,15 @@ function createGeofencePopup(geofenceId, isMarker = true) {
         <b>${isMarker ? 'Marker' : 'Geofence'} ID: ${geofenceId}</b><br>
         <button onclick="deleteGeofence(${geofenceId})">
             🗑️ Elimina ${isMarker ? 'Marker' : 'Geofence'}
+        </button><br><br>
+        
+        <!-- Aggiungi il campo input per il prezzo -->
+        <label for="priceInput">Prezzo:</label>
+        <input type="number" id="priceInput-${geofenceId}" placeholder="Inserisci il prezzo"><br>
+        
+        <!-- Aggiungi il bottone per salvare il prezzo -->
+        <button onclick="addMarkerPrice(${geofenceId})">
+            💰 Aggiungi Prezzo
         </button>
     `;
     return content;
@@ -640,6 +649,37 @@ function deleteGeofence(geofenceId) {
     });
 }
 
+function addMarkerPrice(geofenceId) {
+    // Ottieni il valore del prezzo inserito dall'input
+    let priceInput = document.getElementById(`priceInput-${geofenceId}`).value;
+    
+    // Verifica che il prezzo sia valido (opzionale)
+    if (!priceInput || priceInput <= 0) {
+        alert('Per favore, inserisci un prezzo valido.');
+        return;
+    }
+
+    // Esegui qui la logica per salvare il prezzo, ad esempio con una chiamata API
+    // Puoi usare fetch per inviare il prezzo al server
+    fetch(`/addMarkerPrice`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            geofenceId: geofenceId,
+            price: parseFloat(priceInput)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(`Prezzo di ${priceInput} aggiunto con successo per il marker ${geofenceId}`);
+        // Eventuali altre azioni come aggiornare l'interfaccia
+    })
+    .catch((error) => {
+        console.error('Errore durante l\'aggiunta del prezzo:', error);
+    });
+}
 
 // Stile CSS per lo slider
 const style = document.createElement('style');

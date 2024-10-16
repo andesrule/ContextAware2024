@@ -891,3 +891,26 @@ def calculate_optimal_locations():
         db.session.rollback()
         print(f"Errore in calculate_optimal_locations: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
+
+@utils_bp.route('/addMarkerPrice', methods=['POST'])
+def add_marker_price():
+    data = request.get_json()  # Ricevi i dati JSON dalla richiesta
+    geofence_id = data.get('geofenceId')
+    price = data.get('price')
+
+    # Controllo di validità del prezzo
+    if price is None or price <= 0:
+        return jsonify({'error': 'Prezzo non valido'}), 400
+
+    # Cerca il Geofence nel database tramite l'id
+    geofence = Geofence.query.get(geofence_id)
+
+    if not geofence:
+        return jsonify({'error': 'Geofence non trovato'}), 404
+
+    # Aggiorna il prezzo del marker
+    geofence.marker_price = price
+    db.session.commit()  # Salva i cambiamenti nel database
+
+    return jsonify({'success': True, 'message': f'Prezzo di {price} aggiunto per il marker {geofence_id}'})
