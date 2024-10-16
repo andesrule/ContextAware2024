@@ -3,14 +3,14 @@ from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import ARRAY 
 from flask_login import UserMixin
 
-
 db = SQLAlchemy()
 
 class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     content_poi = db.Column(ARRAY(db.String), nullable=False)
-    
+
+'''   
 class Geofence(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     marker = db.Column(Geometry(geometry_type='POINT', srid=4326))  # Memorizza i marker come POINT
@@ -21,6 +21,26 @@ class Geofence(db.Model):
         self.marker = marker
         self.geofence = geofence
         self.marker_price = marker_price
+''' 
+
+class ListaImmobiliCandidati(db.Model):
+    __tablename__ = 'lista_immobili_candidati'
+    id = db.Column(db.Integer, primary_key=True)
+    marker = db.Column(Geometry(geometry_type='POINT', srid=4326))  # Memorizza i marker come POINT
+    marker_price = db.Column(db.Float)  # Prezzo del marker
+
+    def __init__(self, marker=None, marker_price=None):
+        self.marker = marker
+        self.marker_price = marker_price
+
+
+class ListaAreeCandidate(db.Model):
+    __tablename__ = 'lista_aree_candidate'
+    id = db.Column(db.Integer, primary_key=True)
+    geofence = db.Column(Geometry(geometry_type='POLYGON', srid=4326))  # Memorizza i poligoni come POLYGON
+
+    def __init__(self, geofence=None):
+        self.geofence = geofence
 
 class QuestionnaireResponse(db.Model):
     id = db.Column(db.Integer, primary_key=True)

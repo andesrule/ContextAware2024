@@ -5,7 +5,7 @@ from config import Config
 import os
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
-from models import db, User, Geofence, QuestionnaireResponse, POI
+from models import *
 
 app = Flask(__name__, template_folder=Config.FRONTEND_PATH, static_folder=Config.FRONTEND_PATH, static_url_path='')
 app.config.from_object(Config)
@@ -34,10 +34,13 @@ class CustomModelView(ModelView):
 
 # Aggiungi i modelli all'interfaccia di amministrazione
 admin.add_view(CustomModelView(User, db.session))
-admin.add_view(CustomModelView(Geofence, db.session))
+
 admin.add_view(CustomModelView(QuestionnaireResponse, db.session))
 admin.add_view(CustomModelView(POI, db.session))
+admin.add_view(CustomModelView(ListaImmobiliCandidati,db.session))
+admin.add_view(CustomModelView(ListaAreeCandidate,db.session))
 
+@app.before_request
 def initialize_database():
     if not hasattr(app, 'db_initialized'):
         with app.app_context():

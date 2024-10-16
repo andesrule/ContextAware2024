@@ -337,8 +337,6 @@ document.addEventListener('DOMContentLoaded', function() {
     loadAllGeofences();
 });
 
-
-
     
 function showNoQuestionnaireAlert() {
     // Espandi la sezione degli alert
@@ -360,10 +358,6 @@ function getColorFromRank(rank) {
     else if (rank < 150) return '#90EE90'; // Verde chiaro
     else return '#008000';                // Verde scuro
 }
-
-
-
-
 
 
 // Aggiungi l'evento per lo slider
@@ -397,7 +391,7 @@ function sendRadiusToBackend(radius) {
     });
 }
 
-// ... [Codice precedente rimane invariato]
+
 
 map.on(L.Draw.Event.CREATED, function (e) {
     let layer = e.layer;
@@ -421,7 +415,7 @@ map.on(L.Draw.Event.CREATED, function (e) {
     }
 });
 
-// ... [Resto del codice rimane invariato]
+
 function saveGeofenceToDatabase(markers, geofences) {
     let data;
     if (markers && markers.length === 1) {
@@ -454,7 +448,6 @@ function showToast(type, message) {
         toast.remove();
     }, 3000);
 }
-
 
 function loadMarkersFromDatabase() {
     fetch('/get_ranked_markers')
