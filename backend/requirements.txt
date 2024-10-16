@@ -10,3 +10,4 @@ shapely
 pyproj
 flask_login
 numpy
+flask-caching

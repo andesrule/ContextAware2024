@@ -11,8 +11,19 @@ from shapely import wkb
 import binascii
 from flask_login import current_user
 import numpy as np
+import time
+from multiprocessing import Pool, cpu_count
+from functools import partial
+from flask_caching import Cache
+import heapq
+from functools import lru_cache
+import random
 
+cache = Cache(config={'CACHE_TYPE': 'simple'})
 
+# Definisci una griglia più grande per il pre-calcolo
+PRECALC_GRID_SIZE = 20
+precalculated_scores = {}
 
 global_radius = 500
 utils_bp = Blueprint('utils', __name__)
@@ -766,128 +777,262 @@ def get_all_geofences():
         return jsonify({"error": str(e)}), 500
 
 def get_bologna_bounds():
-    # Coordinate approssimative di Bologna (in lat, lon)
-    return (44.4949, 11.3426, 44.4949, 11.3426)  # nord, est, sud, ovest
-
+    return {
+        'min_lat': 44.4, 'max_lat': 44.6,
+        'min_lon': 11.2, 'max_lon': 11.4
+    }
 def create_grid(bounds, grid_size):
-    north, east, south, west = bounds
-    lat_points = np.linspace(south, north, grid_size)
-    lon_points = np.linspace(west, east, grid_size)
-    return [(lat, lon) for lat in lat_points for lon in lon_points]
+    lats = np.linspace(bounds['min_lat'], bounds['max_lat'], grid_size)
+    lons = np.linspace(bounds['min_lon'], bounds['max_lon'], grid_size)
+    return [(float(lat), float(lon)) for lat in lats for lon in lons]
 
-def count_pois_near_point(db, lat, lon, radius):
-    point = f'POINT({lon} {lat})'
-    poi_counts = db.session.query(
-        POI.type,
-        func.count(POI.id).label('count')
-    ).filter(
-        ST_DWithin(
-            ST_Transform(POI.location, 3857),
-            ST_Transform(func.ST_GeomFromText(point, 4326), 3857),
-            radius
-        )
-    ).group_by(POI.type).all()
+
+def create_centered_grid(center_lat, center_lon, radius, density):
+    lat_offset = radius / 111000  # Approssimazione dei gradi di latitudine per metro
+    lon_offset = radius / (111000 * np.cos(np.radians(center_lat)))
+
+    lats = np.linspace(center_lat - lat_offset, center_lat + lat_offset, density)
+    lons = np.linspace(center_lon - lon_offset, center_lon + lon_offset, density)
+
+    return [(float(lat), float(lon)) for lat in lats for lon in lons]
+
+
+@lru_cache(maxsize=1000)
+def count_pois_near_point(lat, lon, radius):
+    lat, lon, radius = float(lat), float(lon), float(radius)
+    query = text("""
+    SELECT type, COUNT(*) as count
+    FROM points_of_interest
+    WHERE ST_DWithin(
+        ST_Transform(location, 3857),
+        ST_Transform(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), 3857),
+        :radius
+    )
+    GROUP BY type
+    """)
     
-    return dict(poi_counts)
+    try:
+        with db.engine.connect() as connection:
+            result = connection.execute(query, {'lat': lat, 'lon': lon, 'radius': radius})
+            # Recupera tutti i risultati immediatamente
+            counts = {row.type: row.count for row in result}
+        return counts
+    except SQLAlchemyError as e:
+        print(f"Errore nell'esecuzione della query: {str(e)}")
+        return {}
 
 def calculate_rank(poi_counts, user_preferences):
-    rank = 0
     weights = {
         'aree_verdi': 0.8, 'parcheggi': 1.0, 'fermate_bus': 1.0,
         'stazioni_ferroviarie': 1.0, 'scuole': 0.7, 'cinema': 0.6,
         'ospedali': 1.0, 'farmacia': 0.5, 'luogo_culto': 0.2, 'servizi': 0.4,
     }
-    
-    for poi_type, count in poi_counts.items():
-        if poi_type in user_preferences and poi_type in weights:
-            rank += count * user_preferences[poi_type] * weights[poi_type]
-    
-    # Aggiungi bonus per densità se applicabile
-    if poi_counts.get('aree_verdi', 0) >= 2:
-        rank += user_preferences.get('densita_aree_verdi', 0) * weights['aree_verdi']
-    if poi_counts.get('fermate_bus', 0) >= 2:
-        rank += user_preferences.get('densita_fermate_bus', 0) * weights['fermate_bus']
-    
-    return rank
+    return sum(count * user_preferences.get(poi_type, 0) * weights.get(poi_type, 1)
+               for poi_type, count in poi_counts.items())
 
-@utils_bp.route('/calculate_optimal_locations', methods=['GET'])
-def calculate_optimal_locations():
+
+def precalculate_scores():
+    bounds = get_bologna_bounds()
+    extended_bounds = {
+        'min_lat': bounds['min_lat'] - 0.1,
+        'max_lat': bounds['max_lat'] + 0.1,
+        'min_lon': bounds['min_lon'] - 0.1,
+        'max_lon': bounds['max_lon'] + 0.1
+    }
+    grid_points = create_grid(extended_bounds, PRECALC_GRID_SIZE)
+    
+    for lat, lon in grid_points:
+        lat, lon = float(lat), float(lon)
+        counts = count_pois_near_point(lat, lon, 1000)
+        precalculated_scores[(lat, lon)] = counts
+    
+    print(f"Precalcolo completato. Punti calcolati: {len(precalculated_scores)}")
+
+def get_nearest_precalc_point(lat, lon):
+    return min(precalculated_scores.keys(), 
+               key=lambda p: (float(p[0])-float(lat))**2 + (float(p[1])-float(lon))**2)
+
+def precalculate_poi_counts(grid_points, radius):
+    all_poi_counts = []
+    for lat, lon in grid_points:
+        point = f'POINT({lon} {lat})'
+        poi_counts = db.session.query(
+            POI.type,
+            func.count(POI.id).label('count')
+        ).filter(
+            ST_DWithin(
+                ST_Transform(POI.location, 3857),
+                ST_Transform(func.ST_GeomFromText(point, 4326), 3857),
+                radius
+            )
+        ).group_by(POI.type).all()
+        all_poi_counts.append(dict(poi_counts))
+    return all_poi_counts
+
+@cache.memoize(timeout=3600)  # Cache per un'ora
+def optimized_calculate_optimal_locations():
+    print("Inizio calculate_optimal_locations altamente ottimizzato")
+    start_time = time.time()
     try:
-        grid_size = 100
-        radius = 500  # metri
-
         user_prefs = QuestionnaireResponse.query.first()
         if not user_prefs:
+            print("Nessun questionario trovato")
             return jsonify({"error": "Nessun questionario trovato. Completa il questionario prima."}), 400
         
         user_preferences = get_questionnaire_response_dict(user_prefs)
+        
+        center_lat, center_lon = 44.4937544, 11.3409058  # Centro di Bologna
+        initial_radius = 1000  # Raggio iniziale in metri
+        max_radius = 5000  # Raggio massimo in metri
+        grid_density = 15  # Ridotto da 20 a 15 per diminuire il numero di punti
+
+        top_locations = []
+        current_radius = initial_radius
+
+        while current_radius <= max_radius:
+            grid_points = create_centered_grid(center_lat, center_lon, current_radius, grid_density)
+            
+            # Campionamento intelligente: seleziona solo una parte dei punti della griglia
+            sampled_points = smart_sample(grid_points, 100)  # Limita a 100 punti per iterazione
+            
+            results = [process_point_lazy(point, user_preferences, 500) for point in sampled_points]
+            
+            # Aggiorna le top 5 posizioni
+            for result in results:
+                if result:
+                    if len(top_locations) < 5:
+                        heapq.heappush(top_locations, (result['rank'], result))
+                    elif result['rank'] > top_locations[0][0]:
+                        heapq.heappushpop(top_locations, (result['rank'], result))
+
+            if len(top_locations) == 5 and top_locations[0][0] > threshold_score(user_preferences):
+                break  # Early stopping se abbiamo 5 buone location
+
+            current_radius *= 1.5  # Aumenta il raggio più gradualmente
+
+        end_time = time.time()
+        execution_time = end_time - start_time
+        
+        top_5_locations = sorted([(loc['rank'], loc) for _, loc in top_locations], reverse=True)
+        
+        result = {
+            "message": "Le 5 migliori posizioni suggerite per acquistare casa a Bologna:",
+            "suggestions": [loc for _, loc in top_5_locations],
+            "user_preferences": user_preferences,
+            "execution_time_seconds": execution_time
+        }
+        print(f"Calcolo completato in {execution_time:.2f} secondi")
+        return result
+
+    except Exception as e:
+        print(f"Errore in optimized_calculate_optimal_locations: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@utils_bp.route('/calculate_optimal_locations', methods=['GET'])
+def calculate_optimal_locations():
+    print("Inizio calculate_optimal_locations")
+    start_time = time.time()
+    try:
+        user_prefs = QuestionnaireResponse.query.first()
+        if not user_prefs:
+            print("Nessun questionario trovato")
+            return jsonify({"error": "Nessun questionario trovato. Completa il questionario prima."}), 400
+        
+        user_preferences = get_questionnaire_response_dict(user_prefs)
+        print(f"Preferenze utente: {user_preferences}")
 
         bounds = get_bologna_bounds()
+        grid_size = 50  # Ridotto da 100 a 50 per un buon compromesso tra precisione e velocità
+        radius = 500  # metri
+
         grid_points = create_grid(bounds, grid_size)
+        print(f"Grid points creati: {len(grid_points)}")
 
-        # Creiamo una tabella temporanea con i punti della griglia
-        create_temp_table_query = text("""
-        CREATE TEMPORARY TABLE grid_points (
-            id SERIAL PRIMARY KEY,
-            geom GEOMETRY(POINT, 4326)
-        )
-        """)
-        db.session.execute(create_temp_table_query)
+        # Usa il multiprocessing per accelerare i calcoli
+        with Pool(cpu_count()) as p:
+            ranked_locations = p.map(partial(process_point, 
+                                             user_preferences=user_preferences, 
+                                             radius=radius), 
+                                     grid_points)
+        
+        print(f"Punti elaborati: {len(ranked_locations)}")
+        
+        # Filtra eventuali risultati None
+        ranked_locations = [loc for loc in ranked_locations if loc is not None]
+        print(f"Punti validi: {len(ranked_locations)}")
 
-        # Inseriamo i punti della griglia nella tabella temporanea
-        insert_points_query = text("""
-        INSERT INTO grid_points (geom)
-        VALUES (:point)
-        """)
-        for lat, lon in grid_points:
-            db.session.execute(insert_points_query, {"point": f"SRID=4326;POINT({lon} {lat})"})
-
-        # Eseguiamo la query spaziale
-        query = text("""
-        SELECT g.id, ST_X(g.geom) as lon, ST_Y(g.geom) as lat, 
-               poi.type, COUNT(poi.id) as count
-        FROM grid_points g
-        LEFT JOIN points_of_interest poi ON ST_DWithin(
-            ST_Transform(g.geom, 3857),
-            ST_Transform(poi.location, 3857),
-            :radius
-        )
-        GROUP BY g.id, g.geom, poi.type
-        """)
-
-        result = db.session.execute(query, {"radius": radius})
-
-        # Organizziamo i risultati
-        poi_counts = {}
-        for row in result:
-            point = (row.lat, row.lon)
-            if point not in poi_counts:
-                poi_counts[point] = {}
-            if row.type:
-                poi_counts[point][row.type] = row.count
-
-        # Calcola il rank per ogni punto
-        ranked_locations = []
-        for point, counts in poi_counts.items():
-            lat, lon = point
-            rank = calculate_rank(counts, user_preferences)
-            ranked_locations.append({"lat": lat, "lon": lon, "rank": rank})
-
-        # Ordina e prendi i top 5
         top_locations = sorted(ranked_locations, key=lambda x: x['rank'], reverse=True)[:5]
-
-        # Pulizia: eliminiamo la tabella temporanea
-        db.session.execute(text("DROP TABLE IF EXISTS grid_points"))
-        db.session.commit()
-
-        return jsonify({
+        
+        end_time = time.time()
+        execution_time = end_time - start_time
+        
+        result = {
             "message": "Ecco le 5 migliori posizioni suggerite per acquistare casa a Bologna:",
             "suggestions": top_locations,
             "user_preferences": user_preferences,
-            "total_locations_analyzed": len(ranked_locations)
-        })
+            "total_locations_analyzed": len(ranked_locations),
+            "execution_time_seconds": execution_time
+        }
+        print(f"Calcolo completato in {execution_time:.2f} secondi")
+        return jsonify(result)
 
     except Exception as e:
-        db.session.rollback()
         print(f"Errore in calculate_optimal_locations: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
+
+def smart_sample(points, n):
+    if len(points) <= n:
+        return points
+    return random.sample(points, n)
+
+def process_point_lazy(point, user_preferences, radius):
+    lat, lon = map(float, point)
+    
+    # Lazy evaluation: calcola il rank solo se necessario
+    def calculate_rank_lazy():
+        counts = count_pois_near_point(lat, lon, radius)
+        return calculate_rank(counts, user_preferences)
+    
+    return {
+        "lat": lat,
+        "lon": lon,
+        "rank": calculate_rank_lazy
+    }    
+    
+def threshold_score(user_preferences):
+    # Implementa una logica per determinare un punteggio soglia
+    # basato sulle preferenze dell'utente
+    return sum(user_preferences.values()) * 0.7  # Esempio: 70% del punteggio massimo possibile
+    
+def process_chunk(chunk, radius, user_preferences):
+    ranked_locations = []
+    for lat, lon in chunk:
+        counts = count_pois_near_point(lat, lon, radius)
+        rank = calculate_rank(counts, user_preferences)
+        ranked_locations.append({"lat": lat, "lon": lon, "rank": rank})
+    return ranked_locations
+
+def process_point(point, user_preferences, radius):
+    try:
+        lat, lon = map(float, point)
+        nearest_precalc = get_nearest_precalc_point(lat, lon)
+        base_counts = precalculated_scores.get(nearest_precalc, {})
+        
+        if (lat, lon) != nearest_precalc:
+            fine_counts = count_pois_near_point(lat, lon, radius)
+            counts = {k: base_counts.get(k, 0) + fine_counts.get(k, 0) for k in set(base_counts) | set(fine_counts)}
+        else:
+            counts = base_counts
+        
+        rank = calculate_rank(counts, user_preferences)
+        return {"lat": lat, "lon": lon, "rank": rank}
+    except Exception as e:
+        print(f"Errore in process_point per il punto {point}: {str(e)}")
+        return None
+
+
+@cache.cached(timeout=3600)
+@utils_bp.route('/calculate_optimal_location', methods=['GET'])
+def api_calculate_optimal_location():
+    return optimized_calculate_optimal_locations()
