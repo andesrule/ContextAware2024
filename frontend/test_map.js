@@ -614,19 +614,23 @@ function createGeofencePopup(geofenceId, isMarker = true) {
         <button onclick="deleteGeofence(${geofenceId})">
             🗑️ Elimina ${isMarker ? 'Marker' : 'Geofence'}
         </button><br><br>
-        
-        <!-- Aggiungi il campo input per il prezzo -->
-        <label for="priceInput">Prezzo:</label>
-        <input type="number" id="priceInput-${geofenceId}" placeholder="Inserisci il prezzo"><br>
-        
-        <!-- Aggiungi il bottone per salvare il prezzo -->
-        <button onclick="addMarkerPrice(${geofenceId})">
-            💰 Aggiungi Prezzo
-        </button>
     `;
+
+    if (isMarker) {
+        content += `
+            <!-- Aggiungi il campo input per il prezzo solo per i marker -->
+            <label for="priceInput-${geofenceId}">Prezzo:</label>
+            <input type="number" id="priceInput-${geofenceId}" placeholder="Inserisci il prezzo"><br>
+           
+            <!-- Aggiungi il bottone per salvare il prezzo solo per i marker -->
+            <button onclick="addMarkerPrice(${geofenceId})">
+                💰 Aggiungi Prezzo
+            </button>
+        `;
+    }
+
     return content;
 }
-
 function deleteGeofence(geofenceId) {
     console.log('Deleting geofence with ID:', geofenceId);
     fetch(`/delete-geofence/${geofenceId}`, {
