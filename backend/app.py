@@ -18,7 +18,7 @@ db.init_app(app)
 cache = Cache(app)
 
 # Importa i blueprint dopo aver creato l'app per evitare importazioni circolari
-from utils import utils_bp, precalculate_scores, update_pois
+from utils import utils_bp, update_pois
 from routes import views
 
 # Registra i blueprint
@@ -54,7 +54,7 @@ def before_request():
     if not hasattr(app, 'initialized'):
         with app.app_context():
             initialize_database()
-            precalculate_scores()
+         
         app.initialized = True
 
 if __name__ == '__main__':
