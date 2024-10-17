@@ -11,7 +11,8 @@ from shapely import wkb
 import numpy as np
 import time
 from flask_caching import Cache
-from functools import lru_cache
+from functools import lru_cache, partial
+from multiprocessing import Pool, cpu_count
 from sqlalchemy.exc import SQLAlchemyError
 import binascii
 
@@ -894,7 +895,7 @@ def optimized_calculate_optimal_locations():
         # Valuta tutti i punti della griglia
         results = []
         for point in all_points:
-            result = process_point_lazy(point, user_preferences, 500)
+            result = process_point(point, user_preferences, 500)
             if result:
                 results.append(result)
 
@@ -987,3 +988,14 @@ def add_marker_price():
     db.session.commit()
 
     return jsonify({'success': True, 'message': f'Prezzo di {price} aggiunto per il marker {geofence_id}'})
+
+
+def process_point(point, user_preferences, radius):
+    lat, lon = point
+    poi_counts = count_pois_near_point(lat, lon, radius)
+    rank = calculate_rank(poi_counts, user_preferences)
+    return {
+        'lat': lat,
+        'lng': lon,
+        'rank': rank
+    } if rank > 0 else None
