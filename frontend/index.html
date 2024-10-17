@@ -41,6 +41,11 @@
          <div id="mapContainer">
             <div id="map"></div>
          </div>
+         <div id="loadingOverlay" class="hidden">
+            <div class="loading-spinner"></div>
+            <p>Calcolo delle posizioni ottimali in corso...</p>
+          </div>
+          
          <!-- Pannello di controllo -->
          <div id="controlPanel" class="text-white bg-base-200 dark">
             <div class="p-4 space-y-4">
@@ -293,6 +298,9 @@
                         <button type="button" onclick="submitForm()" class="btn btn-primary w-full mt-4 hidden" id="submitButton">
                         Invia Risposte
                         </button>
+                        <button type="button" id="calculateOptimalPositions" class="btn btn-primary w-full mt-4 hidden">
+                           Calcola Posizioni Ottimali
+                       </button>
                      </form>
                   </div>
                </div>
