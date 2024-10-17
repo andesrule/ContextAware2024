@@ -130,18 +130,29 @@ function createAlert(message, type = 'warning', duration = 5000) {
         }, duration);
     }
 }
+
 async function checkQuestionnaires() {
     try {
         const response = await fetch('/check-questionnaires');
         const data = await response.json();
         
+        const alertsSection = document.querySelector('.collapse');
+        const alertsContainer = document.getElementById('alertsContainer');
+        
         if (data.count === 0) {
+            alertsSection.classList.add('collapse-open');
             createAlert('Non ci sono questionari nel database. Compilare almeno un questionario per visualizzare i dati.');
+        } else {
+            alertsSection.classList.remove('collapse-open');
+            alertsContainer.innerHTML = ''; // Pulisce gli alert esistenti
         }
     } catch (error) {
         console.error('Errore durante il controllo dei questionari:', error);
         createAlert('Errore durante il controllo dei questionari nel database.');
     }
+    document.addEventListener('DOMContentLoaded', function() {
+        checkQuestionnaires();
+    });
 }
 
 function createAlert(message, type = 'warning') {
@@ -263,17 +274,18 @@ function submitForm() {
 }
 
 // Funzione per mostrare i toast
-function showToast(type, message) {
+function showToast(type, message, duration = 5000) {
     const toast = document.createElement('div');
-    toast.className = `alert ${type === 'success' ? 'alert-success' : 'alert-error'} fixed bottom-4 right-4 z-50`;
+    toast.className = `alert alert-${type} fixed bottom-4 right-4 z-50`;
     toast.innerHTML = `<span>${message}</span>`;
     
     document.body.appendChild(toast);
     
     setTimeout(() => {
         toast.remove();
-    }, 3000);
+    }, duration);
 }
+
 
 // Inizializza la prima pagina al caricamento
 document.addEventListener('DOMContentLoaded', () => {
@@ -302,4 +314,78 @@ function getDistanceMethod() {
 // Function to get current travel mode
 function getTravelMode() {
     return travelMode.value;
+}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    const calculateButton = document.getElementById('calculateOptimalPositions');
+    if (calculateButton) {
+        calculateButton.addEventListener('click', calculateOptimalPositions);
+    }
+});
+
+function showLoadingOverlay() {
+    document.getElementById('loadingOverlay').classList.add('visible');
+}
+
+function hideLoadingOverlay() {
+    document.getElementById('loadingOverlay').classList.remove('visible');
+}
+
+
+function calculateOptimalPositions() {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    loadingOverlay.classList.add('visible');
+
+    showToast('info', 'Calcolo delle posizioni ottimali in corso. Questo potrebbe richiedere alcuni minuti.');
+
+    fetch('/calculate_optimal_locations')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            loadingOverlay.classList.remove('visible');
+            if (data.error) {
+                showToast('error', data.error);
+                return;
+            }
+            showOptimalPositions(data.suggestions);
+            showToast('success', 'Posizioni ottimali calcolate e visualizzate sulla mappa');
+        })
+        .catch(error => {
+            loadingOverlay.classList.remove('visible');
+            console.error('Errore nel calcolo delle posizioni ottimali:', error);
+            showToast('error', `Errore nel calcolo delle posizioni ottimali: ${error.message}`);
+        });
+}
+
+
+function showOptimalPositions(positions) {
+    // Rimuovi i marker ottimali esistenti, se presenti
+    if (window.optimalPositionsLayer) {
+        map.removeLayer(window.optimalPositionsLayer);
+    }
+    
+    window.optimalPositionsLayer = L.layerGroup().addTo(map);
+
+    positions.forEach((pos, index) => {
+        const marker = L.marker([pos.lat, pos.lng], {
+            icon: L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: #00FF00; color: black; width: 25px; height: 25px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold;">${index + 1}</div>`,
+                iconSize: [25, 25],
+                iconAnchor: [12, 12]
+            })
+        });
+        
+        marker.bindPopup(`Posizione ottimale #${index + 1}<br>Rank: ${pos.rank.toFixed(2)}`);
+        window.optimalPositionsLayer.addLayer(marker);
+    });
+
+    // Zoom della mappa per mostrare tutti i marker ottimali
+    const bounds = L.latLngBounds(positions.map(pos => [pos.lat, pos.lng]));
+    map.fitBounds(bounds);
 }

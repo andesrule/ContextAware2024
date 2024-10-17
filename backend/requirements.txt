@@ -9,3 +9,6 @@ geoalchemy2
 shapely
 pyproj
 flask_login
+numpy
+flask-caching
+multiprocess

@@ -144,42 +144,55 @@ function getPOIData(poiType) {
     // Pulisci il layer cluster esistente
     poiLayers[poiType].clearLayers();
     
-    fetch(`/get_pois?type=${poiType}`)
+    fetch(`/api/poi/${poiType}`)
         .then(response => response.json())
         .then(data => {
             console.log(`Dati ricevuti per ${poiType}:`, data);
 
-            if (!Array.isArray(data) || data.length === 0) {
+            if (!data.results || data.results.length === 0) {
                 console.warn(`Nessun POI trovato per ${poiType}`);
                 return;
             }
 
-            data.forEach(poi => {
-                if (!poi.lat || !poi.lng || isNaN(poi.lat) || isNaN(poi.lng)) {
+            data.results.forEach(poi => {
+                let lat, lng;
+                if (poi.geo_point_2d) {
+                    lat = poi.geo_point_2d.lat;
+                    lng = poi.geo_point_2d.lon;
+                } else if (poi.coordinate) {
+                    lat = poi.coordinate.lat;
+                    lng = poi.coordinate.lon;
+                } else if (poi.geopoint) {
+                    lat = poi.geopoint.lat;
+                    lng = poi.geopoint.lon;
+                } else {
+                    console.warn(`Coordinate non valide per POI:`, poi);
+                    return;
+                }
+
+                if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
                     console.warn(`Coordinate non valide per POI:`, poi);
                     return;
                 }
 
                 try {
-                    const name = poi.additional_data?.denominazione_struttura || 
-                               poi.additional_data?.denominazi || 
-                               poi.additional_data?.name || 
-                               `${poiType.charAt(0).toUpperCase() + poiType.slice(1)}`;
+                    const name = poi.denominazione_struttura || 
+                                 poi.denominazi || 
+                                 poi.name || 
+                                 `${poiType.charAt(0).toUpperCase() + poiType.slice(1)}`;
 
                     const icon = getCustomIcon(poiType);
-                    const marker = L.marker([poi.lat, poi.lng], { icon: icon });
+                    const marker = L.marker([lat, lng], { icon: icon });
                     
                     let popupContent = `<div class="poi-popup">
                         <h3>${name}</h3>
                         <p>Tipo: ${poiType}</p>`;
                     
-                    if (poi.additional_data) {
-                        if (poi.additional_data.esercizio_via_e_civico) {
-                            popupContent += `<p>Indirizzo: ${poi.additional_data.esercizio_via_e_civico}</p>`;
-                        }
-                        if (poi.additional_data.quartiere) {
-                            popupContent += `<p>Quartiere: ${poi.additional_data.quartiere}</p>`;
-                        }
+                    if (poi.esercizio_via_e_civico) {
+                        popupContent += `<p>Indirizzo: ${poi.esercizio_via_e_civico}</p>`;
+                    }
+                    if (poi.quartiere) {
+                        popupContent += `<p>Quartiere: ${poi.quartiere}</p>`;
                     }
                     
                     popupContent += '</div>';
@@ -247,48 +260,97 @@ window.togglePOI = togglePOI;
 
 let databaseMarkers = L.markerClusterGroup();
 
-function loadRankedMarkers() {
-    fetch('/get_ranked_markers')
+
+function loadAllGeofences() {
+    fetch('/get_all_geofences')
         .then(response => {
             if (!response.ok) {
-                return response.json().then(err => {
-                    throw new Error(err.error || `HTTP error! status: ${response.status}`);
+                if (response.status === 404) {
+                    throw new Error('No questionnaires found');
+                }
+                return response.text().then(text => {
+                    throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
                 });
             }
             return response.json();
         })
         .then(data => {
-            databaseMarkers.clearLayers();
+            // Pulisci i layer esistenti
+            drawnItems.clearLayers();
+            Object.values(circles).forEach(circle => map.removeLayer(circle));
+            circles = {};
+            if (window.geofencesLayer) {
+                window.geofencesLayer.clearLayers();
+            } else {
+                window.geofencesLayer = L.layerGroup().addTo(map);
+            }
 
-            data.forEach(markerData => {
-                const color = getColorFromRank(markerData.rank);
-                const marker = L.circleMarker([markerData.lat, markerData.lng], {
-                    radius: 10,
-                    fillColor: color,
-                    color: '#000',
-                    weight: 1,
-                    opacity: 1,
-                    fillOpacity: 0.8
-                });
-                marker.bindPopup(`<b>Rank: ${markerData.rank.toFixed(2)}</b><br>Marker dal Database`);
-                databaseMarkers.addLayer(marker);
+            data.forEach(geofenceData => {
+                const color = getColorFromRank(geofenceData.rank);
+                
+                if (geofenceData.type === 'marker') {
+                    // Crea un marker
+                    const marker = L.marker([geofenceData.lat, geofenceData.lng], {
+                        icon: L.divIcon({
+                            className: 'custom-div-icon',
+                            html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%;"></div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        })
+                    }).addTo(map);
+                    
+                    marker.bindPopup(createGeofencePopup(geofenceData.id, true));
+                    marker.geofenceId = geofenceData.id;
+                    drawnItems.addLayer(marker);
+
+                    const circle = L.circle([geofenceData.lat, geofenceData.lng], {
+                        color: 'blue',
+                        fillColor: '#30f',
+                        fillOpacity: 0.2,
+                        radius: neighborhoodRadius
+                    }).addTo(map);
+
+                    circles[geofenceData.id] = circle;
+                    drawnItems.addLayer(circle);
+                } else if (geofenceData.type === 'polygon') {
+                    // Crea un poligono
+                    const polygon = L.polygon(geofenceData.coordinates.map(coord => [coord[1], coord[0]]), {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.5,
+                        weight: 2
+                    }).addTo(map);
+
+                    polygon.bindPopup(createGeofencePopup(geofenceData.id, false));
+                    polygon.geofenceId = geofenceData.id;
+                    window.geofencesLayer.addLayer(polygon);
+                }
             });
 
-            map.addLayer(databaseMarkers);
-
-            if (databaseMarkers.getLayers().length > 0) {
-                map.fitBounds(databaseMarkers.getBounds());
+            // Adatta la vista della mappa per includere tutti i geofence
+            if (drawnItems.getLayers().length > 0 || window.geofencesLayer.getLayers().length > 0) {
+                let bounds = L.latLngBounds();
+                drawnItems.eachLayer(layer => bounds.extend(layer.getBounds ? layer.getBounds() : layer.getLatLng()));
+                window.geofencesLayer.eachLayer(layer => bounds.extend(layer.getBounds()));
+                map.fitBounds(bounds);
             }
         })
         .catch(error => {
-            console.error('Errore nel caricamento dei marker dal database:', error);
-            showToast('error', `Errore nel caricamento dei marker: ${error.message}`);
+            console.error('Errore nel caricamento dei geofence:', error);
             if (error.message === 'No questionnaires found') {
                 showNoQuestionnaireAlert();
+            } else {
+                showToast('error', `Errore nel caricamento dei geofence: ${error.message}`);
             }
         });
+}
 
-    }        
+// Carica tutti i geofence quando la pagina è completamente caricata
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllGeofences();
+});
+
+    
 function showNoQuestionnaireAlert() {
     // Espandi la sezione degli alert
     const alertsSection = document.getElementById('alertsSection');
@@ -310,115 +372,6 @@ function getColorFromRank(rank) {
     else return '#008000';                // Verde scuro
 }
 
-function loadRankedGeofences() {
-    fetch('/get_ranked_geofences')
-        .then(response => {
-            if (!response.ok) {
-                if (response.status === 404) {
-                    throw new Error('No questionnaires found');
-                }
-                return response.text().then(text => {
-                    throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
-                });
-            }
-            return response.json();
-        })
-        .then(data => {
-            // Assicuriamoci che il layer dei geofences esista
-            if (!window.geofencesLayer) {
-                window.geofencesLayer = L.layerGroup().addTo(map);
-            } else {
-                window.geofencesLayer.clearLayers();
-            }
-
-            data.forEach(geofenceData => {
-                const color = getColorFromRank(geofenceData.rank);
-                
-                // Creiamo un poligono per ogni geofence
-                const polygon = L.polygon(geofenceData.coordinates.map(coord => [coord[1], coord[0]]), {
-                    color: color,
-                    fillColor: color,
-                    fillOpacity: 0.5,
-                    weight: 2
-                });
-
-                // Aggiungiamo un popup al poligono
-                polygon.bindPopup(`
-                    <b>Geofence ID: ${geofenceData.id}</b><br>
-                    Rank: ${geofenceData.rank.toFixed(2)}<br>
-                    Centroid: ${geofenceData.centroid.lat.toFixed(6)}, ${geofenceData.centroid.lng.toFixed(6)}
-                `);
-
-                // Aggiungiamo il poligono al layer dei geofences
-                window.geofencesLayer.addLayer(polygon);
-            });
-
-            // Adattiamo la vista della mappa per includere tutti i geofences
-            if (window.geofencesLayer.getLayers().length > 0) {
-                map.fitBounds(window.geofencesLayer.getBounds());
-            }
-        })
-        .catch(error => {
-            console.error('Errore nel caricamento dei geofences:', error);
-            if (error.message === 'No questionnaires found') {
-                showNoQuestionnaireAlert();
-            } else {
-                showToast('error', `Errore nel caricamento dei geofences: ${error.message}`);
-            }
-        });
-}
-
-
-var customControl = L.Control.extend({
-    options: {
-        position: 'topleft'
-    },
-    onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'leaflet-control-custom');
-        container.innerHTML = '📍';
-        container.style.backgroundColor = 'white';
-        container.style.width = '30px';
-        container.style.height = '30px';
-        container.style.lineHeight = '30px';
-        container.style.textAlign = 'center';
-        container.style.cursor = 'pointer';
-        container.title = 'Mostra marker dal database';
-
-        container.onclick = function(){
-            loadRankedMarkers();
-        }
-
-        L.DomEvent.disableClickPropagation(container);
-
-        return container;
-    }
-});
-
-map.addControl(new customControl());
-
-var geofenceControl = L.Control.extend({
-    options: {
-        position: 'topleft'
-    },
-    onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'leaflet-control-custom');
-        container.innerHTML = '🏠';
-        container.style.backgroundColor = 'white';
-        container.style.width = '30px';
-        container.style.height = '30px';
-        container.style.lineHeight = '30px';
-        container.style.textAlign = 'center';
-        container.style.cursor = 'pointer';
-        container.title = 'Mostra Geofence';
-        container.onclick = function(){
-            loadRankedGeofences();
-        }
-        L.DomEvent.disableClickPropagation(container);
-        return container;
-    }
-});
-
-map.addControl(new geofenceControl());
 
 // Aggiungi l'evento per lo slider
 document.getElementById('radiusSlider').addEventListener('input', function(e) {
@@ -451,6 +404,8 @@ function sendRadiusToBackend(radius) {
     });
 }
 
+
+
 map.on(L.Draw.Event.CREATED, function (e) {
     let layer = e.layer;
 
@@ -459,22 +414,7 @@ map.on(L.Draw.Event.CREATED, function (e) {
         saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null)
             .then(response => response.json())
             .then(data => {
-                const geofenceId = data.id;
-                const userMarker = L.marker([latlng.lat, latlng.lng]).addTo(map);
-                userMarker.bindPopup(createGeofencePopup(geofenceId, true)).openPopup();
-                userMarker.geofenceId = geofenceId;
-
-                const circle = L.circle([latlng.lat, latlng.lng], {
-                    color: 'blue',
-                    fillColor: '#30f',
-                    fillOpacity: 0.2,
-                    radius: neighborhoodRadius
-                }).addTo(map);
-
-                circles[geofenceId] = circle;
-
-                drawnItems.addLayer(userMarker);
-                drawnItems.addLayer(circle);
+                loadAllGeofences(); // Ricarica tutti i geofence dopo l'aggiunta
             })
             .catch(error => console.error('Errore nel salvare il marker:', error));
     } else if (layer instanceof L.Polygon) {
@@ -482,14 +422,12 @@ map.on(L.Draw.Event.CREATED, function (e) {
         saveGeofenceToDatabase(null, [coordinates])
             .then(response => response.json())
             .then(data => {
-                const geofenceId = data.id;
-                layer.bindPopup(createGeofencePopup(geofenceId, false));
-                layer.geofenceId = geofenceId;
-                drawnItems.addLayer(layer);
+                loadAllGeofences(); // Ricarica tutti i geofence dopo l'aggiunta
             })
             .catch(error => console.error('Errore nel salvare il geofence:', error));
     }
 });
+
 
 function saveGeofenceToDatabase(markers, geofences) {
     let data;
@@ -524,13 +462,21 @@ function showToast(type, message) {
     }, 3000);
 }
 
-
 function loadMarkersFromDatabase() {
-    fetch('/get_markers')
+    fetch('/get_ranked_markers')
         .then(response => response.json())
         .then(data => {
             data.forEach(markerData => {
-                const marker = L.marker([markerData.lat, markerData.lng]).addTo(map);
+                const color = getColorFromRank(markerData.rank);
+                const marker = L.marker([markerData.lat, markerData.lng], {
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%;"></div>`,
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    })
+                }).addTo(map);
+                
                 marker.bindPopup(createGeofencePopup(markerData.id, true));
                 marker.geofenceId = markerData.id;
                 drawnItems.addLayer(marker);
@@ -550,12 +496,17 @@ function loadMarkersFromDatabase() {
 }
 
 function loadGeofencesFromDatabase() {
-    fetch('/get-geofences')
+    fetch('/get_ranked_geofences')
         .then(response => response.json())
         .then(data => {
             data.forEach(geofenceData => {
-                if (geofenceData.geofence) {
-                    const polygon = L.polygon(geofenceData.geofence.coordinates[0].map(coord => [coord[1], coord[0]])).addTo(map);
+                if (geofenceData.coordinates) {
+                    const color = getColorFromRank(geofenceData.rank);
+                    const polygon = L.polygon(geofenceData.coordinates.map(coord => [coord[1], coord[0]]), {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.5
+                    }).addTo(map);
                     polygon.bindPopup(createGeofencePopup(geofenceData.id, false));
                     polygon.geofenceId = geofenceData.id;
                     drawnItems.addLayer(polygon);
@@ -564,6 +515,7 @@ function loadGeofencesFromDatabase() {
         })
         .catch(error => console.error('Errore nel caricamento dei geofence:', error));
 }
+
 
 // Carica i marker e i geofence quando la pagina è completamente caricata
 document.addEventListener('DOMContentLoaded', function() {
@@ -667,11 +619,24 @@ function createGeofencePopup(geofenceId, isMarker = true) {
         <b>${isMarker ? 'Marker' : 'Geofence'} ID: ${geofenceId}</b><br>
         <button onclick="deleteGeofence(${geofenceId})">
             🗑️ Elimina ${isMarker ? 'Marker' : 'Geofence'}
-        </button>
+        </button><br><br>
     `;
+
+    if (isMarker) {
+        content += `
+            <!-- Aggiungi il campo input per il prezzo solo per i marker -->
+            <label for="priceInput-${geofenceId}">Prezzo:</label>
+            <input type="number" id="priceInput-${geofenceId}" placeholder="Inserisci il prezzo"><br>
+           
+            <!-- Aggiungi il bottone per salvare il prezzo solo per i marker -->
+            <button onclick="addMarkerPrice(${geofenceId})">
+                💰 Aggiungi Prezzo
+            </button>
+        `;
+    }
+
     return content;
 }
-
 function deleteGeofence(geofenceId) {
     console.log('Deleting geofence with ID:', geofenceId);
     fetch(`/delete-geofence/${geofenceId}`, {
@@ -694,6 +659,37 @@ function deleteGeofence(geofenceId) {
     });
 }
 
+function addMarkerPrice(geofenceId) {
+    // Ottieni il valore del prezzo inserito dall'input
+    let priceInput = document.getElementById(`priceInput-${geofenceId}`).value;
+    
+    // Verifica che il prezzo sia valido (opzionale)
+    if (!priceInput || priceInput <= 0) {
+        alert('Per favore, inserisci un prezzo valido.');
+        return;
+    }
+
+    // Esegui qui la logica per salvare il prezzo, ad esempio con una chiamata API
+    // Puoi usare fetch per inviare il prezzo al server
+    fetch(`/addMarkerPrice`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            geofenceId: geofenceId,
+            price: parseFloat(priceInput)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(`Prezzo di ${priceInput} aggiunto con successo per il marker ${geofenceId}`);
+        // Eventuali altre azioni come aggiornare l'interfaccia
+    })
+    .catch((error) => {
+        console.error('Errore durante l\'aggiunta del prezzo:', error);
+    });
+}
 
 // Stile CSS per lo slider
 const style = document.createElement('style');

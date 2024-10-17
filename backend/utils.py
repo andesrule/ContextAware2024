@@ -5,24 +5,25 @@ import json, logging
 import requests
 from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
-from sqlalchemy import func
+from sqlalchemy import func, text
 from geoalchemy2.functions import *
 from shapely import wkb
+import numpy as np
+import time
+from flask_caching import Cache
+from functools import lru_cache, partial
+from multiprocessing import Pool, cpu_count
+from sqlalchemy.exc import SQLAlchemyError
 import binascii
-from flask_login import current_user
+
+cache = Cache(config={'CACHE_TYPE': 'simple'})
+
+# Definisci una griglia più grande per il pre-calcolo
+PRECALC_GRID_SIZE = 20
 
 
 global_radius = 500
 utils_bp = Blueprint('utils', __name__)
-
-@utils_bp.route('/debug_poi_count')
-def debug_poi_count():
-    total_count = POI.query.count()
-    parking_count = POI.query.filter_by(type='fermate_bus').count()
-    return jsonify({
-        'total_poi_count': total_count,
-        'parking_poi_count': parking_count
-    })
 
 @utils_bp.route('/get_pois')
 def get_pois():
@@ -64,19 +65,26 @@ def get_radius():
         return jsonify({"error": "Il raggio deve essere un numero intero"}), 400
     except Exception as e:
         return jsonify({"error": f"Errore imprevisto: {str(e)}"}), 500
-    
+
 @utils_bp.route('/save-geofence', methods=['POST'])
 def save_geofence():
     data = request.json
     
     if 'marker' in data:
-        # Salvataggio del marker
+        # Salvataggio del marker (immobile candidato)
         lat = data['marker']['lat']
         lng = data['marker']['lng']
         point = Point(lng, lat)
-        new_geofence = Geofence(marker=from_shape(point, srid=4326))
+        new_immobile = ListaImmobiliCandidati(marker=from_shape(point, srid=4326))
+        try:
+            db.session.add(new_immobile)
+            db.session.commit()
+            return jsonify({'status': 'success', 'id': new_immobile.id})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'status': 'error', 'message': str(e)}), 500
     elif 'geofence' in data:
-        # Salvataggio del geofence
+        # Salvataggio del geofence (area candidata)
         try:
             # Se il geofence è già una stringa WKT
             if isinstance(data['geofence'], str):
@@ -89,19 +97,15 @@ def save_geofence():
                     coords.append(coords[0])
                 polygon = Polygon(coords)
             
-            new_geofence = Geofence(geofence=from_shape(polygon, srid=4326))
+            new_area = ListaAreeCandidate(geofence=from_shape(polygon, srid=4326))
+            db.session.add(new_area)
+            db.session.commit()
+            return jsonify({'status': 'success', 'id': new_area.id})
         except Exception as e:
-            return jsonify({'status': 'error', 'message': str(e)}), 400
+            db.session.rollback()
+            return jsonify({'status': 'error', 'message': str(e)}), 500
     else:
         return jsonify({'status': 'error', 'message': 'Invalid data'}), 400
-
-    try:
-        db.session.add(new_geofence)
-        db.session.commit()
-        return jsonify({'status': 'success', 'id': new_geofence.id})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'status': 'error', 'message': str(e)}), 500
     
 @utils_bp.route('/submit-questionnaire', methods=['POST'])
 def submit_questionnaire():
@@ -166,7 +170,7 @@ def get_poi_coordinates(poi):
 
 def count_nearby_pois(db, marker_id, distance_meters):
     # Ottieni il marker specifico dal database
-    marker = db.session.query(Geofence).get(marker_id)
+    marker = db.session.query(ListaImmobiliCandidati).get(marker_id)
     if not marker:
         return None
 
@@ -308,39 +312,43 @@ def get_poi(poi_type):
 
 @utils_bp.route('/get_markers')
 def get_markers():
-    markers = Geofence.query.all()
+    markers = ListaImmobiliCandidati.query.all()
     marker_list = []
     for marker in markers:
         if marker.marker is not None:
-            # Converti WKBElement in un oggetto Shapely
             point = to_shape(marker.marker)
-            # Converti l'oggetto Shapely in un dizionario GeoJSON
             geojson = mapping(point)
             marker_list.append({
                 'lat': geojson['coordinates'][1],
-                'lng': geojson['coordinates'][0]
+                'lng': geojson['coordinates'][0],
+                'price': marker.marker_price
             })
-    return jsonify(marker_list) 
-    
+    return jsonify(marker_list)
+
 @utils_bp.route('/get-geofences')
 def get_geofences():
-    geofences = Geofence.query.all()
+    immobili = ListaImmobiliCandidati.query.all()
+    aree = ListaAreeCandidate.query.all()
     geofences_data = []
 
-    for gf in geofences:
-        geofence_data = {'id': gf.id}
+    for immobile in immobili:
+        point = to_shape(immobile.marker)
+        geofences_data.append({
+            'id': immobile.id,
+            'type': 'marker',
+            'marker': mapping(point),
+            'price': immobile.marker_price
+        })
+    
+    for area in aree:
+        polygon = to_shape(area.geofence)
+        geofences_data.append({
+            'id': area.id,
+            'type': 'geofence',
+            'geofence': mapping(polygon)
+        })
 
-        if gf.marker is not None:
-            point = to_shape(gf.marker)
-            geofence_data['marker'] = mapping(point)
-        
-        if gf.geofence is not None:
-            polygon = to_shape(gf.geofence)
-            geofence_data['geofence'] = mapping(polygon)
-        
-        geofences_data.append(geofence_data)
-
-    return jsonify(geofences_data)    
+    return jsonify(geofences_data)
 
 def get_questionnaire_response_dict(response):
     return {
@@ -435,13 +443,12 @@ def calcola_rank(marker_id, raggio):
 @utils_bp.route('/get_ranked_markers')
 def get_ranked_markers():
     try:
-        # Controlla se ci sono questionari nel database
         if QuestionnaireResponse.query.count() == 0:
             return jsonify({"error": "No questionnaires found"}), 404
 
         global global_radius
         
-        markers = Geofence.query.filter(Geofence.marker.isnot(None)).all()
+        markers = ListaImmobiliCandidati.query.all()
         ranked_markers = []
         
         for marker in markers:
@@ -453,7 +460,8 @@ def get_ranked_markers():
                     'id': marker.id,
                     'lat': lat,
                     'lng': lng,
-                    'rank': rank
+                    'rank': rank,
+                    'price': marker.marker_price
                 })
             except Exception as e:
                 print(f"Errore nell'elaborazione del marker {marker.id}: {str(e)}")
@@ -462,10 +470,10 @@ def get_ranked_markers():
     except Exception as e:
         print(f"Errore generale in get_ranked_markers: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
+    
 def count_pois_in_geofence(db, geofence_id):
     # Ottieni il geofence specifico dal database
-    geofence = db.session.query(Geofence).get(geofence_id)
+    geofence = db.session.query(ListaAreeCandidate).get(geofence_id)
     if not geofence:
         return None
 
@@ -570,7 +578,7 @@ def get_ranked_geofences():
         if QuestionnaireResponse.query.count() == 0:
             return jsonify({"error": "No questionnaires found"}), 404
 
-        geofences = Geofence.query.filter(Geofence.geofence.isnot(None)).all()
+        geofences = ListaAreeCandidate.query.filter(ListaAreeCandidate.geofence.isnot(None)).all()
         ranked_geofences = []
         
         for geofence in geofences:
@@ -685,25 +693,309 @@ def api_calculate_travel_time():
 @utils_bp.route('/delete-all-geofences', methods=['POST'])
 def delete_all_geofences():
     try:
-        Geofence.query.delete()
+        ListaImmobiliCandidati.query.delete()
+        ListaAreeCandidate.query.delete()
         db.session.commit()
-        return jsonify({"message": "Tutti i geofence sono stati cancellati"}), 200
+        return jsonify({"message": "Tutti i geofence e i marker sono stati cancellati"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
     
-
-
 @utils_bp.route('/delete-geofence/<int:geofence_id>', methods=['DELETE'])
 def delete_geofence(geofence_id):
     try:
-        geofence = Geofence.query.get(geofence_id)
-        if geofence:
-            db.session.delete(geofence)
+        immobile = ListaImmobiliCandidati.query.get(geofence_id)
+        if immobile:
+            db.session.delete(immobile)
             db.session.commit()
-            return jsonify({"message": f"Geofence con ID {geofence_id} eliminato con successo"}), 200
-        else:
-            return jsonify({"error": f"Geofence con ID {geofence_id} non trovato"}), 404
+            return jsonify({"message": f"Immobile con ID {geofence_id} eliminato con successo"}), 200
+        
+        area = ListaAreeCandidate.query.get(geofence_id)
+        if area:
+            db.session.delete(area)
+            db.session.commit()
+            return jsonify({"message": f"Area con ID {geofence_id} eliminata con successo"}), 200
+        
+        return jsonify({"error": f"Geofence con ID {geofence_id} non trovato"}), 404
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+@utils_bp.route('/get_all_geofences')
+def get_all_geofences():
+    try:
+        if QuestionnaireResponse.query.count() == 0:
+            return jsonify({"error": "No questionnaires found"}), 404
+
+        immobili = ListaImmobiliCandidati.query.all()
+        aree = ListaAreeCandidate.query.all()
+        all_geofences = []
+        
+        for immobile in immobili:
+            lat = db.session.scalar(ST_Y(immobile.marker))
+            lng = db.session.scalar(ST_X(immobile.marker))
+            rank = calcola_rank(immobile.id, raggio=global_radius)
+            all_geofences.append({
+                'id': immobile.id,
+                'type': 'marker',
+                'lat': lat,
+                'lng': lng,
+                'rank': rank,
+                'price': immobile.marker_price
+            })
+        
+        for area in aree:
+            centroid = db.session.scalar(ST_Centroid(area.geofence))
+            centroid_lat = db.session.scalar(func.ST_Y(centroid))
+            centroid_lng = db.session.scalar(func.ST_X(centroid))
+            rank = calcola_rank_geofence(area.id)
+            geofence_geojson = db.session.scalar(ST_AsGeoJSON(area.geofence))
+            geofence_dict = json.loads(geofence_geojson)
+            coordinates = geofence_dict['coordinates'][0]
+            all_geofences.append({
+                'id': area.id,
+                'type': 'polygon',
+                'centroid': {
+                    'lat': centroid_lat,
+                    'lng': centroid_lng
+                },
+                'coordinates': coordinates,
+                'rank': rank
+            })
+        
+        return jsonify(all_geofences)
+    except Exception as e:
+        print(f"Errore generale in get_all_geofences: {str(e)}")
+        return jsonify({"error": str(e)}), 50
+
+def get_bologna_bounds():
+    return {
+        'min_lat': 44.4, 'max_lat': 44.6,
+        'min_lon': 11.2, 'max_lon': 11.4
+    }
+def create_grid(bounds, grid_size):
+    lats = np.linspace(bounds['min_lat'], bounds['max_lat'], grid_size)
+    lons = np.linspace(bounds['min_lon'], bounds['max_lon'], grid_size)
+    return [(float(lat), float(lon)) for lat in lats for lon in lons]
+
+def create_centered_grid(center_lat, center_lon, radius, density):
+    lat_offset = radius / 111000  # Approssimazione dei gradi di latitudine per metro
+    lon_offset = radius / (111000 * np.cos(np.radians(center_lat)))
+
+    lats = np.linspace(center_lat - lat_offset, center_lat + lat_offset, density)
+    lons = np.linspace(center_lon - lon_offset, center_lon + lon_offset, density)
+
+    return [(float(lat), float(lon)) for lat in lats for lon in lons]
+
+@lru_cache(maxsize=1000)
+def count_pois_near_point(lat, lon, radius):
+    lat, lon, radius = float(lat), float(lon), float(radius)
+    query = text("""
+    SELECT type, COUNT(*) as count
+    FROM points_of_interest
+    WHERE ST_DWithin(
+        ST_Transform(location, 3857),
+        ST_Transform(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), 3857),
+        :radius
+    )
+    GROUP BY type
+    """)
+    
+    try:
+        with db.engine.connect() as connection:
+            result = connection.execute(query, {'lat': lat, 'lon': lon, 'radius': radius})
+            # Recupera tutti i risultati immediatamente
+            counts = {row.type: row.count for row in result}
+        return counts
+    except SQLAlchemyError as e:
+        print(f"Errore nell'esecuzione della query: {str(e)}")
+        return {}
+
+def calculate_rank(poi_counts, user_preferences):
+    weights = {
+        'aree_verdi': 0.8,
+        'parcheggi': 1.0,
+        'fermate_bus': 1.0,
+        'stazioni_ferroviarie': 1.0,
+        'scuole': 0.7,
+        'cinema': 0.6,
+        'ospedali': 1.0,
+        'farmacia': 0.5,
+        'luogo_culto': 0.2,
+        'servizi': 0.4,
+    }
+    return sum(count * user_preferences.get(poi_type, 0) * weights.get(poi_type, 1)
+               for poi_type, count in poi_counts.items())
+
+def precalculate_scores():
+    bounds = get_bologna_bounds()
+    extended_bounds = {
+        'min_lat': bounds['min_lat'] - 0.1,
+        'max_lat': bounds['max_lat'] + 0.1,
+        'min_lon': bounds['min_lon'] - 0.1,
+        'max_lon': bounds['max_lon'] + 0.1
+    }
+    grid_points = create_grid(extended_bounds, PRECALC_GRID_SIZE)
+    
+    for lat, lon in grid_points:
+        lat, lon = float(lat), float(lon)
+        counts = count_pois_near_point(lat, lon, 1000)
+        precalculated_scores[(lat, lon)] = counts
+    
+    print(f"Precalcolo completato. Punti calcolati: {len(precalculated_scores)}")
+
+def get_nearest_precalc_point(lat, lon):
+    return min(precalculated_scores.keys(), 
+               key=lambda p: (float(p[0])-float(lat))**2 + (float(p[1])-float(lon))**2)
+
+def precalculate_poi_counts(grid_points, radius):
+    all_poi_counts = []
+    for lat, lon in grid_points:
+        point = f'POINT({lon} {lat})'
+        poi_counts = db.session.query(
+            POI.type,
+            func.count(POI.id).label('count')
+        ).filter(
+            ST_DWithin(
+                ST_Transform(POI.location, 3857),
+                ST_Transform(func.ST_GeomFromText(point, 4326), 3857),
+                radius
+            )
+        ).group_by(POI.type).all()
+        all_poi_counts.append(dict(poi_counts))
+    return all_poi_counts
+
+@cache.memoize(timeout=3600)  # Cache per un'ora
+def optimized_calculate_optimal_locations():
+    print("Inizio calculate_optimal_locations altamente ottimizzato")
+    start_time = time.time()
+    try:
+        user_prefs = QuestionnaireResponse.query.first()
+        if not user_prefs:
+            print("Nessun questionario trovato")
+            return jsonify({"error": "Nessun questionario trovato. Completa il questionario prima."}), 400
+        
+        user_preferences = get_questionnaire_response_dict(user_prefs)
+        
+        # Definisci una griglia fissa su Bologna
+        lat_min, lat_max = 44.4, 44.6  # Limiti approssimativi di Bologna
+        lon_min, lon_max = 11.2, 11.4
+        grid_size = 20  # Ridotto per velocizzare il calcolo
+
+        lat_step = (lat_max - lat_min) / grid_size
+        lon_step = (lon_max - lon_min) / grid_size
+
+        all_points = []
+        for i in range(grid_size):
+            for j in range(grid_size):
+                lat = lat_min + i * lat_step
+                lon = lon_min + j * lon_step
+                all_points.append((lat, lon))
+
+        # Valuta tutti i punti della griglia
+        results = []
+        for point in all_points:
+            result = process_point(point, user_preferences, 500)
+            if result:
+                results.append(result)
+
+        # Ordina i risultati per rank e prendi i top 5
+        top_5_locations = sorted(results, key=lambda x: x['rank'], reverse=True)[:5]
+
+        end_time = time.time()
+        execution_time = end_time - start_time
+        
+        result = {
+            "message": "Le 5 migliori posizioni suggerite per acquistare casa a Bologna:",
+            "suggestions": top_5_locations,
+            "user_preferences": user_preferences,
+            "execution_time_seconds": execution_time
+        }
+        print(f"Calcolo completato in {execution_time:.2f} secondi")
+        return result
+
+    except Exception as e:
+        print(f"Errore in simplified_calculate_optimal_locations: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@utils_bp.route('/calculate_optimal_locations', methods=['GET'])
+def calculate_optimal_locations():
+    print("Inizio calculate_optimal_locations")
+    start_time = time.time()
+    try:
+        user_prefs = QuestionnaireResponse.query.first()
+        if not user_prefs:
+            print("Nessun questionario trovato")
+            return jsonify({"error": "Nessun questionario trovato. Completa il questionario prima."}), 400
+        
+        user_preferences = get_questionnaire_response_dict(user_prefs)
+        print(f"Preferenze utente: {user_preferences}")
+
+        bounds = get_bologna_bounds()
+        grid_size = 50  # Ridotto da 100 a 50 per un buon compromesso tra precisione e velocità
+        radius = 500  # metri
+
+        grid_points = create_grid(bounds, grid_size)
+        print(f"Grid points creati: {len(grid_points)}")
+
+        # Usa il multiprocessing per accelerare i calcoli
+        with Pool(cpu_count()) as p:
+            ranked_locations = p.map(partial(process_point, 
+                                             user_preferences=user_preferences, 
+                                             radius=radius), 
+                                     grid_points)
+        
+        print(f"Punti elaborati: {len(ranked_locations)}")
+        
+        # Filtra eventuali risultati None
+        ranked_locations = [loc for loc in ranked_locations if loc is not None]
+        print(f"Punti validi: {len(ranked_locations)}")
+
+        top_locations = sorted(ranked_locations, key=lambda x: x['rank'], reverse=True)[:5]
+        
+        end_time = time.time()
+        execution_time = end_time - start_time
+        
+        result = {
+            "message": "Ecco le 5 migliori posizioni suggerite per acquistare casa a Bologna:",
+            "suggestions": top_locations,
+            "user_preferences": user_preferences,
+            "total_locations_analyzed": len(ranked_locations),
+            "execution_time_seconds": execution_time
+        }
+        print(f"Calcolo completato in {execution_time:.2f} secondi")
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Errore in calculate_optimal_locations: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@utils_bp.route('/addMarkerPrice', methods=['POST'])
+def add_marker_price():
+    data = request.get_json()
+    geofence_id = data.get('geofenceId')
+    price = data.get('price')
+
+    if price is None or price <= 0:
+        return jsonify({'error': 'Prezzo non valido'}), 400
+
+    geofence = ListaImmobiliCandidati.query.get(geofence_id)
+
+    if not geofence:
+        return jsonify({'error': 'Geofence non trovato'}), 404
+
+    geofence.marker_price = price
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': f'Prezzo di {price} aggiunto per il marker {geofence_id}'})
+
+
+def process_point(point, user_preferences, radius):
+    lat, lon = point
+    poi_counts = count_pois_near_point(lat, lon, radius)
+    rank = calculate_rank(poi_counts, user_preferences)
+    return {
+        'lat': lat,
+        'lng': lon,
+        'rank': rank
+    } if rank > 0 else None
