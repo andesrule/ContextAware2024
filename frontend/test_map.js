@@ -144,42 +144,55 @@ function getPOIData(poiType) {
     // Pulisci il layer cluster esistente
     poiLayers[poiType].clearLayers();
     
-    fetch(`/get_pois?type=${poiType}`)
+    fetch(`/api/poi/${poiType}`)
         .then(response => response.json())
         .then(data => {
             console.log(`Dati ricevuti per ${poiType}:`, data);
 
-            if (!Array.isArray(data) || data.length === 0) {
+            if (!data.results || data.results.length === 0) {
                 console.warn(`Nessun POI trovato per ${poiType}`);
                 return;
             }
 
-            data.forEach(poi => {
-                if (!poi.lat || !poi.lng || isNaN(poi.lat) || isNaN(poi.lng)) {
+            data.results.forEach(poi => {
+                let lat, lng;
+                if (poi.geo_point_2d) {
+                    lat = poi.geo_point_2d.lat;
+                    lng = poi.geo_point_2d.lon;
+                } else if (poi.coordinate) {
+                    lat = poi.coordinate.lat;
+                    lng = poi.coordinate.lon;
+                } else if (poi.geopoint) {
+                    lat = poi.geopoint.lat;
+                    lng = poi.geopoint.lon;
+                } else {
+                    console.warn(`Coordinate non valide per POI:`, poi);
+                    return;
+                }
+
+                if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
                     console.warn(`Coordinate non valide per POI:`, poi);
                     return;
                 }
 
                 try {
-                    const name = poi.additional_data?.denominazione_struttura || 
-                               poi.additional_data?.denominazi || 
-                               poi.additional_data?.name || 
-                               `${poiType.charAt(0).toUpperCase() + poiType.slice(1)}`;
+                    const name = poi.denominazione_struttura || 
+                                 poi.denominazi || 
+                                 poi.name || 
+                                 `${poiType.charAt(0).toUpperCase() + poiType.slice(1)}`;
 
                     const icon = getCustomIcon(poiType);
-                    const marker = L.marker([poi.lat, poi.lng], { icon: icon });
+                    const marker = L.marker([lat, lng], { icon: icon });
                     
                     let popupContent = `<div class="poi-popup">
                         <h3>${name}</h3>
                         <p>Tipo: ${poiType}</p>`;
                     
-                    if (poi.additional_data) {
-                        if (poi.additional_data.esercizio_via_e_civico) {
-                            popupContent += `<p>Indirizzo: ${poi.additional_data.esercizio_via_e_civico}</p>`;
-                        }
-                        if (poi.additional_data.quartiere) {
-                            popupContent += `<p>Quartiere: ${poi.additional_data.quartiere}</p>`;
-                        }
+                    if (poi.esercizio_via_e_civico) {
+                        popupContent += `<p>Indirizzo: ${poi.esercizio_via_e_civico}</p>`;
+                    }
+                    if (poi.quartiere) {
+                        popupContent += `<p>Quartiere: ${poi.quartiere}</p>`;
                     }
                     
                     popupContent += '</div>';
