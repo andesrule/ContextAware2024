@@ -44,21 +44,13 @@ admin.add_view(CustomModelView(ListaAreeCandidate,db.session))
 def initialize_database():
     if not hasattr(app, 'db_initialized'):
         with app.app_context():
-            db.create_all()
+            reset_db()
             if User.query.count() == 0:
                 db.session.add(User(content_poi=['First string', 'Another string']))
                 db.session.commit()
             update_pois()
         app.db_initialized = True
 
-# Sostituisci @app.before_first_request con questa funzione
-@app.before_request
-def before_request():
-    if not hasattr(app, 'initialized'):
-        with app.app_context():
-            initialize_database()
-         
-        app.initialized = True
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
