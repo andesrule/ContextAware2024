@@ -49,6 +49,61 @@ def get_pois():
     print(f"Numero di POI restituiti: {len(poi_list)}")
     return jsonify(poi_list)
 
+@utils_bp.route('/api/pois/<poi_type>', methods=['GET'])
+def get_pois_by_type(poi_type):
+    """
+    Restituisce tutti i POI di un determinato tipo dal database.
+    Usa direttamente le coordinate geometriche salvate.
+    """
+    try:
+        # Query per ottenere tutti i POI del tipo specificato
+        pois = POI.query.filter_by(type=poi_type).all()
+        print(f"Trovati {len(pois)} POI di tipo {poi_type}")
+        
+        poi_list = []
+        for poi in pois:
+            try:
+                # Converti la geometria in coordinate
+                point = to_shape(poi.location)
+                
+                # Crea il dizionario POI
+                poi_data = {
+                    'id': poi.id,
+                    'type': poi_type,
+                    'lat': point.y,  # Latitudine
+                    'lng': point.x,  # Longitudine
+                }
+
+                # Aggiungi i dati addizionali se presenti
+                if poi.additional_data:
+                    try:
+                        additional_data = json.loads(poi.additional_data)
+                        poi_data['properties'] = additional_data
+                    except json.JSONDecodeError:
+                        print(f"Errore nel parsing dei dati addizionali per POI {poi.id}")
+                        poi_data['properties'] = {}
+
+                poi_list.append(poi_data)
+
+            except Exception as e:
+                print(f"Errore nell'elaborazione del POI {poi.id}: {str(e)}")
+                continue
+        
+        print(f"Restituisco {len(poi_list)} POI formattati")
+        return jsonify({
+            'status': 'success',
+            'count': len(poi_list),
+            'data': poi_list
+        })
+        
+    except Exception as e:
+        print(f"Errore generale in get_pois_by_type: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+    
+    
 @utils_bp.route('/get_radius', methods=['POST'])
 def get_radius():
     global global_radius

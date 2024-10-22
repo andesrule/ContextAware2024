@@ -64,9 +64,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 window.addEventListener('DOMContentLoaded', function() {
-    const script = document.createElement('script');
-    script.src = 'test_map.js';
-    document.body.appendChild(script);
 
     // Funzione per controllare i questionari nel database
     checkQuestionnaires();
