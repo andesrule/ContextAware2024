@@ -12,3 +12,4 @@ flask_login
 numpy
 flask-caching
 multiprocess
+scipy

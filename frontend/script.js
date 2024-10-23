@@ -386,3 +386,88 @@ function showOptimalPositions(positions) {
     const bounds = L.latLngBounds(positions.map(pos => [pos.lat, pos.lng]));
     map.fitBounds(bounds);
 }
+
+
+
+
+// Funzione per aggiornare l'indice di Moran
+function updateMoranIndex() {
+    fetch('/calculate_morans_i')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Servono almeno due immobili con prezzo');
+            }
+            return response.json();
+        })
+        .then(data => {
+            const moranPrices = document.getElementById('moranPrices');
+            const moranPoi = document.getElementById('moranPoi');
+            const avgPrice = document.getElementById('avgPrice');
+            const numImmobili = document.getElementById('numImmobili');
+
+            if (data.error) {
+                showToast('warning', data.error);
+                moranPrices.textContent = 'N/A';
+                moranPoi.textContent = 'N/A';
+                avgPrice.textContent = '-';
+                numImmobili.textContent = '-';
+                return;
+            }
+
+            // Aggiorna valori e applica classi di colore
+            moranPrices.textContent = data.morans_i_prices.toFixed(3);
+            moranPrices.className = getValueColorClass(data.morans_i_prices);
+
+            moranPoi.textContent = data.morans_i_poi_density.toFixed(3);
+            moranPoi.className = getValueColorClass(data.morans_i_poi_density);
+
+            avgPrice.textContent = '€' + data.statistics.prezzo_medio.toLocaleString();
+            numImmobili.textContent = data.statistics.num_immobili;
+        })
+        .catch(error => {
+            console.error('Errore nel recupero dell\'indice di Moran:', error);
+            showToast('error', 'Errore nel calcolo dell\'indice di Moran');
+        });
+}
+
+// Funzione per determinare la classe di colore in base al valore
+function getValueColorClass(value) {
+    if (value === null) return 'text-gray-500';
+    if (value > 0.5) return 'text-green-500';  // clustering forte
+    if (value > 0) return 'text-blue-500';     // clustering debole
+    if (value < -0.5) return 'text-red-500';   // dispersione forte
+    return 'text-yellow-500';                  // dispersione debole/random
+}
+
+// Modifica le funzioni esistenti per aggiornare l'indice quando necessario
+const originalSetPrice = setPrice;
+function setPrice(marker, price) {
+    originalSetPrice(marker, price);
+    updateMoranIndex(); // Aggiorna l'indice dopo aver impostato un prezzo
+}
+
+const originalRemoveMarker = removeMarker;
+function removeMarker(markerToRemove) {
+    originalRemoveMarker(markerToRemove);
+    updateMoranIndex(); // Aggiorna l'indice dopo aver rimosso un marker
+}
+
+// Aggiungi l'inizializzazione al DOMContentLoaded esistente
+document.addEventListener('DOMContentLoaded', function() {
+    // Il tuo codice DOMContentLoaded esistente...
+    
+    // Aggiungi l'inizializzazione dell'indice di Moran
+    updateMoranIndex();
+    
+    // Imposta l'aggiornamento automatico ogni 5 secondi
+    setInterval(updateMoranIndex, 5000);
+    
+    // Il resto del tuo codice DOMContentLoaded...
+});
+
+// Modifica la funzione addMarker esistente per includere l'aggiornamento dell'indice
+const originalAddMarker = addMarker;
+function addMarker(e) {
+    originalAddMarker(e);
+    updateMoranIndex(); // Aggiorna l'indice dopo aver aggiunto un marker
+}

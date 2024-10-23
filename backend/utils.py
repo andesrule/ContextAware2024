@@ -15,6 +15,7 @@ from functools import lru_cache, partial
 from multiprocessing import Pool, cpu_count
 from sqlalchemy.exc import SQLAlchemyError
 import binascii
+from scipy.spatial.distance import cdist
 
 cache = Cache(config={'CACHE_TYPE': 'simple'})
 
@@ -1054,3 +1055,82 @@ def process_point(point, user_preferences, radius):
         'lng': lon,
         'rank': rank
     } if rank > 0 else None
+
+@utils_bp.route('/calculate_morans_i', methods=['GET'])
+def calculate_morans_i():
+    try:
+        # Recupera immobili con prezzo
+        immobili = db.session.query(
+            ListaImmobiliCandidati
+        ).filter(
+            ListaImmobiliCandidati.marker_price.isnot(None)
+        ).all()
+        
+        if len(immobili) < 2:
+            return jsonify({
+                'error': 'Servono almeno due immobili con prezzo per calcolare l\'indice di Moran'
+            }), 400
+
+        # Estrai coordinate e prezzi
+        coords = []
+        prices = []
+        threshold_distance = 500  # metri
+        
+        for immobile in immobili:
+            point = to_shape(immobile.marker)
+            coords.append([point.y, point.x])  # [lat, lon]
+            prices.append(float(immobile.marker_price))
+
+        coords = np.array(coords)
+        prices = np.array(prices)
+        
+        # Calcola densità POI
+        poi_densities = []
+        for immobile in immobili:
+            poi_count = db.session.query(func.count(POI.id)).filter(
+                ST_Distance(
+                    ST_Transform(POI.location, 3857),
+                    ST_Transform(immobile.marker, 3857)
+                ) <= threshold_distance
+            ).scalar()
+            poi_densities.append(poi_count)
+        
+        poi_densities = np.array(poi_densities)
+        
+        # Calcola matrice delle distanze e dei pesi
+        dist_matrix = cdist(coords, coords)
+        W = np.where(dist_matrix <= threshold_distance, 1, 0)
+        np.fill_diagonal(W, 0)
+        row_sums = W.sum(axis=1)
+        row_sums[row_sums == 0] = 1
+        W = W / row_sums[:, np.newaxis]
+        
+        # Calcola Moran's I per prezzi
+        z_prices = prices - np.mean(prices)
+        numerator_prices = np.sum(W * np.outer(z_prices, z_prices))
+        denominator_prices = np.sum(z_prices**2)
+        W_sum = np.sum(W)
+        I_prices = (len(prices) / W_sum) * (numerator_prices / denominator_prices)
+        
+        # Calcola Moran's I per densità POI
+        z_poi = poi_densities - np.mean(poi_densities)
+        numerator_poi = np.sum(W * np.outer(z_poi, z_poi))
+        denominator_poi = np.sum(z_poi**2)
+        I_poi = (len(poi_densities) / W_sum) * (numerator_poi / denominator_poi)
+        
+        return jsonify({
+            'morans_i_prices': float(I_prices),
+            'morans_i_poi_density': float(I_poi),
+            'threshold_distance': threshold_distance,
+            'statistics': {
+                'num_immobili': len(immobili),
+                'prezzo_medio': float(np.mean(prices)),
+                'prezzo_std': float(np.std(prices)),
+                'poi_density_mean': float(np.mean(poi_densities)),
+                'poi_density_std': float(np.std(poi_densities))
+            }
+        })
+    
+    except Exception as e:
+        print(f"Errore nel calcolo dell'indice di Moran: {str(e)}")
+        return jsonify({'error': str(e)}), 500
