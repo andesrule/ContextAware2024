@@ -424,77 +424,76 @@ def get_questionnaire_response_dict(response):
 
 def calcola_rank(marker_id, raggio):
     """
-    Calcola il punteggio del marker tenendo conto dei pesi delle preferenze dell'utente e della presenza di PoI.
-    :param marker: Marker dell'immobile
-    :param user_preferences: Dizionario con le preferenze dell'utente (da 0 a 5)
-    :param nearby_pois: Dizionario con il numero di PoI vicini (reali)
-    :return: Punteggio del marker
+    Calcola il punteggio del marker con un sistema più permissivo e meglio allineato
+    con le posizioni ottimali.
     """
     nearby_pois = count_nearby_pois(db, marker_id=marker_id, distance_meters=raggio)
     response = QuestionnaireResponse.query.first()
-    user_preferences = get_questionnaire_response_dict(response = QuestionnaireResponse.query.get(1))
+    user_preferences = get_questionnaire_response_dict(response)
     if not user_preferences:
-        # Se non ci sono preferenze dell'utente, restituisci un rank di default
         return 0
 
     rank = 0
     
-    # Definisci pesi per ciascun tipo di PoI (questi valori sono un esempio)
+    # Pesi base più generosi
     pesi = {
-        'aree_verdi': 0.8,
+        'aree_verdi': 1.0,
         'parcheggi': 1.0,
         'fermate_bus': 1.0,
         'stazioni_ferroviarie': 1.0,
-        'scuole': 0.7,
-        'cinema': 0.6,
+        'scuole': 1.0,
+        'cinema': 0.8,
         'ospedali': 1.0,
-        'farmacia': 0.5,
-        'luogo_culto': 0.2,
-        'servizi': 0.4,
+        'farmacia': 0.8,
+        'luogo_culto': 0.6,
+        'servizi': 0.8,
     }
-    
-    # Aree Verdi
-    rank += nearby_pois.get('aree_verdi', 0) * user_preferences['aree_verdi'] * pesi['aree_verdi']
-    
-    # Parcheggi
-    if nearby_pois.get('parcheggi', 0) >= 2:
-        rank += user_preferences['parcheggi'] * pesi['parcheggi']
-    
-    # Fermate Bus
-    rank += nearby_pois.get('fermate_bus', 0) * user_preferences['fermate_bus'] * pesi['fermate_bus']
-    
-    # Luoghi di interesse
-    if nearby_pois.get('stazioni_ferroviarie', 0) >= 2:
-        rank += user_preferences['stazioni_ferroviarie'] * pesi['stazioni_ferroviarie']
-    
-    # Scuole
-    rank += nearby_pois.get('scuole', 0) * user_preferences['scuole'] * pesi['scuole']
-    
-    # Cinema
-    rank += nearby_pois.get('cinema', 0) * user_preferences['cinema'] * pesi['cinema']
-    
-    # Ospedali
-    rank += nearby_pois.get('ospedali', 0) * user_preferences['ospedali'] * pesi['ospedali']
-    
-    # Farmacia
-    rank += nearby_pois.get('farmacia', 0) * user_preferences['farmacia'] * pesi['farmacia']
-    
-    # Luogo di Culto
-    rank += nearby_pois.get('luogo_culto', 0) * user_preferences['luogo_culto'] * pesi['luogo_culto']
-    
-    # Servizi
-    if nearby_pois.get('servizi', 0) >= 2:
-        rank += user_preferences['servizi'] * pesi['servizi']
-    
-    #Aree verdi densitá
-    if nearby_pois.get('aree_verdi', 0) >= 2:
-        rank += user_preferences['densita_aree_verdi'] * pesi['aree_verdi']
 
-    #Fermate bus densitá
-    if nearby_pois.get('fermate_bus', 0) >= 2:
-        rank += user_preferences['densita_fermate_bus'] * pesi['fermate_bus']
+    for poi_type in nearby_pois:
+        count = nearby_pois.get(poi_type, 0)
+        preferenza = user_preferences.get(poi_type, 0)
+        peso_base = pesi.get(poi_type, 0.5)
 
-    return rank
+        # Calcolo base del punteggio più generoso
+        if count > 0:
+            # Bonus crescente ma con diminishing returns per più POI
+            poi_score = preferenza * peso_base * (1 + min(count, 5) / 2) * 25
+
+            # Gestione speciale per densità
+            if poi_type == 'aree_verdi' and count >= 2:
+                density_bonus = user_preferences.get('densita_aree_verdi', 0) * 10
+                poi_score += density_bonus
+
+            if poi_type == 'fermate_bus' and count >= 2:
+                density_bonus = user_preferences.get('densita_fermate_bus', 0) * 10
+                poi_score += density_bonus
+
+            rank += poi_score
+
+        # Bonus per combinazioni strategiche
+        if poi_type == 'stazioni_ferroviarie' and count >= 1:
+            if nearby_pois.get('fermate_bus', 0) >= 1:
+                rank += preferenza * 20
+
+        if poi_type == 'servizi' and count >= 1:
+            if nearby_pois.get('farmacia', 0) >= 1:
+                rank += preferenza * 15
+
+    # Normalizzazione più permissiva
+    # Considerando che ogni POI può contribuire fino a circa 125 punti (25 * 5 di preferenza)
+    # e ci sono bonus aggiuntivi, scaliamo il punteggio in modo più generoso
+    max_theoretical = sum(pesi.values()) * 5 * 25  # Punteggio teorico massimo
+    normalized_rank = (rank / max_theoretical) * 200  # Scala fino a 200
+
+    # Aggiustiamo la scala finale per avere più punti verdi/gialli
+    if normalized_rank > 70:  # Se il punteggio è decente
+        # Boost non lineare per punteggi sopra 70
+        normalized_rank = 70 + (normalized_rank - 70) * 1.5
+
+    # Cap finale più alto
+    final_rank = min(normalized_rank, 200)
+    
+    return final_rank
 
 @utils_bp.route('/get_ranked_markers')
 def get_ranked_markers():
