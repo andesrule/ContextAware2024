@@ -227,3 +227,32 @@ body {
   #loadingOverlay.visible {
     display: flex;  /* Mostra l'overlay solo quando ha la classe 'visible' */
   }
+
+  .moran-section {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    margin: 10px 0;
+}
+
+.moran-values {
+    font-weight: bold;
+    margin: 8px 0;
+}
+
+.moran-stats {
+    font-size: 0.8em;
+    opacity: 0.8;
+}
+
+.value-positive {
+    color: #4CAF50;
+}
+
+.value-neutral {
+    color: #FFC107;
+}
+
+.value-negative {
+    color: #F44336;
+}

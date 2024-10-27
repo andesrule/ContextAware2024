@@ -140,81 +140,127 @@ let drawControl = new L.Control.Draw({
 });
 map.addControl(drawControl);
 
-function getPOIData(poiType) {
-    // Pulisci il layer cluster esistente
-    poiLayers[poiType].clearLayers();
-    
-    fetch(`/api/poi/${poiType}`)
-        .then(response => response.json())
-        .then(data => {
-            console.log(`Dati ricevuti per ${poiType}:`, data);
 
-            if (!data.results || data.results.length === 0) {
-                console.warn(`Nessun POI trovato per ${poiType}`);
-                return;
-            }
 
-            data.results.forEach(poi => {
-                let lat, lng;
-                if (poi.geo_point_2d) {
-                    lat = poi.geo_point_2d.lat;
-                    lng = poi.geo_point_2d.lon;
-                } else if (poi.coordinate) {
-                    lat = poi.coordinate.lat;
-                    lng = poi.coordinate.lon;
-                } else if (poi.geopoint) {
-                    lat = poi.geopoint.lat;
-                    lng = poi.geopoint.lon;
-                } else {
-                    console.warn(`Coordinate non valide per POI:`, poi);
-                    return;
-                }
+// Definizione delle configurazioni dei POI
+const poiConfigs = {
+    aree_verdi: { emoji: '🌳', label: 'Aree Verdi' },
+    parcheggi: { emoji: '🅿️', label: 'Parcheggi' },
+    fermate_bus: { emoji: '🚌', label: 'Fermate Bus' },
+    stazioni_ferroviarie: { emoji: '🚉', label: 'Stazioni' },
+    scuole: { emoji: '🏫', label: 'Scuole' },
+    cinema: { emoji: '🎬', label: 'Cinema' },
+    ospedali: { emoji: '🏥', label: 'Ospedali' },
+    farmacia: { emoji: '💊', label: 'Farmacia' },
+    luogo_culto: { emoji: '⛪', label: 'Culto' },
+    servizi: { emoji: '🏢', label: 'Servizi' }
+};
 
-                if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-                    console.warn(`Coordinate non valide per POI:`, poi);
-                    return;
-                }
+// Funzione per inizializzare i pulsanti POI nel pannello di controllo
+function initializePOIControls() {
+    const poiGrid = document.querySelector('.grid.grid-cols-2.gap-2');
+    if (!poiGrid) {
+        console.error('Grid container per i POI non trovato');
+        return;
+    }
 
-                try {
-                    const name = poi.denominazione_struttura || 
-                                 poi.denominazi || 
-                                 poi.name || 
-                                 `${poiType.charAt(0).toUpperCase() + poiType.slice(1)}`;
+    // Pulisci il contenitore
+    poiGrid.innerHTML = '';
 
-                    const icon = getCustomIcon(poiType);
-                    const marker = L.marker([lat, lng], { icon: icon });
-                    
-                    let popupContent = `<div class="poi-popup">
-                        <h3>${name}</h3>
-                        <p>Tipo: ${poiType}</p>`;
-                    
-                    if (poi.esercizio_via_e_civico) {
-                        popupContent += `<p>Indirizzo: ${poi.esercizio_via_e_civico}</p>`;
-                    }
-                    if (poi.quartiere) {
-                        popupContent += `<p>Quartiere: ${poi.quartiere}</p>`;
-                    }
-                    
-                    popupContent += '</div>';
-                    
-                    marker.bindPopup(popupContent);
-                    
-                    poiLayers[poiType].addLayer(marker);
-                } catch (error) {
-                    console.error(`Errore nella creazione del marker per:`, poi, error);
-                }
-            });
-
-            map.addLayer(poiLayers[poiType]);
-            
-            if (poiLayers[poiType].getLayers().length > 0) {
-                map.fitBounds(poiLayers[poiType].getBounds());
-            }
-        })
-        .catch(error => {
-            console.error(`Errore nel recupero dei POI per ${poiType}:`, error);
+    // Crea i pulsanti per ogni tipo di POI
+    Object.entries(poiConfigs).forEach(([poiType, config]) => {
+        const button = document.createElement('button');
+        button.className = 'poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white';
+        button.innerHTML = `
+            <span class="poi-emoji">${config.emoji}</span>
+            <span class="poi-label">${config.label}</span>
+        `;
+        
+        // Aggiungi l'evento click
+        button.addEventListener('click', function() {
+            this.classList.toggle('active');
+            togglePOI(poiType, this.classList.contains('active'));
         });
+
+        poiGrid.appendChild(button);
+    });
 }
+
+// Funzione aggiornata per gestire il toggle dei POI
+function togglePOI(poiType, show) {
+    if (show) {
+        // Se il layer non esiste o è vuoto, carica i POI
+        if (!poiLayers[poiType] || poiLayers[poiType].getLayers().length === 0) {
+            fetch(`/api/pois/${poiType}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success' && data.data.length > 0) {
+                        // Assicurati che il layer cluster esista
+                        if (!poiLayers[poiType]) {
+                            poiLayers[poiType] = L.markerClusterGroup({
+                                showCoverageOnHover: false,
+                                zoomToBoundsOnClick: true,
+                                spiderfyOnMaxZoom: true,
+                                removeOutsideVisibleBounds: true,
+                                iconCreateFunction: createClusterCustomIcon
+                            });
+                        }
+
+                        // Aggiungi i marker al layer
+                        data.data.forEach(poi => {
+                            if (poi.lat && poi.lng) {
+                                const marker = L.marker([poi.lat, poi.lng], {
+                                    icon: getCustomIcon(poiType)
+                                });
+
+                                // Crea il popup con le informazioni disponibili
+                                let popupContent = `
+                                    <div class="poi-popup">
+                                        <h3>${poi.properties?.denominazione_struttura || 
+                                             poi.properties?.denominazi || 
+                                             poi.properties?.name || 
+                                             poiConfigs[poiType].label}</h3>
+                                `;
+
+                                if (poi.properties?.esercizio_via_e_civico) {
+                                    popupContent += `<p>Indirizzo: ${poi.properties.esercizio_via_e_civico}</p>`;
+                                }
+                                if (poi.properties?.quartiere) {
+                                    popupContent += `<p>Quartiere: ${poi.properties.quartiere}</p>`;
+                                }
+
+                                popupContent += '</div>';
+                                marker.bindPopup(popupContent);
+
+                                poiLayers[poiType].addLayer(marker);
+                            }
+                        });
+
+                        // Aggiungi il layer alla mappa
+                        map.addLayer(poiLayers[poiType]);
+                        
+                        // Zoom alla vista che include tutti i marker di questo tipo
+                        if (poiLayers[poiType].getLayers().length > 0) {
+                            map.fitBounds(poiLayers[poiType].getBounds());
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error(`Errore nel caricamento dei POI ${poiType}:`, error);
+                    showToast('error', `Errore nel caricamento dei ${poiConfigs[poiType].label}`);
+                });
+        } else {
+            // Se il layer esiste già, aggiungilo semplicemente alla mappa
+            map.addLayer(poiLayers[poiType]);
+        }
+    } else {
+        // Rimuovi il layer dalla mappa
+        if (poiLayers[poiType]) {
+            map.removeLayer(poiLayers[poiType]);
+        }
+    }
+}
+
 
 function getCustomIcon(poiType) {
     // Definisci le icone per ogni tipo di POI
@@ -240,26 +286,78 @@ function getCustomIcon(poiType) {
     });
 }
 
-function togglePOI(button, poiType) {
-    button.classList.toggle('btn-active');
-    const isActive = button.classList.contains('btn-active');
-    
-    if (isActive) {
-        if (poiLayers[poiType].getLayers().length === 0) {
-            getPOIData(poiType);
-        } else {
-            map.addLayer(poiLayers[poiType]);
-        }
-    } else {
-        map.removeLayer(poiLayers[poiType]);
+// Stili CSS aggiuntivi per i pulsanti POI
+const poiStyles = document.createElement('style');
+poiStyles.textContent = `
+    .poi-button {
+        background-color: rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
     }
+    
+    .poi-button:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .poi-button.active {
+        background-color: rgba(255, 255, 255, 0.3);
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+    }
+    
+    .poi-emoji {
+        font-size: 1.25rem;
+    }
+    
+    .poi-label {
+        font-size: 0.875rem;
+    }
+`;
+
+document.head.appendChild(poiStyles);
+
+// Inizializza i controlli POI quando il documento è pronto
+document.addEventListener('DOMContentLoaded', initializePOIControls);
+
+
+
+
+    
+function showNoQuestionnaireAlert() {
+    // Espandi la sezione degli alert
+    const alertsSection = document.getElementById('alertsSection');
+    if (alertsSection) {
+        alertsSection.style.display = 'block';
+    }
+
+    // Crea e mostra l'alert
+    createAlert('Non ci sono questionari nel database. Compilare almeno un questionario per visualizzare i dati.');
+
+    // Mostra una notifica pop-up
+    showToast('warning', 'Compila il questionario prima di visualizzare i marker.');
+}
+function getColorFromRank(rank) {
+    if (rank < 70) return '#FF0000';      // Rosso
+    else if (rank < 90) return '#FFA500'; // Arancione
+    else if (rank < 120) return '#FFFF00'; // Giallo
+    else if (rank < 150) return '#90EE90'; // Verde chiaro
+    else return '#008000';                // Verde scuro
 }
 
-// Esponi la funzione togglePOI globalmente
-window.togglePOI = togglePOI;
 
-let databaseMarkers = L.markerClusterGroup();
+// Aggiungi l'evento per lo slider
+document.getElementById('radiusSlider').addEventListener('input', function(e) {
+    neighborhoodRadius = parseInt(e.target.value);
+    document.getElementById('radiusValue').textContent = neighborhoodRadius;
+    updateNeighborhoodCircles();
+    sendRadiusToBackend(neighborhoodRadius);
+});
 
+function updateNeighborhoodCircles() {
+    Object.values(circles).forEach(circle => {
+        circle.setRadius(neighborhoodRadius);
+    });
+}
 
 function loadAllGeofences() {
     fetch('/get_all_geofences')
@@ -349,43 +447,6 @@ function loadAllGeofences() {
 document.addEventListener('DOMContentLoaded', function() {
     loadAllGeofences();
 });
-
-    
-function showNoQuestionnaireAlert() {
-    // Espandi la sezione degli alert
-    const alertsSection = document.getElementById('alertsSection');
-    if (alertsSection) {
-        alertsSection.style.display = 'block';
-    }
-
-    // Crea e mostra l'alert
-    createAlert('Non ci sono questionari nel database. Compilare almeno un questionario per visualizzare i dati.');
-
-    // Mostra una notifica pop-up
-    showToast('warning', 'Compila il questionario prima di visualizzare i marker.');
-}
-function getColorFromRank(rank) {
-    if (rank < 70) return '#FF0000';      // Rosso
-    else if (rank < 90) return '#FFA500'; // Arancione
-    else if (rank < 120) return '#FFFF00'; // Giallo
-    else if (rank < 150) return '#90EE90'; // Verde chiaro
-    else return '#008000';                // Verde scuro
-}
-
-
-// Aggiungi l'evento per lo slider
-document.getElementById('radiusSlider').addEventListener('input', function(e) {
-    neighborhoodRadius = parseInt(e.target.value);
-    document.getElementById('radiusValue').textContent = neighborhoodRadius;
-    updateNeighborhoodCircles();
-    sendRadiusToBackend(neighborhoodRadius);
-});
-
-function updateNeighborhoodCircles() {
-    Object.values(circles).forEach(circle => {
-        circle.setRadius(neighborhoodRadius);
-    });
-}
 
 function sendRadiusToBackend(radius) {
     fetch('/get_radius', {
@@ -495,33 +556,7 @@ function loadMarkersFromDatabase() {
         .catch(error => console.error('Errore nel caricamento dei marker:', error));
 }
 
-function loadGeofencesFromDatabase() {
-    fetch('/get_ranked_geofences')
-        .then(response => response.json())
-        .then(data => {
-            data.forEach(geofenceData => {
-                if (geofenceData.coordinates) {
-                    const color = getColorFromRank(geofenceData.rank);
-                    const polygon = L.polygon(geofenceData.coordinates.map(coord => [coord[1], coord[0]]), {
-                        color: color,
-                        fillColor: color,
-                        fillOpacity: 0.5
-                    }).addTo(map);
-                    polygon.bindPopup(createGeofencePopup(geofenceData.id, false));
-                    polygon.geofenceId = geofenceData.id;
-                    drawnItems.addLayer(polygon);
-                }
-            });
-        })
-        .catch(error => console.error('Errore nel caricamento dei geofence:', error));
-}
 
-
-// Carica i marker e i geofence quando la pagina è completamente caricata
-document.addEventListener('DOMContentLoaded', function() {
-    loadMarkersFromDatabase();
-    loadGeofencesFromDatabase();
-});
 
 
 var deleteAllControl = L.Control.extend({
@@ -616,27 +651,37 @@ function removeGeofenceFromMap(geofenceId) {
 
 function createGeofencePopup(geofenceId, isMarker = true) {
     let content = `
-        <b>${isMarker ? 'Marker' : 'Geofence'} ID: ${geofenceId}</b><br>
-        <button onclick="deleteGeofence(${geofenceId})">
-            🗑️ Elimina ${isMarker ? 'Marker' : 'Geofence'}
-        </button><br><br>
+        <div class="p-2">
+            <b class="text-dark-200 mb-2 block">${isMarker ? 'Marker' : 'Geofence'} ID: ${geofenceId}</b>
+            
+            <button onclick="deleteGeofence(${geofenceId})" 
+                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded flex items-center gap-2 mb-3 w-full">
+                <span>🗑️</span> Elimina ${isMarker ? 'Marker' : 'Geofence'}
+            </button>
     `;
 
     if (isMarker) {
         content += `
-            <!-- Aggiungi il campo input per il prezzo solo per i marker -->
-            <label for="priceInput-${geofenceId}">Prezzo:</label>
-            <input type="number" id="priceInput-${geofenceId}" placeholder="Inserisci il prezzo"><br>
-           
-            <!-- Aggiungi il bottone per salvare il prezzo solo per i marker -->
-            <button onclick="addMarkerPrice(${geofenceId})">
-                💰 Aggiungi Prezzo
-            </button>
+            <div class="space-y-2">
+                <label for="priceInput-${geofenceId}" class="text-dark-200 block">Prezzo:</label>
+                <input type="number" 
+                       id="priceInput-${geofenceId}" 
+                       placeholder="Inserisci il prezzo"
+                       class="bg-gray-700 text-gray-200 rounded px-2 py-1 w-full border border-gray-600 focus:border-blue-500 focus:outline-none">
+                
+                <button onclick="addMarkerPrice(${geofenceId})"
+                        class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded flex items-center gap-2 w-full">
+                    <span>💰</span> Aggiungi Prezzo
+                </button>
+            </div>
         `;
     }
 
+    content += '</div>';
     return content;
 }
+
+
 function deleteGeofence(geofenceId) {
     console.log('Deleting geofence with ID:', geofenceId);
     fetch(`/delete-geofence/${geofenceId}`, {
