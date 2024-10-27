@@ -651,27 +651,37 @@ function removeGeofenceFromMap(geofenceId) {
 
 function createGeofencePopup(geofenceId, isMarker = true) {
     let content = `
-        <b>${isMarker ? 'Marker' : 'Geofence'} ID: ${geofenceId}</b><br>
-        <button onclick="deleteGeofence(${geofenceId})">
-            🗑️ Elimina ${isMarker ? 'Marker' : 'Geofence'}
-        </button><br><br>
+        <div class="p-2">
+            <b class="text-dark-200 mb-2 block">${isMarker ? 'Marker' : 'Geofence'} ID: ${geofenceId}</b>
+            
+            <button onclick="deleteGeofence(${geofenceId})" 
+                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded flex items-center gap-2 mb-3 w-full">
+                <span>🗑️</span> Elimina ${isMarker ? 'Marker' : 'Geofence'}
+            </button>
     `;
 
     if (isMarker) {
         content += `
-            <!-- Aggiungi il campo input per il prezzo solo per i marker -->
-            <label for="priceInput-${geofenceId}">Prezzo:</label>
-            <input type="number" id="priceInput-${geofenceId}" placeholder="Inserisci il prezzo"><br>
-           
-            <!-- Aggiungi il bottone per salvare il prezzo solo per i marker -->
-            <button onclick="addMarkerPrice(${geofenceId})">
-                💰 Aggiungi Prezzo
-            </button>
+            <div class="space-y-2">
+                <label for="priceInput-${geofenceId}" class="text-dark-200 block">Prezzo:</label>
+                <input type="number" 
+                       id="priceInput-${geofenceId}" 
+                       placeholder="Inserisci il prezzo"
+                       class="bg-gray-700 text-gray-200 rounded px-2 py-1 w-full border border-gray-600 focus:border-blue-500 focus:outline-none">
+                
+                <button onclick="addMarkerPrice(${geofenceId})"
+                        class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded flex items-center gap-2 w-full">
+                    <span>💰</span> Aggiungi Prezzo
+                </button>
+            </div>
         `;
     }
 
+    content += '</div>';
     return content;
 }
+
+
 function deleteGeofence(geofenceId) {
     console.log('Deleting geofence with ID:', geofenceId);
     fetch(`/delete-geofence/${geofenceId}`, {
