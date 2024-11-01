@@ -242,27 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-const distanceToggle = document.getElementById('distanceToggle');
-const distanceMethod = document.getElementById('distanceMethod');
-const travelMode = document.getElementById('travelMode');
-
-
-
-// Add event listener for the travel mode select
-travelMode.addEventListener('change', function() {
-    console.log('Travel mode changed to:', this.value);
-    // You can add more functionality here in the future
-});
-
-// Function to get current distance calculation method
-function getDistanceMethod() {
-    return distanceToggle.checked ? 'travel-time' : 'straight-line';
-}
-
-// Function to get current travel mode
-function getTravelMode() {
-    return travelMode.value;
-}
 
 
 document.addEventListener('DOMContentLoaded', function() {
