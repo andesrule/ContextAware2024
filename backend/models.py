@@ -2,7 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import ARRAY 
 from flask_login import UserMixin
-
+from sqlalchemy import Index
 db = SQLAlchemy()
 
 class User(db.Model):
@@ -10,18 +10,6 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     content_poi = db.Column(ARRAY(db.String), nullable=False)
 
-'''   
-class Geofence(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    marker = db.Column(Geometry(geometry_type='POINT', srid=4326))  # Memorizza i marker come POINT
-    geofence = db.Column(Geometry(geometry_type='POLYGON', srid=4326))  # Memorizza i poligoni come POLYGON
-    marker_price = db.Column(db.Float)
-    def __init__(self, marker=None, geofence=None, marker_price= None):
-
-        self.marker = marker
-        self.geofence = geofence
-        self.marker_price = marker_price
-''' 
 
 class ListaImmobiliCandidati(db.Model):
     __tablename__ = 'lista_immobili_candidati'
@@ -68,7 +56,9 @@ class POI(db.Model):
     type = db.Column(db.String)
     location = db.Column(Geometry(geometry_type='POINT', srid=4326))
     additional_data = db.Column(db.String)  # Per memorizzare dati aggiuntivi in formato JSON
-
+    __table_args__ = (
+        Index('idx_poi_location', 'location', postgresql_using='gist'),
+    )
 
 def reset_db():
     """Drop all tables from the database."""
