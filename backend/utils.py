@@ -22,8 +22,11 @@ cache = Cache(config={'CACHE_TYPE': 'simple'})
 # Definisci una griglia più grande per il pre-calcolo
 PRECALC_GRID_SIZE = 20
 
+logging.basicConfig(level=logging.DEBUG)
 
 global_radius = 500
+saved_filters = {}
+
 utils_bp = Blueprint('utils', __name__)
 
 @utils_bp.route('/get_pois')
@@ -104,7 +107,10 @@ def get_pois_by_type(poi_type):
             'message': str(e)
         }), 500
     
-    
+
+
+
+
 @utils_bp.route('/get_radius', methods=['POST'])
 def get_radius():
     global global_radius
@@ -675,76 +681,9 @@ def check_questionnaires():
     count = QuestionnaireResponse.query.count()
     return jsonify({'count': count})
 
-def wkb_to_coordinates(wkb_input):
-    """Converte WKB in coordinate (lon, lat)"""
-    logging.debug(f"Received WKB input: {wkb_input}")
-    try:
-        if isinstance(wkb_input, float):
-            # Se riceviamo un float, lo trattiamo come una singola coordinata
-            return (wkb_input, wkb_input)
-        elif isinstance(wkb_input, (list, tuple)) and len(wkb_input) == 2:
-            # Se riceviamo una lista o tupla di due elementi, le trattiamo come lon, lat
-            return tuple(wkb_input)
-        elif isinstance(wkb_input, str):
-            # Rimuovi eventuali spazi bianchi e converti in minuscolo
-            wkb_hex = wkb_input.strip().lower()
-            # Rimuovi il prefisso '0x' se presente
-            if wkb_hex.startswith('0x'):
-                wkb_hex = wkb_hex[2:]
-            wkb_binary = binascii.unhexlify(wkb_hex)
-            point = wkb.loads(wkb_binary)
-            return (point.x, point.y)
-        else:
-            raise ValueError(f"Formato WKB non supportato: {type(wkb_input)}")
-    except Exception as e:
-        logging.error(f"Error in wkb_to_coordinates: {str(e)}")
-        raise ValueError(f"WKB non valido: {str(e)}")
 
-def calculate_travel_time(start_coords, end_coords, transport_mode='driving'):
-    """Calcola il tempo di percorrenza tra due punti usando OSRM."""
-    logging.debug(f"Calculating travel time from {start_coords} to {end_coords}")
-    base_url = "http://router.project-osrm.org/route/v1"
-    url = f"{base_url}/{transport_mode}/{start_coords[0]},{start_coords[1]};{end_coords[0]},{end_coords[1]}"
-    
-    params = {
-        "overview": "false",
-        "alternatives": "false",
-    }
-    
-    response = requests.get(url, params=params)
-    data = response.json()
-    
-    if response.status_code == 200 and data["code"] == "Ok":
-        duration_seconds = data["routes"][0]["duration"]
-        return duration_seconds / 60  # Converti in minuti
-    else:
-        logging.error(f"OSRM API error: {data}")
-        raise Exception("Errore nel calcolo del percorso")
 
-@utils_bp.route('/calculate_travel_time', methods=['POST'])
-def api_calculate_travel_time():
-    data = request.json
-    logging.debug(f"Received request data: {data}")
-    
-    start_wkb = data.get('start_wkb')
-    end_wkb = data.get('end_wkb')
-    transport_mode = data.get('transport_mode', 'driving')
 
-    if start_wkb is None or end_wkb is None:
-        return jsonify({"error": "Mancano le coordinate di partenza o arrivo"}), 400
-
-    try:
-        start_coords = wkb_to_coordinates(start_wkb)
-        end_coords = wkb_to_coordinates(end_wkb)
-        travel_time = calculate_travel_time(start_coords, end_coords, transport_mode)
-        return jsonify({"travel_time_minutes": travel_time})
-    except ValueError as e:
-        logging.error(f"ValueError in api_calculate_travel_time: {str(e)}")
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logging.error(f"Unexpected error in api_calculate_travel_time: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-    
 @utils_bp.route('/delete-all-geofences', methods=['POST'])
 def delete_all_geofences():
     try:
@@ -1164,3 +1103,188 @@ def calculate_morans_i():
     except Exception as e:
         print(f"Errore nel calcolo dell'indice di Moran: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+
+
+@utils_bp.route('/api/filters', methods=['POST'])
+def save_and_return_filters():
+    try:
+        # Raccoglie i dati JSON dalla richiesta
+        data = request.get_json()
+        
+        # Salva i dati nell'oggetto globale `saved_filters`
+        global saved_filters
+        saved_filters = {
+            "distanceEnabled": data.get("distanceEnabled", False),
+            "travelMode": data.get("travelMode", "driving"),
+            "travelTime": data.get("travelTime", 5)
+        }
+        logging.info(f"Valore attuale di saved_filters: {saved_filters}")
+        # Restituisce i dati in formato JSON
+        return jsonify(saved_filters), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400  # Errore generico in caso di eccezione
+    
+
+def calculate_travel_time(start_coords, end_coords, transport_mode):
+    """Calcola il tempo di percorrenza tra due punti usando OSRM."""
+    logging.debug(f"Calculating travel time from {start_coords} to {end_coords} using {transport_mode}")
+    base_url = "http://router.project-osrm.org/route/v1"
+    url = f"{base_url}/{transport_mode}/{start_coords[0]},{start_coords[1]};{end_coords[0]},{end_coords[1]}"
+    params = {
+        "overview": "false",
+        "alternatives": "false",
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+    if response.status_code == 200 and data["code"] == "Ok":
+        duration_seconds = data["routes"][0]["duration"]
+        return duration_seconds / 60  # Converti in minuti
+    else:
+        logging.error(f"OSRM API error: {data}")
+        raise Exception("Errore nel calcolo del percorso")
+    
+CACHE_SIZE = 1000  # Numero di risultati da mantenere in cache
+BATCH_SIZE = 25    # Aumenta o diminuisci in base ai limiti dell'API
+MAX_WORKERS = 4
+STARTING_COORDS = (44.4947, 11.3432)
+
+import requests
+from functools import lru_cache
+import logging
+from concurrent.futures import ThreadPoolExecutor
+import json
+from typing import List, Tuple, Dict
+
+@lru_cache(maxsize=CACHE_SIZE)
+def get_cached_travel_time(start_lat: float, start_lng: float, end_lat: float, end_lng: float, transport_mode: str) -> float:
+    """Versione cached del calcolo del tempo di viaggio per singola destinazione"""
+    coordinates = f"{start_lng},{start_lat};{end_lng},{end_lat}"
+    url = f"http://router.project-osrm.org/route/v1/{transport_mode}/{coordinates}"
+    params = {"overview": "false", "alternatives": "false"}
+    
+    try:
+        response = requests.get(url, params=params)
+        data = response.json()
+        if response.status_code == 200 and data["code"] == "Ok":
+            return data["routes"][0]["duration"] / 60
+        return float('inf')  # Ritorna infinito se non è possibile calcolare il percorso
+    except Exception as e:
+        logging.error(f"Error in get_cached_travel_time: {e}")
+        return float('inf')
+
+def calculate_batch_travel_times(start_coords: Tuple[float, float], 
+                               destinations: List[Dict],
+                               transport_mode: str = "driving",
+                               batch_size: int = 25,
+                               max_workers: int = 4) -> Dict[int, float]:
+    """
+    Calcola i tempi di viaggio per più destinazioni in parallelo utilizzando batch.
+    
+    Args:
+        start_coords: (lat, lng) delle coordinate di partenza
+        destinations: Lista di dizionari contenenti i POI con 'id', 'lat', 'lng'
+        transport_mode: Modalità di trasporto (default: "driving")
+        batch_size: Dimensione del batch per le richieste OSRM
+        max_workers: Numero massimo di thread paralleli
+    
+    Returns:
+        Dict[int, float]: Dizionario con ID del POI come chiave e tempo di viaggio in minuti come valore
+    """
+    start_lat, start_lng = start_coords
+    
+    def process_destination(dest):
+        poi_id = dest['id']
+        travel_time = get_cached_travel_time(
+            start_lat, start_lng,
+            float(dest['lat']), float(dest['lng']),
+            transport_mode
+        )
+        return poi_id, travel_time
+    
+    results = {}
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Processa le destinazioni in batch
+        for i in range(0, len(destinations), batch_size):
+            batch = destinations[i:i + batch_size]
+            futures = [executor.submit(process_destination, dest) for dest in batch]
+            
+            for future in futures:
+                poi_id, travel_time = future.result()
+                results[poi_id] = travel_time
+                
+    return results
+
+@utils_bp.route('/api/filter_pois/<poi_type>', methods=['GET'])
+def get_pois_by_type_and_travel_time(poi_type):
+    """
+    Returns all POIs of a given type that are within the specified travel time.
+    """
+    try:
+        # Query per ottenere tutti i POI del tipo specificato
+        pois = POI.query.filter_by(type=poi_type).all()
+        logging.info(f"Found {len(pois)} POIs of type {poi_type}")
+        
+        # Prepara la lista dei POI con le coordinate
+        destinations = []
+        poi_map = {}  # Mappa per mantenere i dati completi dei POI
+        
+        for poi in pois:
+            try:
+                point = to_shape(poi.location)
+                poi_data = {
+                    'id': poi.id,
+                    'lat': point.y,
+                    'lng': point.x,
+                }
+                destinations.append(poi_data)
+                
+                # Salva i dati completi del POI
+                complete_poi_data = {
+                    'id': poi.id,
+                    'type': poi_type,
+                    'lat': point.y,
+                    'lng': point.x,
+                }
+                
+                if poi.additional_data:
+                    try:
+                        additional_data = json.loads(poi.additional_data)
+                        complete_poi_data['properties'] = additional_data
+                    except json.JSONDecodeError:
+                        logging.error(f"Error parsing additional data for POI {poi.id}")
+                        complete_poi_data['properties'] = {}
+                        
+                poi_map[poi.id] = complete_poi_data
+                
+            except Exception as e:
+                logging.error(f"Error processing POI {poi.id}: {str(e)}")
+                continue
+        
+        # Calcola i tempi di viaggio in batch
+        travel_times = calculate_batch_travel_times(
+            start_coords=STARTING_COORDS,
+            destinations=destinations,
+            transport_mode=saved_filters['travelMode']
+        )
+        
+        # Filtra i POI in base al tempo di viaggio
+        filtered_pois = [
+            poi_map[poi_id] for poi_id, travel_time in travel_times.items()
+            if travel_time <= saved_filters['travelTime']
+        ]
+        
+        logging.info(f"Returning {len(filtered_pois)} filtered POIs")
+        return jsonify({
+            'status': 'success',
+            'count': len(filtered_pois),
+            'data': filtered_pois
+        })
+        
+    except Exception as e:
+        logging.error(f"General error in get_pois_by_type_and_travel_time: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
