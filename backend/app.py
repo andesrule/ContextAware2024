@@ -40,7 +40,7 @@ admin.add_view(CustomModelView(POI, db.session))
 admin.add_view(CustomModelView(ListaImmobiliCandidati,db.session))
 admin.add_view(CustomModelView(ListaAreeCandidate,db.session))
 
-@app.before_request
+#@app.before_request
 def initialize_database():
     if not hasattr(app, 'db_initialized'):
         with app.app_context():

@@ -6,7 +6,6 @@ import requests
 from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
 from sqlalchemy import func, text
-from sqlalchemy.orm import load_only
 from geoalchemy2.functions import *
 from shapely import wkb
 import numpy as np
@@ -32,161 +31,82 @@ utils_bp = Blueprint('utils', __name__)
 
 @utils_bp.route('/get_pois')
 def get_pois():
-    try:
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 100, type=int)
-        poi_type = request.args.get('type', None)
-        bounds = request.args.get('bounds', None)
-
-        query = db.session.query(
-            POI.id, 
-            POI.type,
-            func.ST_X(POI.location).label('lng'),
-            func.ST_Y(POI.location).label('lat'),
-            POI.additional_data
-        )
-
-        if poi_type:
-            query = query.filter(POI.type == poi_type)
-            
-        if bounds:
-            try:
-                min_lng, min_lat, max_lng, max_lat = map(float, bounds.split(','))
-                bbox = f'POLYGON(({min_lng} {min_lat}, {max_lng} {min_lat}, {max_lng} {max_lat}, {min_lng} {max_lat}, {min_lng} {min_lat}))'
-                query = query.filter(
-                    func.ST_Within(
-                        POI.location,
-                        func.ST_SetSRID(func.ST_GeomFromText(bbox), 4326)
-                    )
-                )
-            except ValueError as e:
-                print(f"Errore nel parsing dei bounds: {e}")
-
-        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-
-        poi_list = []
-        for poi in pagination.items:
-            poi_data = {
-                'id': poi.id,
-                'type': poi.type,
-                'location': {
-                    'lat': float(poi.lat),
-                    'lng': float(poi.lng)
-                }
-            }
-            
-            if poi.additional_data:
-                try:
-                    additional = json.loads(poi.additional_data)
-                    additional = {k:v for k,v in additional.items() 
-                                if v and v != '-' and v != 'null'}
-                    if additional:
-                        poi_data['additional_data'] = additional
-                except:
-                    pass
-                    
-            poi_list.append(poi_data)
-
-        response = {
-            'pois': poi_list,
-            'pagination': {
-                'total': pagination.total,
-                'pages': pagination.pages,
-                'current_page': page,
-                'per_page': per_page,
-                'has_next': pagination.has_next,
-                'has_prev': pagination.has_prev
-            }
+    pois = POI.query.all()
+    print(f"Numero totale di POI nel database: {len(pois)}")
+    
+    poi_list = []
+    for index, poi in enumerate(pois):
+        print(f"Elaborazione POI {index + 1}: Tipo = {poi.type}")
+        # Convert WKBElement to Shapely object
+        point = to_shape(poi.location)
+        # Convert Shapely object to GeoJSON
+        geojson = mapping(point)
+        poi_data = {
+            'type': poi.type,
+            'lat': geojson['coordinates'][1],
+            'lng': geojson['coordinates'][0],
+            'additional_data': json.loads(poi.additional_data)
         }
-
-        return jsonify(response)
-
-    except Exception as e:
-        print(f"Errore nell'elaborazione dei POI: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        print(f"Dati POI {index + 1}: {poi_data}")
+        poi_list.append(poi_data)
+    
+    print(f"Numero di POI restituiti: {len(poi_list)}")
+    return jsonify(poi_list)
 
 @utils_bp.route('/api/pois/<poi_type>', methods=['GET'])
 def get_pois_by_type(poi_type):
-   """
-   Restituisce tutti i POI di un determinato tipo dal database.
-   Usa direttamente le funzioni ST_X e ST_Y per le coordinate.
-   """
-   try:
-       # Query ottimizzata che estrae direttamente le coordinate
-       query = db.session.query(
-           POI.id, 
-           POI.type,
-           func.ST_X(POI.location).label('lng'),
-           func.ST_Y(POI.location).label('lat'),
-           POI.additional_data
-       ).filter(POI.type == poi_type)
+    """
+    Restituisce tutti i POI di un determinato tipo dal database.
+    Usa direttamente le coordinate geometriche salvate.
+    """
+    try:
+        # Query per ottenere tutti i POI del tipo specificato
+        pois = POI.query.filter_by(type=poi_type).all()
+        print(f"Trovati {len(pois)} POI di tipo {poi_type}")
+        
+        poi_list = []
+        for poi in pois:
+            try:
+                # Converti la geometria in coordinate
+                point = to_shape(poi.location)
+                
+                # Crea il dizionario POI
+                poi_data = {
+                    'id': poi.id,
+                    'type': poi_type,
+                    'lat': point.y,  # Latitudine
+                    'lng': point.x,  # Longitudine
+                }
 
-       # Filtraggio per bounds se specificato
-       bounds = request.args.get('bounds', None)
-       if bounds:
-           try:
-               min_lng, min_lat, max_lng, max_lat = map(float, bounds.split(','))
-               bbox = f'POLYGON(({min_lng} {min_lat}, {max_lng} {min_lat}, {max_lng} {max_lat}, {min_lng} {max_lat}, {min_lng} {min_lat}))'
-               query = query.filter(
-                   func.ST_Within(
-                       POI.location,
-                       func.ST_SetSRID(func.ST_GeomFromText(bbox), 4326)
-                   )
-               )
-           except ValueError as e:
-               print(f"Errore nel parsing dei bounds: {e}")
+                # Aggiungi i dati addizionali se presenti
+                if poi.additional_data:
+                    try:
+                        additional_data = json.loads(poi.additional_data)
+                        poi_data['properties'] = additional_data
+                    except json.JSONDecodeError:
+                        print(f"Errore nel parsing dei dati addizionali per POI {poi.id}")
+                        poi_data['properties'] = {}
 
-       pois = query.all()
-       print(f"Trovati {len(pois)} POI di tipo {poi_type}")
-       
-       poi_list = []
-       for poi in pois:
-           try:
-               poi_data = {
-                   'id': poi.id,
-                   'type': poi_type,
-                   'location': {
-                       'lat': float(poi.lat),
-                       'lng': float(poi.lng)
-                   }
-               }
+                poi_list.append(poi_data)
 
-               if poi.additional_data:
-                   try:
-                       additional = json.loads(poi.additional_data)
-                       additional = {k:v for k,v in additional.items() 
-                                   if v and v != '-' and v != 'null'}
-                       if additional:
-                           poi_data['additional_data'] = additional
-                   except json.JSONDecodeError:
-                       print(f"Errore nel parsing dei dati addizionali per POI {poi.id}")
-                       poi_data['properties'] = {}
-
-               poi_list.append(poi_data)
-
-           except Exception as e:
-               print(f"Errore nell'elaborazione del POI {poi.id}: {str(e)}")
-               continue
-
-       return jsonify({
-           'status': 'success', 
-           'pois': poi_list,
-           'pagination': {
-               'total': len(poi_list),
-               'pages': 1,
-               'current_page': 1,
-               'per_page': len(poi_list),
-               'has_next': False,
-               'has_prev': False
-           }
-       })
-
-   except Exception as e:
-       print(f"Errore generale in get_pois_by_type: {str(e)}")
-       return jsonify({
-           'status': 'error',
-           'message': str(e)
-       }), 500
+            except Exception as e:
+                print(f"Errore nell'elaborazione del POI {poi.id}: {str(e)}")
+                continue
+        
+        print(f"Restituisco {len(poi_list)} POI formattati")
+        return jsonify({
+            'status': 'success',
+            'count': len(poi_list),
+            'data': poi_list
+        })
+        
+    except Exception as e:
+        print(f"Errore generale in get_pois_by_type: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+    
 
 
 

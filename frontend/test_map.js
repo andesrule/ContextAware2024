@@ -186,6 +186,7 @@ function initializePOIControls() {
     });
 }
 
+// Funzione aggiornata per gestire il toggle dei POI
 function togglePOI(poiType, show) {
     if (show) {
         // Se il layer non esiste o è vuoto, carica i POI
@@ -193,7 +194,7 @@ function togglePOI(poiType, show) {
             fetch(`/api/pois/${poiType}`)
                 .then(response => response.json())
                 .then(data => {
-                    if (data.status === 'success' && data.pois.length > 0) { // Cambiato da data.data a data.pois
+                    if (data.status === 'success' && data.data.length > 0) {
                         // Assicurati che il layer cluster esista
                         if (!poiLayers[poiType]) {
                             poiLayers[poiType] = L.markerClusterGroup({
@@ -206,26 +207,26 @@ function togglePOI(poiType, show) {
                         }
 
                         // Aggiungi i marker al layer
-                        data.pois.forEach(poi => { // Cambiato da data.data a data.pois
-                            if (poi.location.lat && poi.location.lng) {  // Aggiunto .location
-                                const marker = L.marker([poi.location.lat, poi.location.lng], {
+                        data.data.forEach(poi => {
+                            if (poi.lat && poi.lng) {
+                                const marker = L.marker([poi.lat, poi.lng], {
                                     icon: getCustomIcon(poiType)
                                 });
 
                                 // Crea il popup con le informazioni disponibili
                                 let popupContent = `
                                     <div class="poi-popup">
-                                        <h3>${poi.additional_data?.denominazione_struttura || 
-                                             poi.additional_data?.denominazi || 
-                                             poi.additional_data?.name || 
+                                        <h3>${poi.properties?.denominazione_struttura || 
+                                             poi.properties?.denominazi || 
+                                             poi.properties?.name || 
                                              poiConfigs[poiType].label}</h3>
                                 `;
 
-                                if (poi.additional_data?.esercizio_via_e_civico) {
-                                    popupContent += `<p>Indirizzo: ${poi.additional_data.esercizio_via_e_civico}</p>`;
+                                if (poi.properties?.esercizio_via_e_civico) {
+                                    popupContent += `<p>Indirizzo: ${poi.properties.esercizio_via_e_civico}</p>`;
                                 }
-                                if (poi.additional_data?.quartiere) {
-                                    popupContent += `<p>Quartiere: ${poi.additional_data.quartiere}</p>`;
+                                if (poi.properties?.quartiere) {
+                                    popupContent += `<p>Quartiere: ${poi.properties.quartiere}</p>`;
                                 }
 
                                 popupContent += '</div>';
@@ -259,6 +260,7 @@ function togglePOI(poiType, show) {
         }
     }
 }
+
 
 function getCustomIcon(poiType) {
     // Definisci le icone per ogni tipo di POI
