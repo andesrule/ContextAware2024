@@ -3,7 +3,10 @@ from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import ARRAY 
 from flask_login import UserMixin
 from sqlalchemy import Index
+from sqlalchemy.sql import text
+from geoalchemy2.functions import ST_Transform
 db = SQLAlchemy()
+
 
 class User(db.Model):
     __tablename__ = 'user'
@@ -48,21 +51,34 @@ class QuestionnaireResponse(db.Model):
 
     user = db.relationship('User', backref=db.backref('questionnaire', uselist=False))
 
-
 class POI(db.Model):
     __tablename__ = 'points_of_interest'
 
     id = db.Column(db.Integer, primary_key=True)
-    type = db.Column(db.String)
+    type = db.Column(db.String, index=True)  # Indice per ricerche veloci per tipo
     location = db.Column(Geometry(geometry_type='POINT', srid=4326))
     additional_data = db.Column(db.String)  # Per memorizzare dati aggiuntivi in formato JSON
+
     __table_args__ = (
+        # Indice GiST primario per query spaziali
         Index('idx_poi_location', 'location', postgresql_using='gist'),
+        # Indice composito per query che filtrano per tipo e posizione
+        Index('idx_poi_type_location', 'type', 'location', postgresql_using='gist'),
+        # Indice funzionale per ottimizzare le query ST_DWithin in SRID 3857
+        Index('idx_poi_location_3857', text('ST_Transform(location, 3857)'), postgresql_using='gist'),
     )
 
 def reset_db():
     """Drop all tables from the database."""
     db.drop_all()
     db.create_all()
+        # Aggiungi solo l'indice funzionale per i POI dopo la creazione delle tabelle
+    db.session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_poi_location_3857 
+        ON points_of_interest 
+        USING gist (ST_Transform(location, 3857));
+    """))
+    
+    db.session.commit()
     print("Database has been reset.")
 

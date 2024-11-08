@@ -17,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 import binascii
 from scipy.spatial.distance import cdist
 
+
 cache = Cache(config={'CACHE_TYPE': 'simple'})
 
 # Definisci una griglia più grande per il pre-calcolo
@@ -231,39 +232,54 @@ def get_poi_coordinates(poi):
         raise ValueError("Formato coordinate non riconosciuto")
 
 def count_nearby_pois(db, marker_id, distance_meters):
+    """
+    Conta i POI vicini a un marker utilizzando indici spaziali.
+    Utilizza ST_DWithin con proiezione Web Mercator (SRID 3857) per misure di distanza accurate.
+    
+    Args:
+        db: istanza del database
+        marker_id: ID del marker di riferimento
+        distance_meters: raggio di ricerca in metri
+        
+    Returns:
+        dizionario con il conteggio dei POI per tipo
+    """
     # Ottieni il marker specifico dal database
     marker = db.session.query(ListaImmobiliCandidati).get(marker_id)
     if not marker:
         return None
 
-    # Definisci i tipi di POI che vogliamo contare
+    # Definisci i tipi di POI da contare
     poi_types = [
         'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
         'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi'
     ]
-
-    # Inizializza il dizionario dei risultati
     result = {poi_type: 0 for poi_type in poi_types}
 
-    # Esegui la query per contare i POI vicini
-    poi_counts = db.session.query(
-        POI.type,
-        func.count(POI.id).label('count')
-    ).filter(
-        ST_DWithin(
-            ST_Transform(POI.location, 3857),
-            ST_Transform(marker.marker, 3857),
-            distance_meters
-        )
-    ).group_by(POI.type).all()
+    try:
+        # Query ottimizzata che utilizza l'indice spaziale idx_poi_location_3857
+        # Usa ST_DWithin con coordinate proiettate per misure di distanza accurate
+        poi_counts = db.session.query(
+            POI.type,
+            func.count(POI.id).label('count')
+        ).filter(
+            func.ST_DWithin(
+                func.ST_Transform(POI.location, 3857),  # Proietta i POI in Web Mercator
+                func.ST_Transform(marker.marker, 3857), # Proietta il marker in Web Mercator
+                distance_meters  # La distanza in metri è corretta in SRID 3857
+            )
+        ).group_by(POI.type).all()
 
-    # Popola il dizionario dei risultati
-    for poi_type, count in poi_counts:
-        if poi_type in result:
-            result[poi_type] = count
+        # Popola il dizionario dei risultati
+        for poi_type, count in poi_counts:
+            if poi_type in result:
+                result[poi_type] = count
 
+        return result
 
-    return result
+    except Exception as e:
+        print(f"Errore nel conteggio dei POI vicini: {str(e)}")
+        return result
 
 @utils_bp.route('/api/count_nearby_pois', methods=['GET'])
 def api_count_nearby_pois():
@@ -533,34 +549,100 @@ def get_ranked_markers():
         return jsonify({"error": str(e)}), 500
     
 def count_pois_in_geofence(db, geofence_id):
+    """
+    Conta i POI all'interno di un'area (geofence) utilizzando indici spaziali.
+    Utilizza ST_Contains e gli indici spaziali per una ricerca efficiente.
+    
+    Args:
+        db: istanza del database
+        geofence_id: ID dell'area di riferimento
+        
+    Returns:
+        dizionario con il conteggio dei POI per tipo
+    """
     # Ottieni il geofence specifico dal database
     geofence = db.session.query(ListaAreeCandidate).get(geofence_id)
     if not geofence:
         return None
 
-    # Definisci i tipi di POI che vogliamo contare
+    # Definisci i tipi di POI da contare
     poi_types = [
         'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
         'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi'
     ]
-
-    # Inizializza il dizionario dei risultati
     result = {poi_type: 0 for poi_type in poi_types}
 
-    # Esegui la query per contare i POI all'interno del geofence
-    poi_counts = db.session.query(
-        POI.type,
-        func.count(POI.id).label('count')
-    ).filter(
-        ST_Contains(geofence.geofence, POI.location)
-    ).group_by(POI.type).all()
+    try:
+        # Query ottimizzata che utilizza l'indice spaziale e ST_Contains
+        # ST_Contains verifica se il POI è completamente contenuto nel geofence
+        poi_counts = db.session.query(
+            POI.type,
+            func.count(POI.id).label('count')
+        ).filter(
+            func.ST_Contains(
+                geofence.geofence,  # Il poligono del geofence
+                POI.location        # La posizione del POI
+            )
+        ).group_by(POI.type).all()
 
-    # Popola il dizionario dei risultati
-    for poi_type, count in poi_counts:
-        if poi_type in result:
-            result[poi_type] = count
+        # Popola il dizionario dei risultati
+        for poi_type, count in poi_counts:
+            if poi_type in result:
+                result[poi_type] = count
 
-    return result
+        return result
+
+    except Exception as e:
+        print(f"Errore nel conteggio dei POI nell'area: {str(e)}")
+        return result
+
+# Funzione opzionale per contare i POI con buffer intorno al geofence
+def count_pois_near_geofence(db, geofence_id, buffer_meters=100):
+    """
+    Conta i POI all'interno e vicino a un'area con un buffer specificato.
+    Utile per considerare anche i POI nelle immediate vicinanze dell'area.
+    
+    Args:
+        db: istanza del database
+        geofence_id: ID dell'area di riferimento
+        buffer_meters: dimensione del buffer in metri
+        
+    Returns:
+        dizionario con il conteggio dei POI per tipo
+    """
+    geofence = db.session.query(ListaAreeCandidate).get(geofence_id)
+    if not geofence:
+        return None
+
+    poi_types = [
+        'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
+        'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi'
+    ]
+    result = {poi_type: 0 for poi_type in poi_types}
+
+    try:
+        # Query ottimizzata che usa ST_DWithin per considerare anche i POI vicini all'area
+        poi_counts = db.session.query(
+            POI.type,
+            func.count(POI.id).label('count')
+        ).filter(
+            func.ST_DWithin(
+                func.ST_Transform(POI.location, 3857),
+                func.ST_Transform(geofence.geofence, 3857),
+                buffer_meters
+            )
+        ).group_by(POI.type).all()
+
+        for poi_type, count in poi_counts:
+            if poi_type in result:
+                result[poi_type] = count
+
+        return result
+
+    except Exception as e:
+        print(f"Errore nel conteggio dei POI nell'area con buffer: {str(e)}")
+        return result    
+
 
 def calcola_rank_geofence(geofence_id):
     """
@@ -809,7 +891,7 @@ def count_pois_near_point(lat, lon, radius):
 
 def calculate_rank_for_point(poi_counts, user_preferences):
     """
-    Funzione di ranking condivisa tra calcola_rank e process_point.
+    Calcola il rank di un punto con una normalizzazione più bilanciata
     """
     if not user_preferences or not poi_counts:
         return 0
@@ -821,56 +903,205 @@ def calculate_rank_for_point(poi_counts, user_preferences):
         'aree_verdi': 1.0,
         'parcheggi': 1.0,
         'fermate_bus': 1.0,
-        'stazioni_ferroviarie': 1.0,
-        'scuole': 1.0,
-        'cinema': 0.8,
-        'ospedali': 1.0,
-        'farmacia': 0.8,
+        'stazioni_ferroviarie': 1.2,  # Peso maggiore per servizi importanti
+        'scuole': 1.1,
+        'cinema': 0.7,
+        'ospedali': 1.2,
+        'farmacia': 0.9,
         'luogo_culto': 0.6,
         'servizi': 0.8,
     }
 
+    # Soglie massime per tipo di POI (oltre queste il bonus diminuisce)
+    max_counts = {
+        'aree_verdi': 3,
+        'parcheggi': 4,
+        'fermate_bus': 5,
+        'stazioni_ferroviarie': 2,
+        'scuole': 3,
+        'cinema': 2,
+        'ospedali': 2,
+        'farmacia': 3,
+        'luogo_culto': 2,
+        'servizi': 4,
+    }
+
     for poi_type, count in poi_counts.items():
+        if poi_type not in pesi or poi_type not in max_counts:
+            continue
+
         preferenza = user_preferences.get(poi_type, 0)
-        if preferenza == 0 or poi_type not in pesi:
+        if preferenza == 0:
             continue
 
         peso_base = pesi[poi_type]
+        max_count = max_counts[poi_type]
         
-        # Calcolo base del punteggio
         if count > 0:
-            # Bonus crescente ma con cap per più POI
-            poi_score = preferenza * peso_base * (1 + min(count, 3) / 2) * 30
+            # Calcolo base del punteggio con diminishing returns
+            normalized_count = min(count, max_count) / max_count
+            base_score = preferenza * peso_base * normalized_count * 20
 
-            # Gestione densità
+            # Bonus per ogni POI aggiuntivo oltre il primo, ma con diminishing returns
+            if count > 1:
+                additional_bonus = min(count - 1, max_count - 1) * 5
+                base_score += additional_bonus
+
+            # Gestione bonus densità
             if poi_type == 'aree_verdi' and count >= 2:
-                density_bonus = user_preferences.get('densita_aree_verdi', 0) * 15
-                poi_score += density_bonus
+                density_bonus = user_preferences.get('densita_aree_verdi', 0) * 8
+                base_score += density_bonus
 
             if poi_type == 'fermate_bus' and count >= 2:
-                density_bonus = user_preferences.get('densita_fermate_bus', 0) * 15
-                poi_score += density_bonus
+                density_bonus = user_preferences.get('densita_fermate_bus', 0) * 8
+                base_score += density_bonus
 
-            rank += poi_score
+            rank += base_score
 
-        # Bonus per combinazioni strategiche
-        if poi_type == 'stazioni_ferroviarie' and count >= 1:
-            if poi_counts.get('fermate_bus', 0) >= 1:
-                rank += preferenza * 25
+    # Bonus per combinazioni strategiche
+    if poi_counts.get('stazioni_ferroviarie', 0) >= 1 and poi_counts.get('fermate_bus', 0) >= 1:
+        rank += 15  # Bonus per intermodalità
 
-        if poi_type == 'servizi' and count >= 1:
-            if poi_counts.get('farmacia', 0) >= 1:
-                rank += preferenza * 20
+    if poi_counts.get('servizi', 0) >= 1 and poi_counts.get('farmacia', 0) >= 1:
+        rank += 10  # Bonus per servizi complementari
 
-    # Normalizzazione
-    max_theoretical = sum(pesi.values()) * 5 * 30  # Punteggio teorico massimo
-    normalized_rank = (rank / max_theoretical) * 200
+    # Normalizzazione più bilanciata
+    max_theoretical = sum(pesi.values()) * 5 * 20  # Punteggio teorico massimo base
+    max_theoretical += 50  # Aggiungi spazio per i bonus
+    normalized_rank = (rank / max_theoretical) * 100  # Scala da 0 a 100
 
-    # Boost per punteggi decenti
+    # Applicazione curve più graduale
     if normalized_rank > 70:
-        normalized_rank = 70 + (normalized_rank - 70) * 1.3
+        normalized_rank = 70 + (normalized_rank - 70) * 0.8
+    
+    return min(round(normalized_rank, 2), 100)  # Arrotonda a 2 decimali e limita a 100
+  
 
-    return min(normalized_rank, 200)    
+def calculate_rank_for_point(poi_counts, user_preferences):
+    """
+    Calcola il rank di un punto con una normalizzazione più bilanciata
+    """
+    if not user_preferences or not poi_counts:
+        return 0
+
+    rank = 0
+    
+    # Pesi base per ciascun tipo di POI
+    pesi = {
+        'aree_verdi': 1.0,
+        'parcheggi': 1.0,
+        'fermate_bus': 1.0,
+        'stazioni_ferroviarie': 1.2,  # Peso maggiore per servizi importanti
+        'scuole': 1.1,
+        'cinema': 0.7,
+        'ospedali': 1.2,
+        'farmacia': 0.9,
+        'luogo_culto': 0.6,
+        'servizi': 0.8,
+    }
+
+    # Soglie massime per tipo di POI (oltre queste il bonus diminuisce)
+    max_counts = {
+        'aree_verdi': 3,
+        'parcheggi': 4,
+        'fermate_bus': 5,
+        'stazioni_ferroviarie': 2,
+        'scuole': 3,
+        'cinema': 2,
+        'ospedali': 2,
+        'farmacia': 3,
+        'luogo_culto': 2,
+        'servizi': 4,
+    }
+
+    for poi_type, count in poi_counts.items():
+        if poi_type not in pesi or poi_type not in max_counts:
+            continue
+
+        preferenza = user_preferences.get(poi_type, 0)
+        if preferenza == 0:
+            continue
+
+        peso_base = pesi[poi_type]
+        max_count = max_counts[poi_type]
+        
+        if count > 0:
+            # Calcolo base del punteggio con diminishing returns
+            normalized_count = min(count, max_count) / max_count
+            base_score = preferenza * peso_base * normalized_count * 20
+
+            # Bonus per ogni POI aggiuntivo oltre il primo, ma con diminishing returns
+            if count > 1:
+                additional_bonus = min(count - 1, max_count - 1) * 5
+                base_score += additional_bonus
+
+            # Gestione bonus densità
+            if poi_type == 'aree_verdi' and count >= 2:
+                density_bonus = user_preferences.get('densita_aree_verdi', 0) * 8
+                base_score += density_bonus
+
+            if poi_type == 'fermate_bus' and count >= 2:
+                density_bonus = user_preferences.get('densita_fermate_bus', 0) * 8
+                base_score += density_bonus
+
+            rank += base_score
+
+    # Bonus per combinazioni strategiche
+    if poi_counts.get('stazioni_ferroviarie', 0) >= 1 and poi_counts.get('fermate_bus', 0) >= 1:
+        rank += 15  # Bonus per intermodalità
+
+    if poi_counts.get('servizi', 0) >= 1 and poi_counts.get('farmacia', 0) >= 1:
+        rank += 10  # Bonus per servizi complementari
+
+    # Normalizzazione più bilanciata
+    max_theoretical = sum(pesi.values()) * 5 * 20  # Punteggio teorico massimo base
+    max_theoretical += 50  # Aggiungi spazio per i bonus
+    normalized_rank = (rank / max_theoretical) * 100  # Scala da 0 a 100
+
+    # Applicazione curve più graduale
+    if normalized_rank > 70:
+        normalized_rank = 70 + (normalized_rank - 70) * 0.8
+    
+    return min(round(normalized_rank, 2), 100)  # Arrotonda a 2 decimali e limita a 100
+
+
+def diverse_locations_selection(locations, num_locations=10, min_distance=0.008):
+    """
+    Seleziona le locations più diverse tra loro basandosi sia sulla distanza che sul rank
+    """
+    if not locations:
+        return []
+
+    diverse_locations = []
+    locations.sort(key=lambda x: x['rank'], reverse=True)
+
+    # Seleziona sempre il punto con il rank più alto
+    diverse_locations.append(locations[0])
+
+    for loc in locations[1:]:
+        if len(diverse_locations) >= num_locations:
+            break
+
+        # Calcola la distanza minima da tutti i punti già selezionati
+        distances = []
+        for selected in diverse_locations:
+            dist = ((loc['lat'] - selected['lat'])**2 + 
+                   (loc['lng'] - selected['lng'])**2)**0.5
+            distances.append(dist)
+
+        min_dist = min(distances)
+
+        # Se il punto è abbastanza distante e ha un rank sufficientemente diverso
+        if min_dist >= min_distance:
+            # Verifica che il rank sia sufficientemente diverso dai punti vicini
+            ranks_near = [s['rank'] for s in diverse_locations 
+                        if ((loc['lat'] - s['lat'])**2 + 
+                            (loc['lng'] - s['lng'])**2)**0.5 < min_distance * 2]
+            
+            if not ranks_near or abs(loc['rank'] - sum(ranks_near)/len(ranks_near)) > 5:
+                diverse_locations.append(loc)
+
+    return diverse_locations  
     
 def calculate_rank(poi_counts, user_preferences):
     weights = {
@@ -929,64 +1160,135 @@ def precalculate_poi_counts(grid_points, radius):
 
 @utils_bp.route('/calculate_optimal_locations', methods=['GET'])
 def calculate_optimal_locations():
+    """
+    Calcola le 10 migliori posizioni per l'acquisto di una casa a Bologna
+    basandosi sui POI vicini e le preferenze dell'utente.
+    """
     print("Inizio calculate_optimal_locations")
     start_time = time.time()
+    
     try:
+        # Verifica presenza questionario
         user_prefs = QuestionnaireResponse.query.first()
         if not user_prefs:
-            return {"error": "Nessun questionario trovato. Completa il questionario prima."}, 400
+            return jsonify({
+                "error": "Nessun questionario trovato. Completa il questionario prima.",
+                "execution_time_seconds": time.time() - start_time
+            }), 400
         
         user_preferences = get_questionnaire_response_dict(user_prefs)
         
-        # Definisci una griglia su Bologna
-        lat_min, lat_max = 44.4, 44.6
-        lon_min, lon_max = 11.2, 11.4
-        grid_size = 25
-        
-        all_points = []
-        for i in range(grid_size):
-            for j in range(grid_size):
-                lat = lat_min + (lat_max - lat_min) * i / grid_size
-                lon = lon_min + (lon_max - lon_min) * j / grid_size
-                all_points.append((lat, lon))
-
-        # Processa tutti i punti
-        results = []
-        for point in all_points:
-            result = process_point(point, user_preferences, 500)
-            if result:
-                results.append(result)
-
-        # Ordina per rank e seleziona i migliori mantenendo la diversità geografica
-        top_locations = sorted(results, key=lambda x: x['rank'], reverse=True)
-        diverse_locations = []
-        min_distance = 0.01  # Circa 1km
-        
-        for loc in top_locations:
-            if len(diverse_locations) >= 5:
-                break
-                
-            is_diverse = True
-            for selected in diverse_locations:
-                dist = ((loc['lat'] - selected['lat'])**2 + 
-                       (loc['lng'] - selected['lng'])**2)**0.5
-                if dist < min_distance:
-                    is_diverse = False
-                    break
-            
-            if is_diverse:
-                diverse_locations.append(loc)
-
-        return {
-            "message": "Le 5 migliori posizioni suggerite per acquistare casa a Bologna:",
-            "suggestions": diverse_locations,
-            "user_preferences": user_preferences,
-            "execution_time_seconds": time.time() - start_time
+        # Definisci i bounds di Bologna con area leggermente più ampia
+        bounds = {
+            'min_lat': 44.4, 'max_lat': 44.6,
+            'min_lon': 11.2, 'max_lon': 11.4
         }
+        
+        # Query SQL per la griglia e conteggio POI
+        sql_query = """
+            WITH RECURSIVE grid_points AS (
+                SELECT ST_SetSRID(
+                    ST_MakePoint(
+                        :min_lon + (n % 30) * (:max_lon - :min_lon) / 30,
+                        :min_lat + (n / 30) * (:max_lat - :min_lat) / 30
+                    ),
+                    4326
+                ) AS point
+                FROM generate_series(0, 899) n
+            ),
+            poi_counts AS (
+                SELECT 
+                    ST_X(g.point) as lng,
+                    ST_Y(g.point) as lat,
+                    p.type,
+                    COUNT(*) as count
+                FROM grid_points g
+                JOIN points_of_interest p ON ST_DWithin(
+                    ST_Transform(g.point, 3857),
+                    ST_Transform(p.location, 3857),
+                    500
+                )
+                GROUP BY g.point, p.type
+            )
+            SELECT 
+                lng,
+                lat,
+                type,
+                count
+            FROM poi_counts;
+        """
+        
+        # Esegui la query
+        results = []
+        rank_distribution = {
+            '0-20': 0, '21-40': 0, '41-60': 0, '61-80': 0, '81-100': 0
+        }
+        
+        with db.engine.connect() as conn:
+            grid_results = conn.execute(text(sql_query), bounds)
+            
+            # Raggruppa i risultati per coordinate
+            points_data = {}
+            for row in grid_results:
+                key = (float(row.lng), float(row.lat))
+                if key not in points_data:
+                    points_data[key] = {}
+                points_data[key][row.type] = row.count
+
+            # Calcola il rank per ogni punto
+            for (lng, lat), poi_counts in points_data.items():
+                rank = calculate_rank_for_point(poi_counts, user_preferences)
+                
+                # Aggiorna la distribuzione dei rank
+                if rank <= 20: rank_distribution['0-20'] += 1
+                elif rank <= 40: rank_distribution['21-40'] += 1
+                elif rank <= 60: rank_distribution['41-60'] += 1
+                elif rank <= 80: rank_distribution['61-80'] += 1
+                else: rank_distribution['81-100'] += 1
+                
+                if rank > 40:  # Consideriamo punti con rank > 40
+                    results.append({
+                        'lat': lat,
+                        'lng': lng,
+                        'rank': rank,
+                        'poi_counts': poi_counts
+                    })
+
+        # Usa la nuova funzione per selezionare locations diverse
+        diverse_locations = diverse_locations_selection(results)
+        
+        # Aggiungi dettagli POI per le locations selezionate
+        for loc in diverse_locations:
+            poi_summary = {
+                'total_poi': sum(loc['poi_counts'].values()),
+                'details': loc['poi_counts']
+            }
+            loc['poi_details'] = poi_summary
+            del loc['poi_counts']
+
+        execution_time = time.time() - start_time
+        
+        return jsonify({
+            "message": "Le 10 migliori posizioni suggerite per acquistare casa a Bologna:",
+            "suggestions": diverse_locations,
+            "execution_time_seconds": execution_time,
+            "total_locations_analyzed": len(results),
+            "rank_distribution": rank_distribution,
+            "user_preferences": user_preferences,
+            "search_parameters": {
+                "radius_meters": 500,
+                "min_rank_threshold": 40,
+                "min_distance_between_points": 0.008 * 111000  # Conversione approssimativa in metri
+            }
+        })
 
     except Exception as e:
         print(f"Errore in calculate_optimal_locations: {str(e)}")
-        return {"error": str(e)}, 500
+        return jsonify({
+            "error": str(e),
+            "execution_time_seconds": time.time() - start_time
+        }), 500
+
 
 @utils_bp.route('/addMarkerPrice', methods=['POST'])
 def add_marker_price():
