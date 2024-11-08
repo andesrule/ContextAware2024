@@ -797,6 +797,74 @@ clusterStyle.textContent = `
 `;
 document.head.appendChild(clusterStyle);
 
+function handleFilters() {
+
+    // Raccoglie i valori dai controlli
+
+    const distanceFilter = document.getElementById('distanceToggle').checked;
+
+    const travelMode = document.getElementById('travelMode').value;
+
+    const filterTime = document.getElementById('filterTime').value;
+
+
+
+    // Prepara i dati per l'invio
+
+    const filterData = {
+
+        distanceEnabled: distanceFilter,
+
+        travelMode: travelMode,
+
+        travelTime: parseInt(filterTime)
+
+    };
+
+    console.log("Dati inviati al backend:", filterData);
+
+    // Invia la richiesta all'endpoint
+
+    fetch('/api/filters', {
+
+        method: 'POST',
+
+        headers: {
+
+            'Content-Type': 'application/json',
+
+        },
+
+        body: JSON.stringify(filterData)
+
+    })
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        console.log('Success:', data);
+
+        // Qui puoi gestire la risposta dal server
+
+    })
+
+    .catch((error) => {
+
+        console.error('Error:', error);
+
+    });
+
+}
+
+
+// Aggiungi event listeners per reagire ai cambiamenti
+
+document.getElementById('distanceToggle').addEventListener('change', handleFilters);
+
+document.getElementById('travelMode').addEventListener('change', handleFilters);
+
+document.getElementById('filterTime').addEventListener('change', handleFilters);
 
 
 
