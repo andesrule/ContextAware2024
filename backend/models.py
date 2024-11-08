@@ -55,17 +55,16 @@ class POI(db.Model):
     __tablename__ = 'points_of_interest'
 
     id = db.Column(db.Integer, primary_key=True)
-    type = db.Column(db.String, index=True)  # Indice per ricerche veloci per tipo
+    type = db.Column(db.String)
     location = db.Column(Geometry(geometry_type='POINT', srid=4326))
     additional_data = db.Column(db.String)  # Per memorizzare dati aggiuntivi in formato JSON
-
+    
+    # Create separate indexes for type and location
     __table_args__ = (
-        # Indice GiST primario per query spaziali
+        # GiST index for spatial queries on location
         Index('idx_poi_location', 'location', postgresql_using='gist'),
-        # Indice composito per query che filtrano per tipo e posizione
-        Index('idx_poi_type_location', 'type', 'location', postgresql_using='gist'),
-        # Indice funzionale per ottimizzare le query ST_DWithin in SRID 3857
-        Index('idx_poi_location_3857', text('ST_Transform(location, 3857)'), postgresql_using='gist'),
+        # B-tree index for type queries
+        Index('idx_poi_type', 'type'),
     )
 
 def reset_db():
