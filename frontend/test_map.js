@@ -74,14 +74,14 @@ let poiLayers = {
         removeOutsideVisibleBounds: true,
         iconCreateFunction: createClusterCustomIcon
     }),
-    luogo_culto: L.markerClusterGroup({
+    colonnina_elettrica: L.markerClusterGroup({
         showCoverageOnHover: false,
         zoomToBoundsOnClick: true,
         spiderfyOnMaxZoom: true,
         removeOutsideVisibleBounds: true,
         iconCreateFunction: createClusterCustomIcon
     }),
-    servizi: L.markerClusterGroup({
+    biblioteca: L.markerClusterGroup({
         showCoverageOnHover: false,
         zoomToBoundsOnClick: true,
         spiderfyOnMaxZoom: true,
@@ -152,8 +152,8 @@ const poiConfigs = {
     cinema: { emoji: '🎬', label: 'Cinema' },
     ospedali: { emoji: '🏥', label: 'Ospedali' },
     farmacia: { emoji: '💊', label: 'Farmacia' },
-    luogo_culto: { emoji: '⛪', label: 'Culto' },
-    servizi: { emoji: '🏢', label: 'Servizi' }
+    colonnina_elettrica: { emoji: '⚡', label: 'Colonnina Elettrica' },
+    biblioteca: { emoji: '🏢', label: 'Biblioteca' }
 };
 
 // Funzione per inizializzare i pulsanti POI nel pannello di controllo
@@ -273,8 +273,8 @@ function getCustomIcon(poiType) {
         cinema: '🎬',
         ospedali: '🏥',
         farmacia: '💊',
-        luogo_culto: '⛪',
-        servizi: '🏢'
+        colonnina_elettrica: '⚡',
+        biblioteca: '🏢'
     };
 
     return L.divIcon({

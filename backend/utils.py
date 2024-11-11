@@ -109,9 +109,6 @@ def get_pois_by_type(poi_type):
         }), 500
     
 
-
-
-
 @utils_bp.route('/get_radius', methods=['POST'])
 def get_radius():
     global global_radius
@@ -192,8 +189,8 @@ def submit_questionnaire():
             cinema=data.get('cinema'),
             ospedali=data.get('ospedali'),
             farmacia=data.get('farmacia'),
-            luogo_culto=data.get('luogo_culto'),
-            servizi=data.get('servizi'),
+            colonnina_elettrica=data.get('colonnina_elettrica'),
+            biblioteca=data.get('biblioteca'),
             densita_aree_verdi=data.get('densita_aree_verdi'),
 
             densita_fermate_bus=data.get('densita_fermate_bus')
@@ -252,7 +249,7 @@ def count_nearby_pois(db, marker_id, distance_meters):
     # Definisci i tipi di POI da contare
     poi_types = [
         'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
-        'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi'
+        'scuole', 'cinema', 'ospedali', 'farmacia', 'colonnina_elettrica', 'biblioteca'
     ]
     result = {poi_type: 0 for poi_type in poi_types}
 
@@ -301,13 +298,17 @@ def api_count_nearby_pois():
 def fetch_and_insert_pois(poi_type, api_url):
     total_count = 0
     offset = 0
-    limit = 100  # Mantenuto a 100 per efficienza
+    limit = 100
+    
+    # Dizionario per tracciare le fermate uniche per coordinate
+    bus_stops = {}
     
     while True:
         if "tper-fermate-autobus" in api_url:
             paginated_url = f"{api_url}?limit={limit}&offset={offset}&refine=comune%3A%22BOLOGNA%22"
         else:
             paginated_url = f"{api_url}?limit={limit}&offset={offset}"
+            
         response = requests.get(paginated_url)
         
         if response.status_code == 200:
@@ -316,28 +317,79 @@ def fetch_and_insert_pois(poi_type, api_url):
             
             if not results:
                 break  # Nessun altro risultato, usciamo dal loop
-            
+                
             for poi in results:
                 try:
                     lat, lon = get_poi_coordinates(poi)
-                    new_poi = POI(
-                        type=poi_type,
-                        location=f'POINT({lon} {lat})',
-                        additional_data=json.dumps(poi)
-                    )
-                    db.session.add(new_poi)
+                    
+                    if poi_type == 'fermate_bus':
+                        # Crea una chiave unica basata sulle coordinate
+                        location_key = f"{lat},{lon}"
+                        
+                        # Estrai le informazioni sulla linea
+                        line_info = {
+                            'codice_linea': poi.get('codice_linea'),
+                            'denominazione': poi.get('denominazione'),
+                            'ubicazione': poi.get('ubicazione')
+                        }
+                        
+                        if location_key in bus_stops:
+                            # Aggiorna le informazioni esistenti
+                            existing_stop = bus_stops[location_key]
+                            if line_info['codice_linea'] not in [l['codice_linea'] for l in existing_stop['lines']]:
+                                existing_stop['lines'].append(line_info)
+                        else:
+                            # Crea una nuova fermata
+                            bus_stops[location_key] = {
+                                'lat': lat,
+                                'lon': lon,
+                                'denominazione': poi.get('denominazione'),
+                                'ubicazione': poi.get('ubicazione'),
+                                'quartiere': poi.get('quartiere'),
+                                'comune': poi.get('comune'),
+                                'lines': [line_info]
+                            }
+                    else:
+                        # Per altri tipi di POI, procedi come prima
+                        new_poi = POI(
+                            type=poi_type,
+                            location=f'POINT({lon} {lat})',
+                            additional_data=json.dumps(poi)
+                        )
+                        db.session.add(new_poi)
+                        total_count += 1
+                        
                 except ValueError as e:
                     print(f"Errore nell'elaborazione del POI: {e}")
             
-            db.session.commit()
-            total_count += len(results)
-            offset += limit
+            if poi_type != 'fermate_bus':
+                db.session.commit()
             
-            print(f"Elaborati {total_count} POI di tipo {poi_type}")
+            offset += limit
+            print(f"Elaborati {len(results)} risultati per {poi_type}")
         else:
             print(f"Errore nella richiesta API per {poi_type}: {response.status_code}")
             break
-
+    
+    # Alla fine, inserisci tutte le fermate bus unificate
+    if poi_type == 'fermate_bus':
+        for stop_data in bus_stops.values():
+            new_poi = POI(
+                type=poi_type,
+                location=f"POINT({stop_data['lon']} {stop_data['lat']})",
+                additional_data=json.dumps({
+                    'denominazione': stop_data['denominazione'],
+                    'ubicazione': stop_data['ubicazione'],
+                    'quartiere': stop_data['quartiere'],
+                    'comune': stop_data['comune'],
+                    'lines': stop_data['lines']
+                })
+            )
+            db.session.add(new_poi)
+            total_count += 1
+        db.session.commit()
+        print(f"Inserite {total_count} fermate bus uniche")
+    
     return total_count
 
 def update_pois():
@@ -349,8 +401,8 @@ def update_pois():
         'fermate_bus': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records',
         'scuole': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/elenco-delle-scuole/records',
         'aree_verdi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records',
-        'luogo_culto': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records',
-        'servizi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
+        'colonnina_elettrica': 'https://opendata.comune.bologna.it//api/explore/v2.1/catalog/datasets/colonnine-elettriche/records',
+        'biblioteca': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/biblioteche-comunali-di-bologna/records',
         'stazioni_ferroviarie': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/stazioniferroviarie_20210401/records'
     }
     results = {}
@@ -369,8 +421,8 @@ def get_poi(poi_type):
         'fermate_bus' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records?select=*&limit=100&refine=comune%3A%22BOLOGNA%22',
         'scuole' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/elenco-delle-scuole/records',
         'aree_verdi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records',
-        'luogo_culto' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/origini-di-bologna-chiese-e-conventi/records',
-        'servizi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
+        'colonnina_elettrica': 'https://opendata.comune.bologna.it//api/explore/v2.1/catalog/datasets/colonnine-elettriche/records',
+        'biblioteca' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
         'stazioni_ferroviarie': 'https://opendata.comune.bologna.it/api/api/explore/v2.1/catalog/datasets/stazioniferroviarie_20210401/records'
         
         # Aggiungi altre categorie qui
@@ -438,8 +490,8 @@ def get_questionnaire_response_dict(response):
         'cinema': response.cinema,
         'ospedali': response.ospedali,
         'farmacia': response.farmacia,
-        'luogo_culto': response.luogo_culto,
-        'servizi': response.servizi,
+        'colonnina_elettrica': response.colonnina_elettrica,
+        'biblioteca': response.biblioteca,
         'densita_aree_verdi': response.densita_aree_verdi,
         'densita_fermate_bus': response.densita_fermate_bus
     }
@@ -467,8 +519,8 @@ def calcola_rank(marker_id, raggio):
         'cinema': 0.8,
         'ospedali': 1.0,
         'farmacia': 0.8,
-        'luogo_culto': 0.6,
-        'servizi': 0.8,
+        'colonnina_elettrica': 0.6,
+        'biblioteca': 0.8,
     }
 
     for poi_type in nearby_pois:
@@ -497,7 +549,7 @@ def calcola_rank(marker_id, raggio):
             if nearby_pois.get('fermate_bus', 0) >= 1:
                 rank += preferenza * 20
 
-        if poi_type == 'servizi' and count >= 1:
+        if poi_type == 'biblioteca' and count >= 1:
             if nearby_pois.get('farmacia', 0) >= 1:
                 rank += preferenza * 15
 
@@ -568,7 +620,7 @@ def count_pois_in_geofence(db, geofence_id):
     # Definisci i tipi di POI da contare
     poi_types = [
         'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
-        'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi'
+        'scuole', 'cinema', 'ospedali', 'farmacia', 'colonnina_elettrica', 'biblioteca'
     ]
     result = {poi_type: 0 for poi_type in poi_types}
 
@@ -616,7 +668,7 @@ def count_pois_near_geofence(db, geofence_id, buffer_meters=100):
 
     poi_types = [
         'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
-        'scuole', 'cinema', 'ospedali', 'farmacia', 'luogo_culto', 'servizi'
+        'scuole', 'cinema', 'ospedali', 'farmacia', 'colonnina_elettrica', 'biblioteca'
     ]
     result = {poi_type: 0 for poi_type in poi_types}
 
@@ -666,8 +718,8 @@ def calcola_rank_geofence(geofence_id):
         'cinema': 0.6,
         'ospedali': 1.0,
         'farmacia': 0.5,
-        'luogo_culto': 0.2,
-        'servizi': 0.4,
+        'colonnina_elettrica': 0.2,
+        'biblioteca': 0.4,
     }
     
     # Aree Verdi
@@ -697,11 +749,11 @@ def calcola_rank_geofence(geofence_id):
     rank += nearby_pois.get('farmacia', 0) * user_preferences['farmacia'] * pesi['farmacia']
     
     # Luogo di Culto
-    rank += nearby_pois.get('luogo_culto', 0) * user_preferences['luogo_culto'] * pesi['luogo_culto']
+    rank += nearby_pois.get('colonnina_elettrica', 0) * user_preferences['colonnina_elettrica'] * pesi['colonnina_elettrica']
     
     # Servizi
-    if nearby_pois.get('servizi', 0) >= 2:
-        rank += user_preferences['servizi'] * pesi['servizi']
+    if nearby_pois.get('biblioteca', 0) >= 2:
+        rank += user_preferences['biblioteca'] * pesi['biblioteca']
     
     #Aree verdi densitá
     if nearby_pois.get('aree_verdi', 0) >= 2:
@@ -762,8 +814,6 @@ def get_ranked_geofences():
 def check_questionnaires():
     count = QuestionnaireResponse.query.count()
     return jsonify({'count': count})
-
-
 
 
 @utils_bp.route('/delete-all-geofences', methods=['POST'])
@@ -889,6 +939,7 @@ def count_pois_near_point(lat, lon, radius):
         return {}
     
 
+
 def calculate_rank_for_point(poi_counts, user_preferences):
     """
     Calcola il rank di un punto con una normalizzazione più bilanciata
@@ -908,8 +959,8 @@ def calculate_rank_for_point(poi_counts, user_preferences):
         'cinema': 0.7,
         'ospedali': 1.2,
         'farmacia': 0.9,
-        'luogo_culto': 0.6,
-        'servizi': 0.8,
+        'colonnina_elettrica': 0.6,
+        'biblioteca': 0.8,
     }
 
     # Soglie massime per tipo di POI (oltre queste il bonus diminuisce)
@@ -922,8 +973,8 @@ def calculate_rank_for_point(poi_counts, user_preferences):
         'cinema': 2,
         'ospedali': 2,
         'farmacia': 3,
-        'luogo_culto': 2,
-        'servizi': 4,
+        'colonnina_elettrica': 2,
+        'biblioteca': 4,
     }
 
     for poi_type, count in poi_counts.items():
@@ -962,95 +1013,7 @@ def calculate_rank_for_point(poi_counts, user_preferences):
     if poi_counts.get('stazioni_ferroviarie', 0) >= 1 and poi_counts.get('fermate_bus', 0) >= 1:
         rank += 15  # Bonus per intermodalità
 
-    if poi_counts.get('servizi', 0) >= 1 and poi_counts.get('farmacia', 0) >= 1:
-        rank += 10  # Bonus per servizi complementari
-
-    # Normalizzazione più bilanciata
-    max_theoretical = sum(pesi.values()) * 5 * 20  # Punteggio teorico massimo base
-    max_theoretical += 50  # Aggiungi spazio per i bonus
-    normalized_rank = (rank / max_theoretical) * 100  # Scala da 0 a 100
-
-    # Applicazione curve più graduale
-    if normalized_rank > 70:
-        normalized_rank = 70 + (normalized_rank - 70) * 0.8
-    
-    return min(round(normalized_rank, 2), 100)  # Arrotonda a 2 decimali e limita a 100
-  
-
-def calculate_rank_for_point(poi_counts, user_preferences):
-    """
-    Calcola il rank di un punto con una normalizzazione più bilanciata
-    """
-    if not user_preferences or not poi_counts:
-        return 0
-
-    rank = 0
-    
-    # Pesi base per ciascun tipo di POI
-    pesi = {
-        'aree_verdi': 1.0,
-        'parcheggi': 1.0,
-        'fermate_bus': 1.0,
-        'stazioni_ferroviarie': 1.2,  # Peso maggiore per servizi importanti
-        'scuole': 1.1,
-        'cinema': 0.7,
-        'ospedali': 1.2,
-        'farmacia': 0.9,
-        'luogo_culto': 0.6,
-        'servizi': 0.8,
-    }
-
-    # Soglie massime per tipo di POI (oltre queste il bonus diminuisce)
-    max_counts = {
-        'aree_verdi': 3,
-        'parcheggi': 4,
-        'fermate_bus': 5,
-        'stazioni_ferroviarie': 2,
-        'scuole': 3,
-        'cinema': 2,
-        'ospedali': 2,
-        'farmacia': 3,
-        'luogo_culto': 2,
-        'servizi': 4,
-    }
-
-    for poi_type, count in poi_counts.items():
-        if poi_type not in pesi or poi_type not in max_counts:
-            continue
-
-        preferenza = user_preferences.get(poi_type, 0)
-        if preferenza == 0:
-            continue
-
-        peso_base = pesi[poi_type]
-        max_count = max_counts[poi_type]
-        
-        if count > 0:
-            # Calcolo base del punteggio con diminishing returns
-            normalized_count = min(count, max_count) / max_count
-            base_score = preferenza * peso_base * normalized_count * 20
-
-            # Bonus per ogni POI aggiuntivo oltre il primo, ma con diminishing returns
-            if count > 1:
-                additional_bonus = min(count - 1, max_count - 1) * 5
-                base_score += additional_bonus
-
-            # Gestione bonus densità
-            if poi_type == 'aree_verdi' and count >= 2:
-                density_bonus = user_preferences.get('densita_aree_verdi', 0) * 8
-                base_score += density_bonus
-
-            if poi_type == 'fermate_bus' and count >= 2:
-                density_bonus = user_preferences.get('densita_fermate_bus', 0) * 8
-                base_score += density_bonus
-
-            rank += base_score
-
-    # Bonus per combinazioni strategiche
-    if poi_counts.get('stazioni_ferroviarie', 0) >= 1 and poi_counts.get('fermate_bus', 0) >= 1:
-        rank += 15  # Bonus per intermodalità
-
-    if poi_counts.get('servizi', 0) >= 1 and poi_counts.get('farmacia', 0) >= 1:
+    if poi_counts.get('biblioteca', 0) >= 1 and poi_counts.get('farmacia', 0) >= 1:
         rank += 10  # Bonus per servizi complementari
 
     # Normalizzazione più bilanciata
@@ -1113,49 +1076,11 @@ def calculate_rank(poi_counts, user_preferences):
         'cinema': 0.6,
         'ospedali': 1.0,
         'farmacia': 0.5,
-        'luogo_culto': 0.2,
-        'servizi': 0.4,
+        'colonnina_elettrica': 0.2,
+        'biblioteca': 0.4,
     }
     return sum(count * user_preferences.get(poi_type, 0) * weights.get(poi_type, 1)
                for poi_type, count in poi_counts.items())
-
-def precalculate_scores():
-    bounds = get_bologna_bounds()
-    extended_bounds = {
-        'min_lat': bounds['min_lat'] - 0.1,
-        'max_lat': bounds['max_lat'] + 0.1,
-        'min_lon': bounds['min_lon'] - 0.1,
-        'max_lon': bounds['max_lon'] + 0.1
-    }
-    grid_points = create_grid(extended_bounds, PRECALC_GRID_SIZE)
-    
-    for lat, lon in grid_points:
-        lat, lon = float(lat), float(lon)
-        counts = count_pois_near_point(lat, lon, 1000)
-        precalculated_scores[(lat, lon)] = counts
-    
-    print(f"Precalcolo completato. Punti calcolati: {len(precalculated_scores)}")
-
-def get_nearest_precalc_point(lat, lon):
-    return min(precalculated_scores.keys(), 
-               key=lambda p: (float(p[0])-float(lat))**2 + (float(p[1])-float(lon))**2)
-
-def precalculate_poi_counts(grid_points, radius):
-    all_poi_counts = []
-    for lat, lon in grid_points:
-        point = f'POINT({lon} {lat})'
-        poi_counts = db.session.query(
-            POI.type,
-            func.count(POI.id).label('count')
-        ).filter(
-            ST_DWithin(
-                ST_Transform(POI.location, 3857),
-                ST_Transform(func.ST_GeomFromText(point, 4326), 3857),
-                radius
-            )
-        ).group_by(POI.type).all()
-        all_poi_counts.append(dict(poi_counts))
-    return all_poi_counts
 
 
 @utils_bp.route('/calculate_optimal_locations', methods=['GET'])
@@ -1407,7 +1332,6 @@ def calculate_morans_i():
         return jsonify({'error': str(e)}), 500
     
 
-
 @utils_bp.route('/api/filters', methods=['POST'])
 def save_and_return_filters():
     try:
@@ -1429,163 +1353,196 @@ def save_and_return_filters():
         return jsonify({"error": str(e)}), 400  # Errore generico in caso di eccezione
     
 
-def calculate_travel_time(start_coords, end_coords, transport_mode):
-    """Calcola il tempo di percorrenza tra due punti usando OSRM."""
-    logging.debug(f"Calculating travel time from {start_coords} to {end_coords} using {transport_mode}")
-    base_url = "http://router.project-osrm.org/route/v1"
-    url = f"{base_url}/{transport_mode}/{start_coords[0]},{start_coords[1]};{end_coords[0]},{end_coords[1]}"
-    params = {
-        "overview": "false",
-        "alternatives": "false",
-    }
-    response = requests.get(url, params=params)
-    data = response.json()
-    if response.status_code == 200 and data["code"] == "Ok":
-        duration_seconds = data["routes"][0]["duration"]
-        return duration_seconds / 60  # Converti in minuti
-    else:
-        logging.error(f"OSRM API error: {data}")
-        raise Exception("Errore nel calcolo del percorso")
-    
-CACHE_SIZE = 1000  # Numero di risultati da mantenere in cache
-BATCH_SIZE = 25    # Aumenta o diminuisci in base ai limiti dell'API
-MAX_WORKERS = 4
-STARTING_COORDS = (44.4947, 11.3432)
-
-import requests
-from functools import lru_cache
-import logging
-from concurrent.futures import ThreadPoolExecutor
-import json
-from typing import List, Tuple, Dict
-
-@lru_cache(maxsize=CACHE_SIZE)
-def get_cached_travel_time(start_lat: float, start_lng: float, end_lat: float, end_lng: float, transport_mode: str) -> float:
-    """Versione cached del calcolo del tempo di viaggio per singola destinazione"""
-    coordinates = f"{start_lng},{start_lat};{end_lng},{end_lat}"
-    url = f"http://router.project-osrm.org/route/v1/{transport_mode}/{coordinates}"
-    params = {"overview": "false", "alternatives": "false"}
-    
-    try:
-        response = requests.get(url, params=params)
-        data = response.json()
-        if response.status_code == 200 and data["code"] == "Ok":
-            return data["routes"][0]["duration"] / 60
-        return float('inf')  # Ritorna infinito se non è possibile calcolare il percorso
-    except Exception as e:
-        logging.error(f"Error in get_cached_travel_time: {e}")
-        return float('inf')
-
-def calculate_batch_travel_times(start_coords: Tuple[float, float], 
-                               destinations: List[Dict],
-                               transport_mode: str = "driving",
-                               batch_size: int = 25,
-                               max_workers: int = 4) -> Dict[int, float]:
+def calculate_travel_time_batch(start_coords, destinations, transport_mode, batch_size=10):
     """
-    Calcola i tempi di viaggio per più destinazioni in parallelo utilizzando batch.
-    
-    Args:
-        start_coords: (lat, lng) delle coordinate di partenza
-        destinations: Lista di dizionari contenenti i POI con 'id', 'lat', 'lng'
-        transport_mode: Modalità di trasporto (default: "driving")
-        batch_size: Dimensione del batch per le richieste OSRM
-        max_workers: Numero massimo di thread paralleli
-    
-    Returns:
-        Dict[int, float]: Dizionario con ID del POI come chiave e tempo di viaggio in minuti come valore
+    Calcola il tempo di percorrenza per gruppi di destinazioni più piccoli.
     """
-    start_lat, start_lng = start_coords
+    all_travel_times = {}
     
-    def process_destination(dest):
-        poi_id = dest['id']
-        travel_time = get_cached_travel_time(
-            start_lat, start_lng,
-            float(dest['lat']), float(dest['lng']),
-            transport_mode
-        )
-        return poi_id, travel_time
-    
-    results = {}
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Processa le destinazioni in batch
-        for i in range(0, len(destinations), batch_size):
-            batch = destinations[i:i + batch_size]
-            futures = [executor.submit(process_destination, dest) for dest in batch]
+    for i in range(0, len(destinations), batch_size):
+        batch = destinations[i:i + batch_size]
+        
+        try:
+            # Costruisci la stringa delle coordinate
+            coords = [f"{start_coords[1]:.6f},{start_coords[0]:.6f}"]
+            for lat, lon in batch:
+                coords.append(f"{lon:.6f},{lat:.6f}")
             
-            for future in futures:
-                poi_id, travel_time = future.result()
-                results[poi_id] = travel_time
+            coordinates_str = ";".join(coords)
+            url = f"http://router.project-osrm.org/table/v1/{transport_mode}/{coordinates_str}"
+            
+            # Costruisci la stringa delle destinazioni
+            destinations_str = ",".join(str(j) for j in range(1, len(coords)))
+            
+            params = {
+                "sources": "0",
+                "destinations": destinations_str,
+                "annotations": "duration"
+            }
+            
+            logging.debug(f"Requesting URL: {url}, params: {params}")
+            response = requests.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("code") == "Ok":
+                    durations = data["durations"][0]
+                    for idx, duration in enumerate(durations):
+                        all_travel_times[i + idx] = duration / 60  # Converti in minuti
+                else:
+                    logging.error(f"OSRM API error for batch {i}: {data}")
+                    for idx in range(len(batch)):
+                        all_travel_times[i + idx] = float('inf')
+            else:
+                logging.error(f"HTTP error {response.status_code} for batch {i}")
+                for idx in range(len(batch)):
+                    all_travel_times[i + idx] = float('inf')
                 
-    return results
+        except Exception as e:
+            logging.error(f"Error processing batch {i}: {str(e)}")
+            for idx in range(len(batch)):
+                all_travel_times[i + idx] = float('inf')
+            continue
+        
+        # Aggiungi un piccolo ritardo tra le richieste per non sovraccaricare il server
+        time.sleep(0.1)
+    
+    return all_travel_times
 
 @utils_bp.route('/api/filter_pois/<poi_type>', methods=['GET'])
 def get_pois_by_type_and_travel_time(poi_type):
     """
-    Returns all POIs of a given type that are within the specified travel time.
+    Restituisce i POI di un determinato tipo filtrati per tempo di viaggio,
+    sfruttando gli indici spaziali compositi e funzionali.
     """
     try:
-        # Query per ottenere tutti i POI del tipo specificato
-        pois = POI.query.filter_by(type=poi_type).all()
-        logging.info(f"Found {len(pois)} POIs of type {poi_type}")
+        global saved_filters
+        logging.info(f"Filtri correnti: {saved_filters}")
         
-        # Prepara la lista dei POI con le coordinate
-        destinations = []
-        poi_map = {}  # Mappa per mantenere i dati completi dei POI
+        if not saved_filters["distanceEnabled"]:
+            return get_pois_by_type(poi_type)
         
-        for poi in pois:
-            try:
-                point = to_shape(poi.location)
-                poi_data = {
-                    'id': poi.id,
-                    'lat': point.y,
-                    'lng': point.x,
-                }
-                destinations.append(poi_data)
-                
-                # Salva i dati completi del POI
-                complete_poi_data = {
-                    'id': poi.id,
-                    'type': poi_type,
-                    'lat': point.y,
-                    'lng': point.x,
-                }
-                
-                if poi.additional_data:
-                    try:
-                        additional_data = json.loads(poi.additional_data)
-                        complete_poi_data['properties'] = additional_data
-                    except json.JSONDecodeError:
-                        logging.error(f"Error parsing additional data for POI {poi.id}")
-                        complete_poi_data['properties'] = {}
-                        
-                poi_map[poi.id] = complete_poi_data
-                
-            except Exception as e:
-                logging.error(f"Error processing POI {poi.id}: {str(e)}")
-                continue
+        # Centro di Bologna
+        start_coords = (44.4949, 11.3426)
         
-        # Calcola i tempi di viaggio in batch
-        travel_times = calculate_batch_travel_times(
-            start_coords=STARTING_COORDS,
-            destinations=destinations,
-            transport_mode=saved_filters['travelMode']
+        # Stima delle velocità medie per modalità di trasporto
+        estimated_speed = {
+            'walking': 83,     # ~5km/h -> 83m/min
+            'cycling': 250,    # ~15km/h -> 250m/min
+            'driving': 500     # ~30km/h in città -> 500m/min
+        }
+        
+        # Calcola il raggio del buffer basato sul tempo e modalità
+        max_radius = estimated_speed[saved_filters["travelMode"]] * saved_filters["travelTime"]
+        
+        # Query ottimizzata che sfrutta entrambi gli indici
+        query = text("""
+            WITH center_point AS (
+                SELECT ST_Transform(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), 3857) as center_3857
+            ),
+            prefiltered_pois AS (
+                SELECT 
+                    poi.id,
+                    poi.location,
+                    poi.additional_data,
+                    ST_Distance(
+                        ST_Transform(poi.location, 3857),
+                        cp.center_3857
+                    ) as distance_meters
+                FROM points_of_interest poi
+                CROSS JOIN center_point cp
+                WHERE poi.type = :poi_type  -- Usa l'indice composito idx_poi_type_location
+                AND ST_DWithin(
+                    ST_Transform(poi.location, 3857),  -- Usa l'indice idx_poi_location_3857
+                    cp.center_3857,
+                    :max_radius
+                )
+            )
+            SELECT 
+                id,
+                ST_X(location::geometry) as longitude,
+                ST_Y(location::geometry) as latitude,
+                additional_data,
+                distance_meters
+            FROM prefiltered_pois
+            ORDER BY distance_meters
+        """)
+        
+        # Esegui la query con i parametri
+        result = db.session.execute(query, {
+            'lon': start_coords[1],
+            'lat': start_coords[0],
+            'poi_type': poi_type,
+            'max_radius': max_radius
+        })
+        
+        # Prepara i dati pre-filtrati
+        pois_data = []
+        poi_coords = []
+        
+        for row in result:
+            poi_data = {
+                'id': row.id,
+                'type': poi_type,
+                'lat': float(row.latitude),
+                'lng': float(row.longitude),
+                'distance': float(row.distance_meters)
+            }
+            
+            if row.additional_data:
+                try:
+                    additional_data = json.loads(row.additional_data)
+                    poi_data['properties'] = additional_data
+                except json.JSONDecodeError:
+                    logging.error(f"Errore nel parsing dei dati addizionali per POI {row.id}")
+                    poi_data['properties'] = {}
+            
+            pois_data.append(poi_data)
+            poi_coords.append((float(row.latitude), float(row.longitude)))
+        
+        logging.info(f"Pre-filtrati {len(pois_data)} POI usando indici spaziali compositi")
+        
+        if not pois_data:
+            return jsonify({
+                'status': 'success',
+                'count': 0,
+                'data': []
+            })
+        
+        # Calcola i tempi di viaggio effettivi in batch
+        travel_times = calculate_travel_time_batch(
+            start_coords, 
+            poi_coords,
+            saved_filters["travelMode"],
+            batch_size=10
         )
         
-        # Filtra i POI in base al tempo di viaggio
-        filtered_pois = [
-            poi_map[poi_id] for poi_id, travel_time in travel_times.items()
-            if travel_time <= saved_filters['travelTime']
-        ]
+        # Filtra e ordina i POI per tempo di viaggio
+        filtered_pois = []
+        for i, time in travel_times.items():
+            if time <= saved_filters["travelTime"]:
+                poi = pois_data[i]
+                poi['travel_time'] = time
+                filtered_pois.append(poi)
         
-        logging.info(f"Returning {len(filtered_pois)} filtered POIs")
+        # Ordina per tempo di viaggio
+        filtered_pois.sort(key=lambda x: x['travel_time'])
+        
+        logging.info(f"Restituisco {len(filtered_pois)} POI filtrati per tempo di viaggio effettivo")
+        
         return jsonify({
             'status': 'success',
             'count': len(filtered_pois),
-            'data': filtered_pois
+            'data': filtered_pois,
+            'query_info': {
+                'estimated_radius': max_radius,
+                'prefiltered_count': len(pois_data),
+                'final_count': len(filtered_pois)
+            }
         })
         
     except Exception as e:
-        logging.error(f"General error in get_pois_by_type_and_travel_time: {str(e)}")
+        logging.error(f"Errore generale in get_pois_by_type_and_travel_time: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': str(e)
