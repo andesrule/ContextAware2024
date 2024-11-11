@@ -44,8 +44,7 @@
          <div id="loadingOverlay" class="hidden">
             <div class="loading-spinner"></div>
             <p>Calcolo delle posizioni ottimali in corso...</p>
-          </div>
-          
+         </div>
          <!-- Pannello di controllo -->
          <div id="controlPanel" class="text-white bg-base-200 dark">
             <div class="p-4 space-y-4">
@@ -53,13 +52,13 @@
                <div class="collapse collapse-arrow bg-base-300">
                   <input type="checkbox" class="peer" checked /> 
                   <div class="collapse-title text-xl font-bold">
-                    Alerts
+                     Alerts
                   </div>
                   <div class="collapse-content" id="alertsSection">
-                    <div id="alertsContainer">
-                    </div>
+                     <div id="alertsContainer">
+                     </div>
                   </div>
-                </div>
+               </div>
                <!-- Sezione Pannello di Controllo -->
                <div class="collapse collapse-arrow bg-base-300">
                   <input type="checkbox" checked /> 
@@ -68,48 +67,77 @@
                   </div>
                   <div class="collapse-content">
                      <div class="space-y-4">
+                        <!-- Sostituisci la sezione dell'Indice di Moran attuale con questa -->
                         <label for="radiusSlider" class="block text-sm font-medium text-white">
                         Raggio del vicinato: <span id="radiusValue">500</span> m
                         </label>
                         <input type="range" min="50" max="1000" value="500" class="range range-primary" id="radiusSlider">
-                        
-                           <h2 class="block text-sm font-medium text-white">Indice di Moran</h2>
-                           <div class="moran-values">
-                               <div>Prezzi: <span id="moranPrices">-</span></div>
-                               <div>Densità POI: <span id="moranPoi">-</span></div>
+                        <div class="divider">Analisi di Clustering Spaziale</div>
+                        <div class="space-y-4">
+                           <!-- Indice di Moran per i Prezzi -->
+                           <div class="bg-base-200 rounded-lg p-3">
+                              <div class="flex justify-between items-center mb-2">
+                                 <span class="font-medium">Clustering dei Prezzi</span>
+                                 <span id="moranPrices" class="text-lg font-bold">-</span>
+                              </div>
+                              <div class="text-sm opacity-75">
+                                 Un valore positivo indica che immobili con prezzi simili sono raggruppati
+                              </div>
                            </div>
-                           <div class="moran-stats">
-                               <div>Media prezzi: <span id="avgPrice">-</span></div>
-                               <div>Immobili: <span id="numImmobili">-</span></div>
+                           <!-- Indice di Moran per i POI -->
+                           <div class="bg-base-200 rounded-lg p-3">
+                              <div class="flex justify-between items-center mb-2">
+                                 <span class="font-medium">Clustering dei POI</span>
+                                 <span id="moranPoi" class="text-lg font-bold">-</span>
+                              </div>
+                              <div class="text-sm opacity-75">
+                                 Un valore positivo indica concentrazione di servizi in certe aree
+                              </div>
                            </div>
-                       
+                           <!-- Legenda dei valori -->
+                           <div class="text-sm bg-base-200 rounded-lg p-3">
+                              <div class="font-medium mb-1">Interpretazione dei valori:</div>
+                              <div class="grid grid-cols-1 gap-1">
+                                 <div class="flex items-center gap-2">
+                                    <span class="text-green-500">●</span> Positivo (> 0): Presenza di clustering
+                                 </div>
+                                 <div class="flex items-center gap-2">
+                                    <span class="text-yellow-500">●</span> Vicino a 0: Distribuzione casuale
+                                 </div>
+                                 <div class="flex items-center gap-2">
+                                    <span class="text-red-500">●</span> Negativo (< 0): Dispersione uniforme
+                                 </div>
+                              </div>
+                           </div>
+                           <!-- Info base -->
+                           <div class="text-sm opacity-75 text-center">
+                              Immobili analizzati: <span id="numImmobili" class="font-medium">-</span>
+                           </div>
+                        </div>
                         <div class="divider">Filtri</div>
-                               <div class="form-control">
-                                   <label class="label cursor-pointer">
-                                       <span class="label-text">Filtra Per Distanza</span>
-                                       <input type="checkbox" class="toggle toggle-primary" id="distanceToggle" />
-                                   </label>
-                               </div>
-                               <div class="form-control mt-4">
-                                   <label class="label">
-                                       <span class="label-text">Modalità di Viaggio</span>
-                                   </label>
-                                   <select class="select select-bordered w-full max-w-xs" id="travelMode">
-                                       <option value="driving">In auto</option>
-                                       <option value="walking">A piedi</option>
-                                       <option value="cycling">In bicicletta</option>
-                                   </select>
-                                   <label class="label">
-                                    <span class="label-text">Tempo Di Percorrenza</span>
-                                   </label>
-                                 
-                                    <input type="range" min="5" id="filterTime" max="20" step="5" name="parcheggi" class="range range-primary">
-                                    <div class="w-full flex justify-between text-xs px-2">
-                                       <span>5</span><span>10</span><span>15</span><span>20</span>
-                                    </div>
-                               </div>
-                           
-                      
+                        <div class="form-control">
+                           <label class="label cursor-pointer">
+                           <span class="label-text">Filtra Per Distanza</span>
+                           <input type="checkbox" class="toggle toggle-primary" id="distanceToggle" />
+                           </label>
+                        </div>
+                        <div class="form-control mt-4">
+                           <label class="label">
+                           <span class="label-text">Modalità di Viaggio</span>
+                           </label>
+                           <select class="select select-bordered w-full max-w-xs" id="travelMode">
+                              <option value="driving">In auto</option>
+                              <option value="walking">A piedi</option>
+                              <option value="cycling">In bicicletta</option>
+                           </select>
+                           <label class="label">
+                           <span class="label-text">Tempo Di Percorrenza</span>
+                           </label>
+                           <input type="range" min="5" id="filterTime" max="20" step="5" name="parcheggi" class="range range-primary">
+                           <div class="w-full flex justify-between text-xs px-2">
+                              <span>5</span><span>10</span><span>15</span><span>20</span>
+                           </div>
+                        </div>
                         <!-- POI Toggle Grid -->
                         <div class="divider">POI Rapidi</div>
                         <div class="grid grid-cols-2 gap-2">
@@ -310,8 +338,8 @@
                         Invia Risposte
                         </button>
                         <button type="button" id="calculateOptimalPositions" class="btn btn-primary w-full mt-4 hidden">
-                           Calcola Posizioni Ottimali
-                       </button>
+                        Calcola Posizioni Ottimali
+                        </button>
                      </form>
                   </div>
                </div>
@@ -325,6 +353,5 @@
       <script src="db_test_map.js" defer></script>
       <script src="script.js"></script>
       <script src="test_map.js" defer></script>
-
    </body>
 </html>
