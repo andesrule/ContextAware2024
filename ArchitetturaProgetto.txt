@@ -20,13 +20,14 @@
 │   ├── db_test_map.js
 │   ├── Dockerfilefe
 │   ├── index.html
+│   ├── js
 │   ├── mapControls.js
-│   ├── map.js
 │   ├── poiManager.js
 │   ├── questionario.js
 │   ├── script.js
 │   ├── styles.css
-│   └── tailwind.config.js
+│   ├── tailwind.config.js
+│   └── test_map.js
 ├── init-postgis.sql
 ├── k8s
 │   ├── backend-deployment.yml
@@ -34,5 +35,4 @@
 │   ├── frontend-deployment.yml
 │   └── postgres-pvc.yml
 └── README.md
-
 

@@ -1,10 +1,7 @@
 import { 
     poiConfigs,
     initializePOIControls,
-    togglePOI,
-    getCustomIcon,
-    poiLayers
-    
+    initializePOILayers,
 } from './poiManager.js';  
 
 // Inizializza la mappa centrata su Bologna
@@ -72,10 +69,24 @@ let drawControl = new L.Control.Draw({
 map.addControl(drawControl);
 
 
+
+
+
+
+
+
+
+
 document.addEventListener('DOMContentLoaded', function() {
+    initializePOILayers();
     initializePOIControls(map, showToast);
 });
 
+
+
+
+
+    
 function showNoQuestionnaireAlert() {
     // Espandi la sezione degli alert
     const alertsSection = document.getElementById('alertsSection');
