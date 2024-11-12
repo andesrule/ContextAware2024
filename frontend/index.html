@@ -46,34 +46,28 @@
             <p>Calcolo delle posizioni ottimali in corso...</p>
          </div>
          <!-- Pannello di controllo -->
-         <div id="controlPanel" class="text-white bg-base-200 dark overflow-y-auto max-h-screen">
+         <div id="controlPanel" class="text-white bg-base-200 dark">
             <div class="p-4 space-y-4">
-               <!-- Sezione Alert -->
-               
+               <!-- Sezione Alert (inizialmente nascosta) -->
                <div class="collapse collapse-arrow bg-base-300">
-                  <input type="checkbox" id="alertsToggle" />
+                  <input type="checkbox" class="peer" checked /> 
                   <div class="collapse-title text-xl font-bold">
                      Alerts
                   </div>
-                  <div class="collapse-content">
-                     <!-- Aggiungi un container con scroll per gli alerts -->
-                     <div id="alertsContainer" class="max-h-60 overflow-y-auto">
-                        <!-- Gli alerts verranno inseriti qui dinamicamente -->
+                  <div class="collapse-content" id="alertsSection">
+                     <div id="alertsContainer">
                      </div>
                   </div>
                </div>
-
-
-
-
                <!-- Sezione Pannello di Controllo -->
                <div class="collapse collapse-arrow bg-base-300">
-                  <input type="checkbox" checked/> 
+                  <input type="checkbox" checked /> 
                   <div class="collapse-title text-xl font-bold">
                      Pannello di Controllo
                   </div>
                   <div class="collapse-content">
                      <div class="space-y-4">
+                        <!-- Sostituisci la sezione dell'Indice di Moran attuale con questa -->
                         <label for="radiusSlider" class="block text-sm font-medium text-white">
                         Raggio del vicinato: <span id="radiusValue">500</span> m
                         </label>
@@ -146,54 +140,54 @@
                         </div>
                         <!-- POI Toggle Grid -->
                         <div class="divider">POI Rapidi</div>
-                        <div class="grid grid-cols-2 gap-2" id="poiGrid">
-                           <button class="poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white" data-poi-type="aree_verdi">
-                               <span class="poi-emoji">🌳</span>
-                               <span class="poi-label">Aree Verdi</span>
+                        <div class="grid grid-cols-2 gap-2">
+                           <button id="aree_verdi" onclick="togglePOI(this, 'aree_verdi')" class="quick-setting-btn btn  gap-2 flex-col h-24 normal-case">
+                           <i class="text-2xl">🌳</i>
+                           <span>Aree Verdi</span>
                            </button>
-                           <button class="poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white" data-poi-type="parcheggi">
-                               <span class="poi-emoji">🅿️</span>
-                               <span class="poi-label">Parcheggi</span>
+                           <button id="parcheggi" onclick="togglePOI(this, 'parcheggi')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
+                           <i class="text-2xl">🅿️</i>
+                           <span>Parcheggi</span>
                            </button>
-                           <button class="poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white" data-poi-type="fermate_bus">
-                               <span class="poi-emoji">🚌</span>
-                               <span class="poi-label">Fermate Bus</span>
+                           <button id="fermate_bus" onclick="togglePOI(this, 'fermate_bus')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
+                           <i class="text-2xl">🚌</i>
+                           <span>Fermate Bus</span>
                            </button>
-                           <button class="poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white" data-poi-type="stazioni_ferroviarie">
-                               <span class="poi-emoji">🚉</span>
-                               <span class="poi-label">Stazioni</span>
+                           <button id="stazioni_ferroviarie" onclick="togglePOI(this, 'stazioni_ferroviarie')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
+                           <i class="text-2xl">🚉</i>
+                           <span>Stazioni</span>
                            </button>
-                           <button class="poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white" data-poi-type="scuole">
-                               <span class="poi-emoji">🏫</span>
-                               <span class="poi-label">Scuole</span>
+                           <button id="scuole" onclick="togglePOI(this, 'scuole')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
+                           <i class="text-2xl">🏫</i>
+                           <span>Scuole</span>
                            </button>
-                           <button class="poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white" data-poi-type="cinema">
-                               <span class="poi-emoji">🎬</span>
-                               <span class="poi-label">Cinema</span>
+                           <button id="cinema" onclick="togglePOI(this, 'cinema')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
+                           <i class="text-2xl">🎬</i>
+                           <span>Cinema</span>
                            </button>
-                           <button class="poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white" data-poi-type="ospedali">
-                               <span class="poi-emoji">🏥</span>
-                               <span class="poi-label">Ospedali</span>
+                           <button id="ospedali" onclick="togglePOI(this, 'ospedali')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
+                           <i class="text-2xl">🏥</i>
+                           <span>Ospedali</span>
                            </button>
-                           <button class="poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white" data-poi-type="farmacia">
-                               <span class="poi-emoji">💊</span>
-                               <span class="poi-label">Farmacia</span>
+                           <button id="farmacia" onclick="togglePOI(this, 'farmacia')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
+                           <i class="text-2xl">💊</i>
+                           <span>Farmacia</span>
                            </button>
-                           <button class="poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white" data-poi-type="colonnina_elettrica">
-                               <span class="poi-emoji">⚡</span>
-                               <span class="poi-label">Colonnina Elettrica</span>
+                           <button id="colonnina_elettrica" onclick="togglePOI(this, 'colonnina_elettrica')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
+                              <i class="text-2xl">⚡</i>
+                           <span>Colonnina Elettrica</span>
                            </button>
-                           <button class="poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white" data-poi-type="biblioteca">
-                               <span class="poi-emoji">🏢</span>
-                               <span class="poi-label">Biblioteca</span>
+                           <button id="biblioteca" onclick="togglePOI(this, 'biblioteca')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
+                           <i class="text-2xl">🏢</i>
+                           <span>Biblioteca</span>
                            </button>
-                       </div>
+                        </div>
                      </div>
                   </div>
                </div>
                <!-- Questionario Preferenze -->
-               <div class="collapse collapse-arrow bg-base-300" id="questionnaireCollapse">
-                  <input type="checkbox" id="questionnaireToggle" /> 
+               <div class="collapse collapse-arrow bg-base-300">
+                  <input type="checkbox" checked /> 
                   <div class="collapse-title text-xl font-bold">
                      Questionario Preferenze
                   </div>
@@ -329,26 +323,23 @@
                         </div>
                         <!-- Navigazione tra le pagine -->
                         <div class="flex justify-between mt-4">
-                           <button id="prevButton" class="btn btn-outline btn-sm" onclick="previousPage()">
-                               Precedente
+                           <button type="button" onclick="previousPage()" class="btn btn-primary" id="prevButton" disabled>
+                           Precedente
                            </button>
-                           
                            <div class="flex gap-2 items-center">
-                               <span id="currentPage">1</span> / <span id="totalPages">4</span>
+                              <span id="currentPage">1</span> / <span id="totalPages">4</span>
                            </div>
-                           
-                           <button id="nextButton" class="btn btn-outline btn-sm" onclick="nextPage()">
-                               Successiva
+                           <button type="button" onclick="nextPage()" class="btn btn-primary" id="nextButton">
+                           Successiva
                            </button>
-                       </div>
-               
-                       <button id="submitButton" class="btn btn-primary w-full mt-4" onclick="submitForm()">
-                           Invia Risposte
-                       </button>
-               
-                       <button id="calculateOptimalPositions" class="btn btn-success w-full mt-2">
-                           Calcola Posizioni Ottimali
-                       </button>
+                        </div>
+                        <!-- Pulsante di invio (visibile solo nell'ultima pagina) -->
+                        <button type="button" onclick="submitForm()" class="btn btn-primary w-full mt-4 hidden" id="submitButton">
+                        Invia Risposte
+                        </button>
+                        <button type="button" id="calculateOptimalPositions" class="btn btn-primary w-full mt-4 hidden">
+                        Calcola Posizioni Ottimali
+                        </button>
                      </form>
                   </div>
                </div>
