@@ -122,10 +122,9 @@ function createMarkerClusterGroup() {
         iconCreateFunction: createClusterCustomIcon
     });
 }
-let poiLayers = Object.fromEntries(
+export let poiLayers = Object.fromEntries(
     Object.keys(poiConfigs).map(type => [type, createMarkerClusterGroup()])
 );
-
 
 
 // Funzione per ottenere un'icona personalizzata per ogni tipo di POI
@@ -140,47 +139,24 @@ export function getCustomIcon(poiType) {
     });
 }
 
-// Inizializza i layer dei POI
-export function initializePOILayers() {
-    Object.keys(poiConfigs).forEach(poiType => {
-        poiLayers[poiType] = L.markerClusterGroup({
-            showCoverageOnHover: false,
-            zoomToBoundsOnClick: true,
-            spiderfyOnMaxZoom: true,
-            removeOutsideVisibleBounds: true,
-            iconCreateFunction: createClusterCustomIcon
-        });
-    });
-}
 
-// Funzione per inizializzare i controlli POI nel pannello di controllo
+//add listener to poi buttons
 export function initializePOIControls(map, showToast) {
-    const poiGrid = document.querySelector('.grid.grid-cols-2.gap-2');
+    const poiGrid = document.querySelector('#poiGrid');  // Aggiungi questa riga
     if (!poiGrid) {
         console.error('Grid container per i POI non trovato');
         return;
     }
 
-    poiGrid.innerHTML = '';
-
-    Object.entries(poiConfigs).forEach(([poiType, config]) => {
-        const button = document.createElement('button');
-        button.className = 'poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white';
-        button.innerHTML = `
-            <span class="poi-emoji">${config.emoji}</span>
-            <span class="poi-label">${config.label}</span>
-        `;
-        
+    poiGrid.querySelectorAll('button[data-poi-type]').forEach(button => {
         button.addEventListener('click', function() {
             this.classList.toggle('active');
+            const poiType = this.getAttribute('data-poi-type');
             togglePOI(poiType, this.classList.contains('active'), map, showToast);
         });
-
-        poiGrid.appendChild(button);
     });
 }
 
-// Funzione per gestire il toggle dei POI
 export function togglePOI(poiType, show, map, showToast) {
     if (show) {
         if (!poiLayers[poiType] || poiLayers[poiType].getLayers().length === 0) {
@@ -188,14 +164,9 @@ export function togglePOI(poiType, show, map, showToast) {
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success' && data.data.length > 0) {
+                        // Usa createMarkerClusterGroup() se il layer non esiste
                         if (!poiLayers[poiType]) {
-                            poiLayers[poiType] = L.markerClusterGroup({
-                                showCoverageOnHover: false,
-                                zoomToBoundsOnClick: true,
-                                spiderfyOnMaxZoom: true,
-                                removeOutsideVisibleBounds: true,
-                                iconCreateFunction: createClusterCustomIcon
-                            });
+                            poiLayers[poiType] = createMarkerClusterGroup();
                         }
 
                         data.data.forEach(poi => {

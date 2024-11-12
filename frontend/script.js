@@ -120,14 +120,20 @@ function createAlert(message, type = 'warning') {
     // Aggiungi l'alert
     alertsContainer.insertAdjacentHTML('beforeend', alertHTML);
 
-    // Mostra la sezione alerts
-    const alertsSection = document.getElementById('alertsSection');
-    alertsSection.style.display = 'block';
+    // Scorri automaticamente al nuovo alert
+    alertsContainer.scrollTop = alertsContainer.scrollHeight;
 
+    // Mostra l'alert con animazione
     setTimeout(() => {
         const newAlert = alertsContainer.lastElementChild;
         newAlert.classList.add('show');
     }, 100);
+
+    // Verifica se il toggle è aperto, altrimenti aprilo
+    const alertsToggle = document.getElementById('alertsToggle');
+    if (alertsToggle && !alertsToggle.checked) {
+        alertsToggle.checked = true;
+    }
 }
 
 
@@ -401,3 +407,23 @@ function addMarker(e) {
     originalAddMarker(e);
     updateMoranIndex(); // Aggiorna l'indice dopo aver aggiunto un marker
 }
+
+
+
+
+//dropdown questionario 
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestione del toggle del questionario
+    const questionnaireToggle = document.getElementById('questionnaireToggle');
+    
+    // Se vuoi che il questionario sia aperto all'inizio
+    if (questionnaireToggle) {
+        questionnaireToggle.checked = true;
+        
+        // Aggiungi listener per gestire il toggle
+        questionnaireToggle.addEventListener('change', function() {
+            // Puoi aggiungere qui logica aggiuntiva se necessario
+            console.log('Questionario toggle:', this.checked);
+        });
+    }
+});
