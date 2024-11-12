@@ -8,12 +8,6 @@ from geoalchemy2.functions import ST_Transform
 db = SQLAlchemy()
 
 
-class User(db.Model):
-    __tablename__ = 'user'
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    content_poi = db.Column(ARRAY(db.String), nullable=False)
-
-
 class ListaImmobiliCandidati(db.Model):
     __tablename__ = 'lista_immobili_candidati'
     id = db.Column(db.Integer, primary_key=True)
@@ -35,7 +29,6 @@ class ListaAreeCandidate(db.Model):
 
 class QuestionnaireResponse(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
     aree_verdi = db.Column(db.Integer)
     parcheggi = db.Column(db.Integer)
     fermate_bus = db.Column(db.Integer)
@@ -49,7 +42,6 @@ class QuestionnaireResponse(db.Model):
     densita_aree_verdi = db.Column(db.Integer)
     densita_fermate_bus = db.Column(db.Integer)
 
-    user = db.relationship('User', backref=db.backref('questionnaire', uselist=False))
 
 class POI(db.Model):
     __tablename__ = 'points_of_interest'

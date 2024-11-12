@@ -33,7 +33,6 @@ class CustomModelView(ModelView):
     column_display_pk = True  # Mostra sempre la chiave primaria (colonna 'id')
 
 # Aggiungi i modelli all'interfaccia di amministrazione
-admin.add_view(CustomModelView(User, db.session))
 
 admin.add_view(CustomModelView(QuestionnaireResponse, db.session))
 admin.add_view(CustomModelView(POI, db.session))
@@ -45,9 +44,6 @@ def initialize_database():
     if not hasattr(app, 'db_initialized'):
         with app.app_context():
             reset_db()
-            if User.query.count() == 0:
-                db.session.add(User(content_poi=['First string', 'Another string']))
-                db.session.commit()
             update_pois()
         app.db_initialized = True
 

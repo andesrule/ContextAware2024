@@ -939,7 +939,6 @@ def count_pois_near_point(lat, lon, radius):
         return {}
     
 
-
 def calculate_rank_for_point(poi_counts, user_preferences):
     """
     Calcola il rank di un punto con una normalizzazione più bilanciata
