@@ -286,35 +286,9 @@ function getCustomIcon(poiType) {
     });
 }
 
-// Stili CSS aggiuntivi per i pulsanti POI
-const poiStyles = document.createElement('style');
-poiStyles.textContent = `
-    .poi-button {
-        background-color: rgba(255, 255, 255, 0.1);
-        transition: all 0.3s ease;
-        padding: 0.5rem;
-        border-radius: 0.375rem;
-    }
-    
-    .poi-button:hover {
-        background-color: rgba(255, 255, 255, 0.2);
-    }
-    
-    .poi-button.active {
-        background-color: rgba(255, 255, 255, 0.3);
-        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
-    }
-    
-    .poi-emoji {
-        font-size: 1.25rem;
-    }
-    
-    .poi-label {
-        font-size: 0.875rem;
-    }
-`;
 
-document.head.appendChild(poiStyles);
+
+
 
 // Inizializza i controlli POI quando il documento è pronto
 document.addEventListener('DOMContentLoaded', initializePOIControls);
@@ -736,66 +710,9 @@ function addMarkerPrice(geofenceId) {
     });
 }
 
-// Stile CSS per lo slider
-const style = document.createElement('style');
-style.textContent = `
-    .radius-slider {
-        background: white;
-        padding: 10px;
-        border-radius: 5px;
-    }
-    .radius-slider h4 {
-        margin: 0 0 10px 0;
-    }
-    .slider {
-        width: 100%;
-    }
-`;
-document.head.appendChild(style);
 
-const clusterStyle = document.createElement('style');
-clusterStyle.textContent = `
-    .marker-cluster-small {
-        background-color: rgba(181, 226, 140, 0.6);
-    }
-    .marker-cluster-small div {
-        background-color: rgba(110, 204, 57, 0.6);
-    }
-    .marker-cluster-medium {
-        background-color: rgba(241, 211, 87, 0.6);
-    }
-    .marker-cluster-medium div {
-        background-color: rgba(240, 194, 12, 0.6);
-    }
-    .marker-cluster-large {
-        background-color: rgba(253, 156, 115, 0.6);
-    }
-    .marker-cluster-large div {
-        background-color: rgba(241, 128, 23, 0.6);
-    }
-    .marker-cluster {
-        background-clip: padding-box;
-        border-radius: 20px;
-    }
-    .marker-cluster div {
-        width: 30px;
-        height: 30px;
-        margin-left: 5px;
-        margin-top: 5px;
-        text-align: center;
-        border-radius: 15px;
-        font: 12px "Helvetica Neue", Arial, Helvetica, sans-serif;
-        color: #ffffff;
-        font-weight: bold;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .marker-cluster span {
-        line-height: 30px;
-    }
-`;
-document.head.appendChild(clusterStyle);
+
+
 
 function handleFilters() {
 
