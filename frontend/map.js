@@ -1,3 +1,4 @@
+import {showNoQuestionnaireAlert, getColorFromRank, showToast, createGeofencePopup} from './utils.js';
 // Inizializza la mappa centrata su Bologna
 let map = L.map('map').setView([44.4949, 11.3426], 13);
 let neighborhoodRadius = 500; // Raggio iniziale in metri
@@ -16,133 +17,15 @@ function createClusterCustomIcon(cluster) {
     });
 }
 
-// Oggetto per tenere traccia dei layer group per ciascuna categoria di POI
-let poiLayers = {
-    aree_verdi: L.markerClusterGroup({
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        spiderfyOnMaxZoom: true,
-        removeOutsideVisibleBounds: true,
-        iconCreateFunction: createClusterCustomIcon
-    }),
-    parcheggi: L.markerClusterGroup({
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        spiderfyOnMaxZoom: true,
-        removeOutsideVisibleBounds: true,
-        iconCreateFunction: createClusterCustomIcon
-    }),
-    fermate_bus: L.markerClusterGroup({
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        spiderfyOnMaxZoom: true,
-        removeOutsideVisibleBounds: true,
-        iconCreateFunction: createClusterCustomIcon
-    }),
-    stazioni_ferroviarie: L.markerClusterGroup({
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        spiderfyOnMaxZoom: true,
-        removeOutsideVisibleBounds: true,
-        iconCreateFunction: createClusterCustomIcon
-    }),
-    scuole: L.markerClusterGroup({
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        spiderfyOnMaxZoom: true,
-        removeOutsideVisibleBounds: true,
-        iconCreateFunction: createClusterCustomIcon
-    }),
-    cinema: L.markerClusterGroup({
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        spiderfyOnMaxZoom: true,
-        removeOutsideVisibleBounds: true,
-        iconCreateFunction: createClusterCustomIcon
-    }),
-    ospedali: L.markerClusterGroup({
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        spiderfyOnMaxZoom: true,
-        removeOutsideVisibleBounds: true,
-        iconCreateFunction: createClusterCustomIcon
-    }),
-    farmacia: L.markerClusterGroup({
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        spiderfyOnMaxZoom: true,
-        removeOutsideVisibleBounds: true,
-        iconCreateFunction: createClusterCustomIcon
-    }),
-    colonnina_elettrica: L.markerClusterGroup({
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        spiderfyOnMaxZoom: true,
-        removeOutsideVisibleBounds: true,
-        iconCreateFunction: createClusterCustomIcon
-    }),
-    biblioteca: L.markerClusterGroup({
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        spiderfyOnMaxZoom: true,
-        removeOutsideVisibleBounds: true,
-        iconCreateFunction: createClusterCustomIcon
-    })
-};
 
-// Funzione per centrare la mappa su Bologna
-function recenterMap() {
-    map.setView([44.4949, 11.3426], 13);
-}
+//gestionePOI
 
-var recenterControl = L.Control.extend({
-    options: {
-        position: 'topright'
-    },
-    onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'leaflet-control-custom');
-        container.innerHTML = '📍';
-        container.style.backgroundColor = 'white';
-        container.style.width = '30px';
-        container.style.height = '30px';
-        container.style.lineHeight = '30px';
-        container.style.textAlign = 'center';
-        container.style.cursor = 'pointer';
-        container.title = 'Ricentra su Bologna';
 
-        container.onclick = function(){
-            recenterMap();
-        }
-
-        L.DomEvent.disableClickPropagation(container);
-
-        return container;
-    }
-});
-
-// Aggiungiamo il nuovo controllo alla mappa
-map.addControl(new recenterControl());
-
-// Variabili per la gestione dei poligoni
-let drawnItems = new L.FeatureGroup();
-map.addLayer(drawnItems);
-
-let drawControl = new L.Control.Draw({
-    edit: false,  // Questo rimuove i pulsanti di modifica ed eliminazione
-    draw: {
-        polygon: true,
-        marker: true,
-        polyline: false,
-        rectangle: false,
-        circle: false,
-        circlemarker: false
-    }
-});
-map.addControl(drawControl);
+// IMPORTANTE
+document.addEventListener('DOMContentLoaded', initializePOIControls);
 
 
 
-// Definizione delle configurazioni dei POI
 const poiConfigs = {
     aree_verdi: { emoji: '🌳', label: 'Aree Verdi' },
     parcheggi: { emoji: '🅿️', label: 'Parcheggi' },
@@ -156,6 +39,23 @@ const poiConfigs = {
     biblioteca: { emoji: '🏢', label: 'Biblioteca' }
 };
 
+
+const clusterGroupConfig = {
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true,
+    spiderfyOnMaxZoom: true,
+    removeOutsideVisibleBounds: true,
+    iconCreateFunction: createClusterCustomIcon
+};
+
+// crea layer per ogni POI
+let poiLayers = Object.fromEntries(
+    Object.keys(poiConfigs).map(type => [
+        type,
+        L.markerClusterGroup(clusterGroupConfig)
+    ])
+);
+
 // Funzione per inizializzare i pulsanti POI nel pannello di controllo
 function initializePOIControls() {
     const poiGrid = document.querySelector('.grid.grid-cols-2.gap-2');
@@ -163,11 +63,9 @@ function initializePOIControls() {
         console.error('Grid container per i POI non trovato');
         return;
     }
-
-    // Pulisci il contenitore
     poiGrid.innerHTML = '';
 
-    // Crea i pulsanti per ogni tipo di POI
+
     Object.entries(poiConfigs).forEach(([poiType, config]) => {
         const button = document.createElement('button');
         button.className = 'poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white';
@@ -176,7 +74,7 @@ function initializePOIControls() {
             <span class="poi-label">${config.label}</span>
         `;
         
-        // Aggiungi l'evento click
+      
         button.addEventListener('click', function() {
             this.classList.toggle('active');
             togglePOI(poiType, this.classList.contains('active'));
@@ -195,7 +93,6 @@ function togglePOI(poiType, show) {
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success' && data.data.length > 0) {
-                        // Assicurati che il layer cluster esista
                         if (!poiLayers[poiType]) {
                             poiLayers[poiType] = L.markerClusterGroup({
                                 showCoverageOnHover: false,
@@ -290,34 +187,13 @@ function getCustomIcon(poiType) {
 
 
 
-// Inizializza i controlli POI quando il documento è pronto
-document.addEventListener('DOMContentLoaded', initializePOIControls);
-
-
 
 
     
-function showNoQuestionnaireAlert() {
-    // Espandi la sezione degli alert
-    const alertsSection = document.getElementById('alertsSection');
-    if (alertsSection) {
-        alertsSection.style.display = 'block';
-    }
 
-    // Crea e mostra l'alert
-    createAlert('Non ci sono questionari nel database. Compilare almeno un questionario per visualizzare i dati.');
 
-    // Mostra una notifica pop-up
-    showToast('warning', 'Compila il questionario prima di visualizzare i marker.');
-}
-function getColorFromRank(rank) {
-    if (rank < 70) return '#FF0000';      // Rosso
-    else if (rank < 90) return '#FFA500'; // Arancione
-    else if (rank < 120) return '#FFFF00'; // Giallo
-    else if (rank < 150) return '#90EE90'; // Verde chiaro
-    else return '#008000';                // Verde scuro
-}
 
+//RADIUS 
 
 // Aggiungi l'evento per lo slider
 document.getElementById('radiusSlider').addEventListener('input', function(e) {
@@ -332,6 +208,49 @@ function updateNeighborhoodCircles() {
         circle.setRadius(neighborhoodRadius);
     });
 }
+
+function sendRadiusToBackend(radius) {
+    fetch('/get_radius', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ radius: radius })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Success:', data);
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+    });
+}
+
+
+
+map.on(L.Draw.Event.CREATED, function (e) {
+    let layer = e.layer;
+
+    if (layer instanceof L.Marker) {
+        const latlng = layer.getLatLng();
+        saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null)
+            .then(response => response.json())
+            .then(data => {
+                loadAllGeofences(); // Ricarica tutti i geofence dopo l'aggiunta
+            })
+            .catch(error => console.error('Errore nel salvare il marker:', error));
+    } else if (layer instanceof L.Polygon) {
+        const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
+        saveGeofenceToDatabase(null, [coordinates])
+            .then(response => response.json())
+            .then(data => {
+                loadAllGeofences(); // Ricarica tutti i geofence dopo l'aggiunta
+            })
+            .catch(error => console.error('Errore nel salvare il geofence:', error));
+    }
+});
+
+//Geofence
 
 function loadAllGeofences() {
     fetch('/get_all_geofences')
@@ -417,51 +336,12 @@ function loadAllGeofences() {
         });
 }
 
-// Carica tutti i geofence quando la pagina è completamente caricata
+// IMPORTANTE
 document.addEventListener('DOMContentLoaded', function() {
     loadAllGeofences();
 });
 
-function sendRadiusToBackend(radius) {
-    fetch('/get_radius', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ radius: radius })
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Success:', data);
-    })
-    .catch((error) => {
-        console.error('Error:', error);
-    });
-}
 
-
-
-map.on(L.Draw.Event.CREATED, function (e) {
-    let layer = e.layer;
-
-    if (layer instanceof L.Marker) {
-        const latlng = layer.getLatLng();
-        saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null)
-            .then(response => response.json())
-            .then(data => {
-                loadAllGeofences(); // Ricarica tutti i geofence dopo l'aggiunta
-            })
-            .catch(error => console.error('Errore nel salvare il marker:', error));
-    } else if (layer instanceof L.Polygon) {
-        const coordinates = layer.getLatLngs()[0].map(latlng => ({ lat: latlng.lat, lng: latlng.lng }));
-        saveGeofenceToDatabase(null, [coordinates])
-            .then(response => response.json())
-            .then(data => {
-                loadAllGeofences(); // Ricarica tutti i geofence dopo l'aggiunta
-            })
-            .catch(error => console.error('Errore nel salvare il geofence:', error));
-    }
-});
 
 
 function saveGeofenceToDatabase(markers, geofences) {
@@ -485,17 +365,7 @@ function saveGeofenceToDatabase(markers, geofences) {
 }
 
 
-function showToast(type, message) {
-    const toast = document.createElement('div');
-    toast.className = `alert ${type === 'success' ? 'alert-success' : 'alert-error'} fixed bottom-4 right-4 z-50`;
-    toast.innerHTML = `<span>${message}</span>`;
-    
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
+
 
 function loadMarkersFromDatabase() {
     fetch('/get_ranked_markers')
@@ -532,35 +402,6 @@ function loadMarkersFromDatabase() {
 
 
 
-
-var deleteAllControl = L.Control.extend({
-    options: {
-        position: 'topleft'
-    },
-    onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'leaflet-control-custom');
-        container.innerHTML = '🗑️';
-        container.style.backgroundColor = 'white';
-        container.style.width = '30px';
-        container.style.height = '30px';
-        container.style.lineHeight = '30px';
-        container.style.textAlign = 'center';
-        container.style.cursor = 'pointer';
-        container.title = 'Cancella tutti i geofence';
-
-        container.onclick = function(){
-            if (confirm('Sei sicuro di voler cancellare tutti i geofence (marker e poligoni)?')) {
-                deleteAllGeofences();
-            }
-        }
-
-        L.DomEvent.disableClickPropagation(container);
-
-        return container;
-    }
-});
-
-map.addControl(new deleteAllControl());
 
 
 function deleteAllGeofences() {
@@ -623,37 +464,7 @@ function removeGeofenceFromMap(geofenceId) {
     });
 }
 
-function createGeofencePopup(geofenceId, isMarker = true) {
-    let content = `
-        <div class="p-2">
-            <b class="text-dark-200 mb-2 block">${isMarker ? 'Marker' : 'Geofence'} ID: ${geofenceId}</b>
-            
-            <button onclick="deleteGeofence(${geofenceId})" 
-                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded flex items-center gap-2 mb-3 w-full">
-                <span>🗑️</span> Elimina ${isMarker ? 'Marker' : 'Geofence'}
-            </button>
-    `;
 
-    if (isMarker) {
-        content += `
-            <div class="space-y-2">
-                <label for="priceInput-${geofenceId}" class="text-dark-200 block">Prezzo:</label>
-                <input type="number" 
-                       id="priceInput-${geofenceId}" 
-                       placeholder="Inserisci il prezzo"
-                       class="bg-gray-700 text-gray-200 rounded px-2 py-1 w-full border border-gray-600 focus:border-blue-500 focus:outline-none">
-                
-                <button onclick="addMarkerPrice(${geofenceId})"
-                        class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded flex items-center gap-2 w-full">
-                    <span>💰</span> Aggiungi Prezzo
-                </button>
-            </div>
-        `;
-    }
-
-    content += '</div>';
-    return content;
-}
 
 
 function deleteGeofence(geofenceId) {
@@ -711,7 +522,83 @@ function addMarkerPrice(geofenceId) {
 }
 
 
+///control
+var recenterControl = L.Control.extend({
+    options: {
+        position: 'topright'
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'leaflet-control-custom');
+        container.innerHTML = '📍';
+        container.style.backgroundColor = 'white';
+        container.style.width = '30px';
+        container.style.height = '30px';
+        container.style.lineHeight = '30px';
+        container.style.textAlign = 'center';
+        container.style.cursor = 'pointer';
+        container.title = 'Ricentra su Bologna';
 
+        container.onclick = function(){
+            recenterMap();
+        }
+
+        L.DomEvent.disableClickPropagation(container);
+
+        return container;
+    }
+});
+
+
+
+
+// Variabili per la gestione dei poligoni
+let drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+
+let drawControl = new L.Control.Draw({
+    edit: false,  // Questo rimuove i pulsanti di modifica ed eliminazione
+    draw: {
+        polygon: true,
+        marker: true,
+        polyline: false,
+        rectangle: false,
+        circle: false,
+        circlemarker: false
+    }
+});
+
+
+var deleteAllControl = L.Control.extend({
+    options: {
+        position: 'topleft'
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'leaflet-control-custom');
+        container.innerHTML = '🗑️';
+        container.style.backgroundColor = 'white';
+        container.style.width = '30px';
+        container.style.height = '30px';
+        container.style.lineHeight = '30px';
+        container.style.textAlign = 'center';
+        container.style.cursor = 'pointer';
+        container.title = 'Cancella tutti i geofence';
+
+        container.onclick = function(){
+            if (confirm('Sei sicuro di voler cancellare tutti i geofence (marker e poligoni)?')) {
+                deleteAllGeofences();
+            }
+        }
+
+        L.DomEvent.disableClickPropagation(container);
+
+        return container;
+    }
+});
+
+map.addControl(new deleteAllControl());
+
+map.addControl(new recenterControl());
+map.addControl(drawControl);
 
 
 function handleFilters() {
@@ -784,4 +671,7 @@ document.getElementById('travelMode').addEventListener('change', handleFilters);
 document.getElementById('filterTime').addEventListener('change', handleFilters);
 
 
-
+// Funzione per centrare la mappa su Bologna
+function recenterMap() {
+    map.setView([44.4949, 11.3426], 13);
+}
