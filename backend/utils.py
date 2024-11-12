@@ -411,34 +411,6 @@ def update_pois():
         results[poi_type] = count
     return results
 
-@utils_bp.route('/api/poi/<poi_type>', methods=['GET'])
-def get_poi(poi_type):
-    base_urls = {
-        'parcheggi': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/disponibilita-parcheggi-storico/records',
-        'cinema': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/teatri-cinema-teatri/records',
-        'farmacia': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/farmacie/records',
-        'ospedali': 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/strutture-sanitarie/records',
-        'fermate_bus' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/tper-fermate-autobus/records?select=*&limit=100&refine=comune%3A%22BOLOGNA%22',
-        'scuole' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/elenco-delle-scuole/records',
-        'aree_verdi' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/carta-tecnica-comunale-toponimi-parchi-e-giardini/records',
-        'colonnina_elettrica': 'https://opendata.comune.bologna.it//api/explore/v2.1/catalog/datasets/colonnine-elettriche/records',
-        'biblioteca' : 'https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/istanze-servizi-alla-persona/records',
-        'stazioni_ferroviarie': 'https://opendata.comune.bologna.it/api/api/explore/v2.1/catalog/datasets/stazioniferroviarie_20210401/records'
-        
-        # Aggiungi altre categorie qui
-    }
-
-    if poi_type not in base_urls:
-        return jsonify({'error': f'POI type {poi_type} not recognized'}), 400
-
-    url = base_urls[poi_type]
-    response = requests.get(url)
-
-    if response.status_code == 200:
-        data = response.json()
-        return jsonify(data)
-    else:
-        return jsonify({'error': f'Errore API: {response.status_code}'}), 500
 
 @utils_bp.route('/get_markers')
 def get_markers():
