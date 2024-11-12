@@ -1,9 +1,3 @@
-import { 
-    poiConfigs,
-    initializePOIControls,
-    initializePOILayers,
-} from './poiManager.js';  
-
 // Inizializza la mappa centrata su Bologna
 let map = L.map('map').setView([44.4949, 11.3426], 13);
 let neighborhoodRadius = 500; // Raggio iniziale in metri
@@ -13,12 +7,90 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
+// Funzione per creare un'icona cluster personalizzata
+function createClusterCustomIcon(cluster) {
+    return L.divIcon({
+        html: '<div><span>' + cluster.getChildCount() + '</span></div>',
+        className: 'marker-cluster marker-cluster-small',
+        iconSize: new L.Point(40, 40)
+    });
+}
 
+// Oggetto per tenere traccia dei layer group per ciascuna categoria di POI
+let poiLayers = {
+    aree_verdi: L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: createClusterCustomIcon
+    }),
+    parcheggi: L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: createClusterCustomIcon
+    }),
+    fermate_bus: L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: createClusterCustomIcon
+    }),
+    stazioni_ferroviarie: L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: createClusterCustomIcon
+    }),
+    scuole: L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: createClusterCustomIcon
+    }),
+    cinema: L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: createClusterCustomIcon
+    }),
+    ospedali: L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: createClusterCustomIcon
+    }),
+    farmacia: L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: createClusterCustomIcon
+    }),
+    colonnina_elettrica: L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: createClusterCustomIcon
+    }),
+    biblioteca: L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        iconCreateFunction: createClusterCustomIcon
+    })
+};
 
-
-
-
-//centra la mappa su Bologna
+// Funzione per centrare la mappa su Bologna
 function recenterMap() {
     map.setView([44.4949, 11.3426], 13);
 }
@@ -48,8 +120,8 @@ var recenterControl = L.Control.extend({
     }
 });
 
+// Aggiungiamo il nuovo controllo alla mappa
 map.addControl(new recenterControl());
-
 
 // Variabili per la gestione dei poligoni
 let drawnItems = new L.FeatureGroup();
@@ -70,18 +142,156 @@ map.addControl(drawControl);
 
 
 
+// Definizione delle configurazioni dei POI
+const poiConfigs = {
+    aree_verdi: { emoji: '🌳', label: 'Aree Verdi' },
+    parcheggi: { emoji: '🅿️', label: 'Parcheggi' },
+    fermate_bus: { emoji: '🚌', label: 'Fermate Bus' },
+    stazioni_ferroviarie: { emoji: '🚉', label: 'Stazioni' },
+    scuole: { emoji: '🏫', label: 'Scuole' },
+    cinema: { emoji: '🎬', label: 'Cinema' },
+    ospedali: { emoji: '🏥', label: 'Ospedali' },
+    farmacia: { emoji: '💊', label: 'Farmacia' },
+    colonnina_elettrica: { emoji: '⚡', label: 'Colonnina Elettrica' },
+    biblioteca: { emoji: '🏢', label: 'Biblioteca' }
+};
+
+// Funzione per inizializzare i pulsanti POI nel pannello di controllo
+function initializePOIControls() {
+    const poiGrid = document.querySelector('.grid.grid-cols-2.gap-2');
+    if (!poiGrid) {
+        console.error('Grid container per i POI non trovato');
+        return;
+    }
+
+    // Pulisci il contenitore
+    poiGrid.innerHTML = '';
+
+    // Crea i pulsanti per ogni tipo di POI
+    Object.entries(poiConfigs).forEach(([poiType, config]) => {
+        const button = document.createElement('button');
+        button.className = 'poi-button btn btn-sm w-full flex items-center justify-start gap-2 text-white';
+        button.innerHTML = `
+            <span class="poi-emoji">${config.emoji}</span>
+            <span class="poi-label">${config.label}</span>
+        `;
+        
+        // Aggiungi l'evento click
+        button.addEventListener('click', function() {
+            this.classList.toggle('active');
+            togglePOI(poiType, this.classList.contains('active'));
+        });
+
+        poiGrid.appendChild(button);
+    });
+}
+
+// Funzione aggiornata per gestire il toggle dei POI
+function togglePOI(poiType, show) {
+    if (show) {
+        // Se il layer non esiste o è vuoto, carica i POI
+        if (!poiLayers[poiType] || poiLayers[poiType].getLayers().length === 0) {
+            fetch(`/api/pois/${poiType}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success' && data.data.length > 0) {
+                        // Assicurati che il layer cluster esista
+                        if (!poiLayers[poiType]) {
+                            poiLayers[poiType] = L.markerClusterGroup({
+                                showCoverageOnHover: false,
+                                zoomToBoundsOnClick: true,
+                                spiderfyOnMaxZoom: true,
+                                removeOutsideVisibleBounds: true,
+                                iconCreateFunction: createClusterCustomIcon
+                            });
+                        }
+
+                        // Aggiungi i marker al layer
+                        data.data.forEach(poi => {
+                            if (poi.lat && poi.lng) {
+                                const marker = L.marker([poi.lat, poi.lng], {
+                                    icon: getCustomIcon(poiType)
+                                });
+
+                                // Crea il popup con le informazioni disponibili
+                                let popupContent = `
+                                    <div class="poi-popup">
+                                        <h3>${poi.properties?.denominazione_struttura || 
+                                             poi.properties?.denominazi || 
+                                             poi.properties?.name || 
+                                             poiConfigs[poiType].label}</h3>
+                                `;
+
+                                if (poi.properties?.esercizio_via_e_civico) {
+                                    popupContent += `<p>Indirizzo: ${poi.properties.esercizio_via_e_civico}</p>`;
+                                }
+                                if (poi.properties?.quartiere) {
+                                    popupContent += `<p>Quartiere: ${poi.properties.quartiere}</p>`;
+                                }
+
+                                popupContent += '</div>';
+                                marker.bindPopup(popupContent);
+
+                                poiLayers[poiType].addLayer(marker);
+                            }
+                        });
+
+                        // Aggiungi il layer alla mappa
+                        map.addLayer(poiLayers[poiType]);
+                        
+                        // Zoom alla vista che include tutti i marker di questo tipo
+                        if (poiLayers[poiType].getLayers().length > 0) {
+                            map.fitBounds(poiLayers[poiType].getBounds());
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error(`Errore nel caricamento dei POI ${poiType}:`, error);
+                    showToast('error', `Errore nel caricamento dei ${poiConfigs[poiType].label}`);
+                });
+        } else {
+            // Se il layer esiste già, aggiungilo semplicemente alla mappa
+            map.addLayer(poiLayers[poiType]);
+        }
+    } else {
+        // Rimuovi il layer dalla mappa
+        if (poiLayers[poiType]) {
+            map.removeLayer(poiLayers[poiType]);
+        }
+    }
+}
+
+
+function getCustomIcon(poiType) {
+    // Definisci le icone per ogni tipo di POI
+    const iconMap = {
+        aree_verdi: '🌳',
+        parcheggi: '🅿️',
+        fermate_bus: '🚌',
+        stazioni_ferroviarie: '🚉',
+        scuole: '🏫',
+        cinema: '🎬',
+        ospedali: '🏥',
+        farmacia: '💊',
+        colonnina_elettrica: '⚡',
+        biblioteca: '🏢'
+    };
+
+    return L.divIcon({
+        html: iconMap[poiType] || '📍',
+        className: 'custom-div-icon',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+        popupAnchor: [0, -15]
+    });
+}
 
 
 
 
 
-
-
-document.addEventListener('DOMContentLoaded', function() {
-    initializePOILayers();
-    initializePOIControls(map, showToast);
-});
-
+// Inizializza i controlli POI quando il documento è pronto
+document.addEventListener('DOMContentLoaded', initializePOIControls);
 
 
 

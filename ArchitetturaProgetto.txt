@@ -1,4 +1,3 @@
-├── ArchitetturaProgetto.txt
 ├── backend
 │   ├── app.py
 │   ├── config.py
@@ -20,9 +19,6 @@
 │   ├── db_test_map.js
 │   ├── Dockerfilefe
 │   ├── index.html
-│   ├── js
-│   ├── mapControls.js
-│   ├── poiManager.js
 │   ├── questionario.js
 │   ├── script.js
 │   ├── styles.css
@@ -35,4 +31,5 @@
 │   ├── frontend-deployment.yml
 │   └── postgres-pvc.yml
 └── README.md
+
 
