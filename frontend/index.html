@@ -321,13 +321,45 @@
                               </div>
                            </div>
                         </div>
+                                                <!-- Pagina 5 -->
+<div class="questionnaire-page hidden" data-page="5">
+   <div class="space-y-4">
+       <div class="form-control">
+           <label class="label">
+               <span class="label-text text-white">13. Quanto è importante avere almeno 2 farmacie nel vicinato?</span>
+           </label>
+           <input type="range" min="0" max="5" step="1" name="densita_farmacie" class="range range-primary">
+           <div class="w-full flex justify-between text-xs px-2">
+               <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+           </div>
+       </div>
+       <div class="form-control">
+           <label class="label">
+               <span class="label-text text-white">14. Quanto è importante avere almeno 2 scuole nel vicinato?</span>
+           </label>
+           <input type="range" min="0" max="5" step="1" name="densita_scuole" class="range range-primary">
+           <div class="w-full flex justify-between text-xs px-2">
+               <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+           </div>
+       </div>
+       <div class="form-control">
+           <label class="label">
+               <span class="label-text text-white">15. Quanto è importante avere almeno 3 parcheggi pubblici nel vicinato?</span>
+           </label>
+           <input type="range" min="0" max="5" step="1" name="densita_parcheggi" class="range range-primary">
+           <div class="w-full flex justify-between text-xs px-2">
+               <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+           </div>
+       </div>
+   </div>
+</div>
                         <!-- Navigazione tra le pagine -->
                         <div class="flex justify-between mt-4">
                            <button type="button" onclick="previousPage()" class="btn btn-primary" id="prevButton" disabled>
                            Precedente
                            </button>
                            <div class="flex gap-2 items-center">
-                              <span id="currentPage">1</span> / <span id="totalPages">4</span>
+                              <span id="currentPage">1</span> / <span id="totalPages">5</span>
                            </div>
                            <button type="button" onclick="nextPage()" class="btn btn-primary" id="nextButton">
                            Successiva
@@ -350,7 +382,9 @@
       <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" ></script>
       <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" ></script>
+      <script src="db_test_map.js" defer></script>
       <script src="script.js"></script>
+      <script src="test_map.js" defer></script>
       <script type="module" src="utils.js"></script>
       <script type="module" src="map.js"></script>
       <script src="gui.js"></script>
