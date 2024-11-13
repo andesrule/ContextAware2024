@@ -1,3 +1,5 @@
+import {showNoQuestionnaireAlert, getColorFromRank, getCustomIcon} from './utils.js';
+
 // Inizializza la mappa centrata su Bologna
 let map = L.map('map').setView([44.4949, 11.3426], 13);
 let neighborhoodRadius = 500; // Raggio iniziale in metri
@@ -95,50 +97,9 @@ function recenterMap() {
     map.setView([44.4949, 11.3426], 13);
 }
 
-var recenterControl = L.Control.extend({
-    options: {
-        position: 'topright'
-    },
-    onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'leaflet-control-custom');
-        container.innerHTML = '📍';
-        container.style.backgroundColor = 'white';
-        container.style.width = '30px';
-        container.style.height = '30px';
-        container.style.lineHeight = '30px';
-        container.style.textAlign = 'center';
-        container.style.cursor = 'pointer';
-        container.title = 'Ricentra su Bologna';
 
-        container.onclick = function(){
-            recenterMap();
-        }
 
-        L.DomEvent.disableClickPropagation(container);
 
-        return container;
-    }
-});
-
-// Aggiungiamo il nuovo controllo alla mappa
-map.addControl(new recenterControl());
-
-// Variabili per la gestione dei poligoni
-let drawnItems = new L.FeatureGroup();
-map.addLayer(drawnItems);
-
-let drawControl = new L.Control.Draw({
-    edit: false,  // Questo rimuove i pulsanti di modifica ed eliminazione
-    draw: {
-        polygon: true,
-        marker: true,
-        polyline: false,
-        rectangle: false,
-        circle: false,
-        circlemarker: false
-    }
-});
-map.addControl(drawControl);
 
 
 
@@ -262,29 +223,7 @@ function togglePOI(poiType, show) {
 }
 
 
-function getCustomIcon(poiType) {
-    // Definisci le icone per ogni tipo di POI
-    const iconMap = {
-        aree_verdi: '🌳',
-        parcheggi: '🅿️',
-        fermate_bus: '🚌',
-        stazioni_ferroviarie: '🚉',
-        scuole: '🏫',
-        cinema: '🎬',
-        ospedali: '🏥',
-        farmacia: '💊',
-        colonnina_elettrica: '⚡',
-        biblioteca: '🏢'
-    };
 
-    return L.divIcon({
-        html: iconMap[poiType] || '📍',
-        className: 'custom-div-icon',
-        iconSize: [30, 30],
-        iconAnchor: [15, 15],
-        popupAnchor: [0, -15]
-    });
-}
 
 
 
@@ -297,26 +236,7 @@ document.addEventListener('DOMContentLoaded', initializePOIControls);
 
 
     
-function showNoQuestionnaireAlert() {
-    // Espandi la sezione degli alert
-    const alertsSection = document.getElementById('alertsSection');
-    if (alertsSection) {
-        alertsSection.style.display = 'block';
-    }
 
-    // Crea e mostra l'alert
-    createAlert('Non ci sono questionari nel database. Compilare almeno un questionario per visualizzare i dati.');
-
-    // Mostra una notifica pop-up
-    showToast('warning', 'Compila il questionario prima di visualizzare i marker.');
-}
-function getColorFromRank(rank) {
-    if (rank < 70) return '#FF0000';      // Rosso
-    else if (rank < 90) return '#FFA500'; // Arancione
-    else if (rank < 120) return '#FFFF00'; // Giallo
-    else if (rank < 150) return '#90EE90'; // Verde chiaro
-    else return '#008000';                // Verde scuro
-}
 
 
 // Aggiungi l'evento per lo slider
@@ -439,6 +359,112 @@ function sendRadiusToBackend(radius) {
     });
 }
 
+function createGeofencePopup(geofenceId, isMarker = true) {
+    const popupContent = document.createElement('div');
+    popupContent.className = 'p-2';
+    
+    const idText = document.createElement('b');
+    idText.className = 'text-dark-200 mb-2 block';
+    idText.textContent = `${isMarker ? 'Marker' : 'Geofence'} ID: ${geofenceId}`;
+    popupContent.appendChild(idText);
+    
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded flex items-center gap-2 mb-3 w-full';
+    deleteButton.innerHTML = `<span>🗑️</span> Elimina ${isMarker ? 'Marker' : 'Geofence'}`;
+    deleteButton.addEventListener('click', () => window.deleteGeofence(geofenceId));
+    popupContent.appendChild(deleteButton);
+
+    if (isMarker) {
+        const priceContainer = document.createElement('div');
+        priceContainer.className = 'space-y-2';
+        
+        const priceLabel = document.createElement('label');
+        priceLabel.className = 'text-dark-200 block';
+        priceLabel.textContent = 'Prezzo:';
+        priceContainer.appendChild(priceLabel);
+        
+        const priceInput = document.createElement('input');
+        priceInput.type = 'number';
+        priceInput.id = `priceInput-${geofenceId}`;
+        priceInput.placeholder = 'Inserisci il prezzo';
+        priceInput.className = 'bg-gray-700 text-gray-200 rounded px-2 py-1 w-full border border-gray-600 focus:border-blue-500 focus:outline-none';
+        priceContainer.appendChild(priceInput);
+        
+        const addPriceButton = document.createElement('button');
+        addPriceButton.className = 'bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded flex items-center gap-2 w-full';
+        addPriceButton.innerHTML = '<span>💰</span> Aggiungi Prezzo';
+        addPriceButton.addEventListener('click', () => window.addMarkerPrice(geofenceId));
+        priceContainer.appendChild(addPriceButton);
+        
+        popupContent.appendChild(priceContainer);
+    }
+
+    return popupContent;
+}
+
+// Assicurati che la funzione createGeofencePopup sia disponibile globalmente
+window.createGeofencePopup = createGeofencePopup;
+
+
+window.deleteGeofence = function(geofenceId) {
+    console.log('Deleting geofence with ID:', geofenceId);
+    fetch(`/delete-geofence/${geofenceId}`, {
+        method: 'DELETE',
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Geofence eliminato:', data);
+        removeGeofenceFromMap(geofenceId);
+        showToast('success', `Geofence ${geofenceId} eliminato con successo`);
+        // Aggiorna gli indici di Moran dopo l'eliminazione
+        updateMoranIndex();
+    })
+    .catch(error => {
+        console.error('Errore nell\'eliminazione del geofence:', error);
+        showToast('error', `Errore nell'eliminazione del geofence ${geofenceId}`);
+    });
+};
+
+window.addMarkerPrice = function(geofenceId) {
+    const priceInput = document.getElementById(`priceInput-${geofenceId}`);
+    if (!priceInput) {
+        console.error('Input prezzo non trovato');
+        return;
+    }
+
+    const price = parseFloat(priceInput.value);
+    
+    if (!price || price <= 0) {
+        showToast('error', 'Per favore, inserisci un prezzo valido.');
+        return;
+    }
+
+    fetch('/addMarkerPrice', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            geofenceId: geofenceId,
+            price: price
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        showToast('success', `Prezzo di €${price} aggiunto con successo per il marker ${geofenceId}`);
+        // Aggiorna gli indici di Moran dopo l'aggiunta del prezzo
+        updateMoranIndex();
+    })
+    .catch((error) => {
+        console.error('Errore durante l\'aggiunta del prezzo:', error);
+        showToast('error', 'Errore durante l\'aggiunta del prezzo');
+    });
+};
 
 
 map.on(L.Draw.Event.CREATED, function (e) {
@@ -497,70 +523,11 @@ function showToast(type, message) {
     }, 3000);
 }
 
-function loadMarkersFromDatabase() {
-    fetch('/get_ranked_markers')
-        .then(response => response.json())
-        .then(data => {
-            data.forEach(markerData => {
-                const color = getColorFromRank(markerData.rank);
-                const marker = L.marker([markerData.lat, markerData.lng], {
-                    icon: L.divIcon({
-                        className: 'custom-div-icon',
-                        html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%;"></div>`,
-                        iconSize: [20, 20],
-                        iconAnchor: [10, 10]
-                    })
-                }).addTo(map);
-                
-                marker.bindPopup(createGeofencePopup(markerData.id, true));
-                marker.geofenceId = markerData.id;
-                drawnItems.addLayer(marker);
-
-                const circle = L.circle([markerData.lat, markerData.lng], {
-                    color: 'blue',
-                    fillColor: '#30f',
-                    fillOpacity: 0.2,
-                    radius: neighborhoodRadius
-                }).addTo(map);
-
-                circles[markerData.id] = circle;
-                drawnItems.addLayer(circle);
-            });
-        })
-        .catch(error => console.error('Errore nel caricamento dei marker:', error));
-}
 
 
 
 
-var deleteAllControl = L.Control.extend({
-    options: {
-        position: 'topleft'
-    },
-    onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'leaflet-control-custom');
-        container.innerHTML = '🗑️';
-        container.style.backgroundColor = 'white';
-        container.style.width = '30px';
-        container.style.height = '30px';
-        container.style.lineHeight = '30px';
-        container.style.textAlign = 'center';
-        container.style.cursor = 'pointer';
-        container.title = 'Cancella tutti i geofence';
 
-        container.onclick = function(){
-            if (confirm('Sei sicuro di voler cancellare tutti i geofence (marker e poligoni)?')) {
-                deleteAllGeofences();
-            }
-        }
-
-        L.DomEvent.disableClickPropagation(container);
-
-        return container;
-    }
-});
-
-map.addControl(new deleteAllControl());
 
 
 function deleteAllGeofences() {
@@ -623,95 +590,85 @@ function removeGeofenceFromMap(geofenceId) {
     });
 }
 
-function createGeofencePopup(geofenceId, isMarker = true) {
-    let content = `
-        <div class="p-2">
-            <b class="text-dark-200 mb-2 block">${isMarker ? 'Marker' : 'Geofence'} ID: ${geofenceId}</b>
-            
-            <button onclick="deleteGeofence(${geofenceId})" 
-                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded flex items-center gap-2 mb-3 w-full">
-                <span>🗑️</span> Elimina ${isMarker ? 'Marker' : 'Geofence'}
-            </button>
-    `;
-
-    if (isMarker) {
-        content += `
-            <div class="space-y-2">
-                <label for="priceInput-${geofenceId}" class="text-dark-200 block">Prezzo:</label>
-                <input type="number" 
-                       id="priceInput-${geofenceId}" 
-                       placeholder="Inserisci il prezzo"
-                       class="bg-gray-700 text-gray-200 rounded px-2 py-1 w-full border border-gray-600 focus:border-blue-500 focus:outline-none">
-                
-                <button onclick="addMarkerPrice(${geofenceId})"
-                        class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded flex items-center gap-2 w-full">
-                    <span>💰</span> Aggiungi Prezzo
-                </button>
-            </div>
-        `;
-    }
-
-    content += '</div>';
-    return content;
-}
 
 
-function deleteGeofence(geofenceId) {
-    console.log('Deleting geofence with ID:', geofenceId);
-    fetch(`/delete-geofence/${geofenceId}`, {
-        method: 'DELETE',
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
+////controls
+
+var recenterControl = L.Control.extend({
+    options: {
+        position: 'topright'
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'leaflet-control-custom');
+        container.innerHTML = '📍';
+        container.style.backgroundColor = 'white';
+        container.style.width = '30px';
+        container.style.height = '30px';
+        container.style.lineHeight = '30px';
+        container.style.textAlign = 'center';
+        container.style.cursor = 'pointer';
+        container.title = 'Ricentra su Bologna';
+
+        container.onclick = function(){
+            recenterMap();
         }
-        return response.json();
-    })
-    .then(data => {
-        console.log('Geofence eliminato:', data);
-        removeGeofenceFromMap(geofenceId);
-        showToast('success', `Geofence ${geofenceId} eliminato con successo`);
-    })
-    .catch(error => {
-        console.error('Errore nell\'eliminazione del geofence:', error);
-        showToast('error', `Errore nell'eliminazione del geofence ${geofenceId}`);
-    });
-}
 
-function addMarkerPrice(geofenceId) {
-    // Ottieni il valore del prezzo inserito dall'input
-    let priceInput = document.getElementById(`priceInput-${geofenceId}`).value;
-    
-    // Verifica che il prezzo sia valido (opzionale)
-    if (!priceInput || priceInput <= 0) {
-        alert('Per favore, inserisci un prezzo valido.');
-        return;
+        L.DomEvent.disableClickPropagation(container);
+
+        return container;
     }
+});
 
-    // Esegui qui la logica per salvare il prezzo, ad esempio con una chiamata API
-    // Puoi usare fetch per inviare il prezzo al server
-    fetch(`/addMarkerPrice`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            geofenceId: geofenceId,
-            price: parseFloat(priceInput)
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        alert(`Prezzo di ${priceInput} aggiunto con successo per il marker ${geofenceId}`);
-        // Eventuali altre azioni come aggiornare l'interfaccia
-    })
-    .catch((error) => {
-        console.error('Errore durante l\'aggiunta del prezzo:', error);
-    });
-}
+// Aggiungiamo il nuovo controllo alla mappa
+map.addControl(new recenterControl());
 
 
 
+// Variabili per la gestione dei poligoni
+let drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+
+let drawControl = new L.Control.Draw({
+    edit: false,  // Questo rimuove i pulsanti di modifica ed eliminazione
+    draw: {
+        polygon: true,
+        marker: true,
+        polyline: false,
+        rectangle: false,
+        circle: false,
+        circlemarker: false
+    }
+});
+map.addControl(drawControl);
+
+var deleteAllControl = L.Control.extend({
+    options: {
+        position: 'topleft'
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'leaflet-control-custom');
+        container.innerHTML = '🗑️';
+        container.style.backgroundColor = 'white';
+        container.style.width = '30px';
+        container.style.height = '30px';
+        container.style.lineHeight = '30px';
+        container.style.textAlign = 'center';
+        container.style.cursor = 'pointer';
+        container.title = 'Cancella tutti i geofence';
+
+        container.onclick = function(){
+            if (confirm('Sei sicuro di voler cancellare tutti i geofence (marker e poligoni)?')) {
+                deleteAllGeofences();
+            }
+        }
+
+        L.DomEvent.disableClickPropagation(container);
+
+        return container;
+    }
+});
+
+map.addControl(new deleteAllControl());
 
 
 function handleFilters() {

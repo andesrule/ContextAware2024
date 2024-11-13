@@ -1,3 +1,4 @@
+├── ArchitetturaProgetto.txt
 ├── backend
 │   ├── app.py
 │   ├── config.py
@@ -9,7 +10,6 @@
 │   │   ├── models.cpython-312.pyc
 │   │   └── utils.cpython-312.pyc
 │   ├── requirements.txt
-│   ├── routes.py
 │   └── utils.py
 ├── devcontainer
 │   ├── devcontainer.json
@@ -19,11 +19,12 @@
 │   ├── db_test_map.js
 │   ├── Dockerfilefe
 │   ├── index.html
+│   ├── map.js
 │   ├── questionario.js
 │   ├── script.js
 │   ├── styles.css
 │   ├── tailwind.config.js
-│   └── test_map.js
+│   └── utils.js
 ├── init-postgis.sql
 ├── k8s
 │   ├── backend-deployment.yml
@@ -31,5 +32,4 @@
 │   ├── frontend-deployment.yml
 │   └── postgres-pvc.yml
 └── README.md
-
 
