@@ -186,7 +186,7 @@ def submit_questionnaire():
             biblioteca=data.get('biblioteca'),
             densita_aree_verdi=data.get('densita_aree_verdi'),
             densita_fermate_bus=data.get('densita_fermate_bus'),
-            densita_famacie=data.get('densita_farmacie'),
+            densita_farmacie=data.get('densita_farmacie'),
             densita_scuole=data.get('densita_scuole'),
             densita_parcheggi=data.get('densita_parcheggi')
         )
