@@ -43,3 +43,63 @@ export function getCustomIcon(poiType) {
         popupAnchor: [0, -15]
     });
 }
+
+export function createClusterCustomIcon(cluster) {
+    return L.divIcon({
+        html: `<div><span>${cluster.getChildCount()}</span></div>`,
+        className: 'marker-cluster marker-cluster-small',
+        iconSize: new L.Point(40, 40)
+    });
+}
+
+export const poiConfigs = {
+    aree_verdi: { emoji: '🌳', label: 'Aree Verdi' },
+    parcheggi: { emoji: '🅿️', label: 'Parcheggi' },
+    fermate_bus: { emoji: '🚌', label: 'Fermate Bus' },
+    stazioni_ferroviarie: { emoji: '🚉', label: 'Stazioni' },
+    scuole: { emoji: '🏫', label: 'Scuole' },
+    cinema: { emoji: '🎬', label: 'Cinema' },
+    ospedali: { emoji: '🏥', label: 'Ospedali' },
+    farmacia: { emoji: '💊', label: 'Farmacia' },
+    colonnina_elettrica: { emoji: '⚡', label: 'Colonnina Elettrica' },
+    biblioteca: { emoji: '🏢', label: 'Biblioteca' }
+};
+
+
+export function createMarker(map, drawnItems, circles, data, color, neighborhoodRadius) {
+    const marker = L.marker([data.lat, data.lng], {
+        icon: L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%;"></div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        })
+    }).addTo(map);
+
+    marker.bindPopup(createGeofencePopup(data.id, true));
+    marker.geofenceId = data.id;
+    drawnItems.addLayer(marker);
+
+    const circle = L.circle([data.lat, data.lng], {
+        color: 'blue',
+        fillColor: '#30f',
+        fillOpacity: 0.2,
+        radius: neighborhoodRadius
+    }).addTo(map);
+
+    circles[data.id] = circle;
+    drawnItems.addLayer(circle);
+}
+
+export function createPolygon(map, data, color, geofencesLayer) {
+    const polygon = L.polygon(data.coordinates.map(coord => [coord[1], coord[0]]), {
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.5,
+        weight: 2
+    }).addTo(map);
+
+    polygon.bindPopup(createGeofencePopup(data.id, false));
+    polygon.geofenceId = data.id;
+    geofencesLayer.addLayer(polygon);
+}
