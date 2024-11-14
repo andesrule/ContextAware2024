@@ -15,6 +15,7 @@ let map = L.map("map").setView([44.4949, 11.3426], 13);
 let neighborhoodRadius = 500;
 //cerchi per mostrare il radius per i marker
 let circles = {};
+window.optimalPositionsLayer = L.layerGroup().addTo(map);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap contributors",
@@ -438,6 +439,9 @@ map.addControl(new recenterControl());
 // Variabili per la gestione dei poligoni
 let drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
+let optimalPositionsLayer = L.layerGroup();
+map.addLayer(optimalPositionsLayer);
+
 
 let drawControl = new L.Control.Draw({
   edit: false, //rimuove i pulsanti di modifica ed eliminazione
@@ -572,3 +576,85 @@ document
 document.getElementById("travelMode").addEventListener("change", handleFilters);
 
 document.getElementById("filterTime").addEventListener("change", handleFilters);
+
+
+window.showOptimalPositions = function(positions) {
+  // Pulisci i marker ottimali esistenti
+  window.optimalPositionsLayer.clearLayers();
+
+  positions.forEach((pos, index) => {
+      const color = getColorFromRank(pos.rank);
+      // Crea il marker
+      const marker = L.marker([pos.lat, pos.lng], {
+          icon: L.divIcon({
+              className: 'custom-div-icon',
+              html: `<div style="background-color: ${color}; width: 25px; height: 25px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; color: white;">${index + 1}</div>`,
+              iconSize: [25, 25],
+              iconAnchor: [12, 12]
+          })
+      });
+
+      // Crea il popup personalizzato
+      const popupContent = document.createElement('div');
+      popupContent.className = 'p-2';
+      
+      const title = document.createElement('div');
+      title.className = 'font-bold mb-2';
+      title.textContent = `Posizione ottimale #${index + 1}`;
+      popupContent.appendChild(title);
+
+      const rankInfo = document.createElement('div');
+      rankInfo.className = 'mb-2';
+      rankInfo.textContent = `Rank: ${pos.rank.toFixed(2)}`;
+      popupContent.appendChild(rankInfo);
+
+      if (pos.poi_details) {
+          const poiSection = document.createElement('div');
+          poiSection.className = 'mt-2';
+          
+          const poiTitle = document.createElement('div');
+          poiTitle.className = 'font-bold mb-1';
+          poiTitle.textContent = 'POI nelle vicinanze:';
+          poiSection.appendChild(poiTitle);
+
+          const poiList = document.createElement('ul');
+          poiList.className = 'list-disc pl-4';
+          
+          Object.entries(pos.poi_details.details).forEach(([type, count]) => {
+              if (count > 0) {
+                  const li = document.createElement('li');
+                  li.textContent = `${poiConfigs[type]?.label || type}: ${count}`;
+                  poiList.appendChild(li);
+              }
+          });
+          
+          poiSection.appendChild(poiList);
+
+          const totalPoi = document.createElement('div');
+          totalPoi.className = 'mt-2';
+          totalPoi.textContent = `Totale POI: ${pos.poi_details.total_poi}`;
+          poiSection.appendChild(totalPoi);
+
+          popupContent.appendChild(poiSection);
+      }
+
+      marker.bindPopup(popupContent);
+      window.optimalPositionsLayer.addLayer(marker);
+
+      // Aggiungi il cerchio di raggio
+      const circle = L.circle([pos.lat, pos.lng], {
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.1,
+          radius: neighborhoodRadius
+      });
+      window.optimalPositionsLayer.addLayer(circle);
+  });
+
+  // Se ci sono posizioni, centra la mappa
+  if (positions.length > 0) {
+      const bounds = L.latLngBounds(positions.map(pos => [pos.lat, pos.lng]));
+      map.fitBounds(bounds);
+  }
+}
+

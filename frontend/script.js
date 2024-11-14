@@ -231,62 +231,53 @@ function hideLoadingOverlay() {
 }
 
 
-function calculateOptimalPositions() {
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    loadingOverlay.classList.add('visible');
+function calculateOptimalPositions(e) {
+  e.preventDefault();
+  console.log("Calculating optimal positions...");
+  
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  if (loadingOverlay) {
+      loadingOverlay.classList.remove('hidden');
+  }
 
-    showToast('info', 'Calcolo delle posizioni ottimali in corso. Questo potrebbe richiedere alcuni minuti.');
-
-    fetch('/calculate_optimal_locations')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            loadingOverlay.classList.remove('visible');
-            if (data.error) {
-                showToast('error', data.error);
-                return;
-            }
-            showOptimalPositions(data.suggestions);
-            showToast('success', 'Posizioni ottimali calcolate e visualizzate sulla mappa');
-        })
-        .catch(error => {
-            loadingOverlay.classList.remove('visible');
-            console.error('Errore nel calcolo delle posizioni ottimali:', error);
-            showToast('error', `Errore nel calcolo delle posizioni ottimali: ${error.message}`);
-        });
+  fetch('/calculate_optimal_locations')
+      .then(response => {
+          if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+      })
+      .then(data => {
+          console.log("Data received:", data);
+          if (data.error) {
+              showToast('error', data.error);
+              return;
+          }
+          
+          // Usa la funzione globale da map.js
+          window.showOptimalPositions(data.suggestions);
+          showToast('success', `Trovate ${data.suggestions.length} posizioni ottimali`);
+      })
+      .catch(error => {
+          console.error('Error:', error);
+          showToast('error', error.message);
+      })
+      .finally(() => {
+          if (loadingOverlay) {
+              loadingOverlay.classList.add('hidden');
+          }
+      });
 }
 
+// Modifica l'event listener in script.js
+document.addEventListener('DOMContentLoaded', function() {
+  const calculateButton = document.querySelector('button[id="calculateOptimalPositions"]');
+  if (calculateButton) {
+      calculateButton.addEventListener('click', calculateOptimalPositions);
+  }
+});
 
-function showOptimalPositions(positions) {
-    // Rimuovi i marker ottimali esistenti, se presenti
-    if (window.optimalPositionsLayer) {
-        map.removeLayer(window.optimalPositionsLayer);
-    }
-    
-    window.optimalPositionsLayer = L.layerGroup().addTo(map);
 
-    positions.forEach((pos, index) => {
-        const marker = L.marker([pos.lat, pos.lng], {
-            icon: L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div style="background-color: #00FF00; color: black; width: 25px; height: 25px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold;">${index + 1}</div>`,
-                iconSize: [25, 25],
-                iconAnchor: [12, 12]
-            })
-        });
-        
-        marker.bindPopup(`Posizione ottimale #${index + 1}<br>Rank: ${pos.rank.toFixed(2)}`);
-        window.optimalPositionsLayer.addLayer(marker);
-    });
-
-    // Zoom della mappa per mostrare tutti i marker ottimali
-    const bounds = L.latLngBounds(positions.map(pos => [pos.lat, pos.lng]));
-    map.fitBounds(bounds);
-}
 
 
 
