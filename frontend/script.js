@@ -30,36 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Star Rating System
-    const stars = document.querySelectorAll('#rating .star');
-    const ratingValue = document.getElementById('ratingValue');
-    
-    if (stars.length > 0 && ratingValue) {
-        stars.forEach(star => {
-            star.addEventListener('mouseover', function() {
-                const value = this.dataset.value;
-                updateStars(value);
-            });
 
-            star.addEventListener('mouseout', function() {
-                const selectedValue = document.querySelector('#rating .star.selected');
-                updateStars(selectedValue ? selectedValue.dataset.value : 0);
-            });
-
-            star.addEventListener('click', function() {
-                const value = this.dataset.value;
-                document.querySelector('#rating .star.selected')?.classList.remove('selected');
-                this.classList.add('selected');
-                ratingValue.textContent = `Rating: ${value}`;
-            });
-        });
-    }
-
-    function updateStars(value) {
-        stars.forEach(star => {
-            star.classList.toggle('selected', star.dataset.value <= value);
-        });
-    }
 });
 
 

@@ -21,7 +21,6 @@ export function getColorFromRank(rank) {
 }
 
 export function getCustomIcon(poiType) {
-    // Definisci le icone per ogni tipo di POI
     const iconMap = {
         aree_verdi: '🌳',
         parcheggi: '🅿️',
@@ -61,7 +60,7 @@ export const poiConfigs = {
     cinema: { emoji: '🎬', label: 'Cinema' },
     ospedali: { emoji: '🏥', label: 'Ospedali' },
     farmacia: { emoji: '💊', label: 'Farmacia' },
-    colonnina_elettrica: { emoji: '⚡', label: 'Colonnina Elettrica' },
+    colonnina_elettrica: { emoji: '⚡', label: 'Colonnina' },
     biblioteca: { emoji: '🏢', label: 'Biblioteca' }
 };
 
@@ -103,3 +102,18 @@ export function createPolygon(map, data, color, geofencesLayer) {
     polygon.geofenceId = data.id;
     geofencesLayer.addLayer(polygon);
 }
+
+
+export function showToast(type, message) {
+    const toast = document.createElement('div');
+    toast.className = `alert ${type === 'success' ? 'alert-success' : 'alert-error'} fixed bottom-4 right-4 z-50`;
+    toast.innerHTML = `<span>${message}</span>`;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+
