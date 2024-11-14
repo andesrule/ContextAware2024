@@ -1,10 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from geoalchemy2 import Geometry
-from sqlalchemy.dialects.postgresql import ARRAY 
-from flask_login import UserMixin
 from sqlalchemy import Index
 from sqlalchemy.sql import text
-from geoalchemy2.functions import ST_Transform
 db = SQLAlchemy()
 
 
@@ -41,7 +38,9 @@ class QuestionnaireResponse(db.Model):
     biblioteca = db.Column(db.Integer)
     densita_aree_verdi = db.Column(db.Integer)
     densita_fermate_bus = db.Column(db.Integer)
-
+    densita_farmacie = db.Column(db.Integer)
+    densita_scuole=db.Column(db.Integer)
+    densita_parcheggi=db.Column(db.Integer)
 
 class POI(db.Model):
     __tablename__ = 'points_of_interest'

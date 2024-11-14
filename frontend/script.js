@@ -103,7 +103,7 @@ function createAlert(message, type = 'warning') {
 
 
 let currentPage = 1;
-const totalPages = 4;
+const totalPages = 5;
 
 // Funzione per mostrare una pagina specifica
 function showPage(pageNumber) {

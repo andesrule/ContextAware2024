@@ -7,21 +7,14 @@ from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
 from sqlalchemy import func, text
 from geoalchemy2.functions import *
-from shapely import wkb
 import numpy as np
 import time
 from flask_caching import Cache
-from functools import lru_cache, partial
-from multiprocessing import Pool, cpu_count
+from functools import lru_cache
 from sqlalchemy.exc import SQLAlchemyError
-import binascii
 from scipy.spatial.distance import cdist
 
 
-cache = Cache(config={'CACHE_TYPE': 'simple'})
-
-# Definisci una griglia più grande per il pre-calcolo
-PRECALC_GRID_SIZE = 20
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -53,6 +46,7 @@ def get_pois():
     
     print(f"Numero di POI restituiti: {len(poi_list)}")
     return jsonify(poi_list)
+    
 
 @utils_bp.route('/api/pois/<poi_type>', methods=['GET'])
 def get_pois_by_type(poi_type):
@@ -108,7 +102,6 @@ def get_pois_by_type(poi_type):
             'message': str(e)
         }), 500
     
-
 @utils_bp.route('/get_radius', methods=['POST'])
 def get_radius():
     global global_radius
@@ -192,8 +185,10 @@ def submit_questionnaire():
             colonnina_elettrica=data.get('colonnina_elettrica'),
             biblioteca=data.get('biblioteca'),
             densita_aree_verdi=data.get('densita_aree_verdi'),
-
-            densita_fermate_bus=data.get('densita_fermate_bus')
+            densita_fermate_bus=data.get('densita_fermate_bus'),
+            densita_farmacie=data.get('densita_farmacie'),
+            densita_scuole=data.get('densita_scuole'),
+            densita_parcheggi=data.get('densita_parcheggi')
         )
         db.session.add(new_questionnaire)
 
@@ -228,24 +223,17 @@ def get_poi_coordinates(poi):
     else:
         raise ValueError("Formato coordinate non riconosciuto")
 
-def count_nearby_pois(db, marker_id, distance_meters):
+def count_nearby_pois(location_id, distance_meters=None):
     """
-    Conta i POI vicini a un marker utilizzando indici spaziali.
-    Utilizza ST_DWithin con proiezione Web Mercator (SRID 3857) per misure di distanza accurate.
+    Conta i POI vicini a un punto o all'interno di un'area.
     
     Args:
-        db: istanza del database
-        marker_id: ID del marker di riferimento
-        distance_meters: raggio di ricerca in metri
-        
+        location_id: ID del marker o del geofence
+        distance_meters: raggio di ricerca in metri (solo per marker)
+    
     Returns:
         dizionario con il conteggio dei POI per tipo
     """
-    # Ottieni il marker specifico dal database
-    marker = db.session.query(ListaImmobiliCandidati).get(marker_id)
-    if not marker:
-        return None
-
     # Definisci i tipi di POI da contare
     poi_types = [
         'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
@@ -254,18 +242,36 @@ def count_nearby_pois(db, marker_id, distance_meters):
     result = {poi_type: 0 for poi_type in poi_types}
 
     try:
-        # Query ottimizzata che utilizza l'indice spaziale idx_poi_location_3857
-        # Usa ST_DWithin con coordinate proiettate per misure di distanza accurate
-        poi_counts = db.session.query(
-            POI.type,
-            func.count(POI.id).label('count')
-        ).filter(
-            func.ST_DWithin(
-                func.ST_Transform(POI.location, 3857),  # Proietta i POI in Web Mercator
-                func.ST_Transform(marker.marker, 3857), # Proietta il marker in Web Mercator
-                distance_meters  # La distanza in metri è corretta in SRID 3857
-            )
-        ).group_by(POI.type).all()
+        # Verifica se è un marker o un geofence
+        marker = ListaImmobiliCandidati.query.get(location_id)
+        geofence = None if marker else ListaAreeCandidate.query.get(location_id)
+
+        if not marker and not geofence:
+            return None
+
+        if marker:
+            # Query per marker con buffer circolare
+            poi_counts = db.session.query(
+                POI.type,
+                func.count(POI.id).label('count')
+            ).filter(
+                func.ST_DWithin(
+                    func.ST_Transform(POI.location, 3857),
+                    func.ST_Transform(marker.marker, 3857),
+                    distance_meters
+                )
+            ).group_by(POI.type).all()
+        else:
+            # Query per geofence (area poligonale)
+            poi_counts = db.session.query(
+                POI.type,
+                func.count(POI.id).label('count')
+            ).filter(
+                func.ST_Contains(
+                    geofence.geofence,
+                    POI.location
+                )
+            ).group_by(POI.type).all()
 
         # Popola il dizionario dei risultati
         for poi_type, count in poi_counts:
@@ -275,25 +281,8 @@ def count_nearby_pois(db, marker_id, distance_meters):
         return result
 
     except Exception as e:
-        print(f"Errore nel conteggio dei POI vicini: {str(e)}")
+        print(f"Errore nel conteggio dei POI: {str(e)}")
         return result
-
-@utils_bp.route('/api/count_nearby_pois', methods=['GET'])
-def api_count_nearby_pois():
-    marker_id = request.args.get('marker_id', type=int)
-    distance_meters = request.args.get('distance', type=float)
-
-    if not marker_id or not distance_meters:
-        return jsonify({"error": "Missing marker_id or distance parameter"}), 400
-
-    logging.debug(f"Received request with marker_id: {marker_id}, distance: {distance_meters}")
-
-    result = count_nearby_pois(db, marker_id, distance_meters)
-    if result is None:
-        return jsonify({"error": "Marker not found or no POIs in database"}), 404
-
-    logging.debug(f"Result: {result}")
-    return jsonify(result)
 
 def fetch_and_insert_pois(poi_type, api_url):
     total_count = 0
@@ -411,6 +400,78 @@ def update_pois():
         results[poi_type] = count
     return results
 
+def calculate_rank(poi_counts, user_preferences):
+    """
+    Calcola il rank basato sulla media tra percentuale di POI presenti
+    e percentuale della preferenza espressa.
+    
+    Args:
+        poi_counts (dict): Conteggio dei POI nel raggio
+        user_preferences (dict): Preferenze utente (0-5)
+    
+    Returns:
+        float: Punteggio da 0 a 100
+    """
+    # Totali POI in città
+    CITY_POI_COUNTS = {
+        "aree_verdi": 250,
+        "biblioteca": 18,
+        "cinema": 61,
+        "colonnina_elettrica": 129,
+        "farmacia": 125,
+        "fermate_bus": 1288,
+        "ospedali": 37,
+        "parcheggi": 44,
+        "scuole": 359,
+        "stazioni_ferroviarie": 8
+    }
+    
+    if not poi_counts or not user_preferences:
+        return 0
+    
+    total_score = 0
+    counted_types = 0
+    
+    for poi_type, count in poi_counts.items():
+        preference = user_preferences.get(poi_type, 0)
+        total_count = CITY_POI_COUNTS.get(poi_type, 0)
+        
+        if preference > 0 and total_count > 0:
+            # Percentuale di POI presenti
+            poi_percentage = (count / total_count) * 100
+            # Percentuale preferenza
+            preference_percentage = (preference / 5) * 100
+            # Media delle percentuali
+            type_score = (poi_percentage + preference_percentage) / 2
+            
+            total_score += type_score
+            counted_types += 1
+    
+    # Calcola il rank finale come media dei type_score
+    final_rank = total_score / counted_types if counted_types > 0 else 0
+    
+    return round(min(final_rank, 100), 2)
+
+@utils_bp.route('/count_nearby_pois', methods=['POST'])
+def count_nearby_pois_endpoint():
+    data = request.get_json()
+    location_id = data.get('location_id')
+    distance_meters = data.get('distance_meters')
+    
+    poi_counts = count_nearby_pois(location_id, distance_meters)
+    
+    return jsonify(poi_counts)
+
+@utils_bp.route('/calculate_rank', methods=['POST'])
+def calculate_rank_endpoint():
+    data = request.get_json()
+    poi_counts = data.get('poi_counts', {})
+    user_preferences = data.get('user_preferences', {})
+    
+    rank = calculate_rank(poi_counts, user_preferences)
+    
+    return jsonify({'rank': rank})
+
 
 @utils_bp.route('/get_markers')
 def get_markers():
@@ -452,95 +513,43 @@ def get_geofences():
 
     return jsonify(geofences_data)
 
-def get_questionnaire_response_dict(response):
-    return {
-        'aree_verdi': response.aree_verdi,
-        'parcheggi': response.parcheggi,
-        'fermate_bus': response.fermate_bus,
-        'stazioni_ferroviarie': response.stazioni_ferroviarie,
-        'scuole': response.scuole,
-        'cinema': response.cinema,
-        'ospedali': response.ospedali,
-        'farmacia': response.farmacia,
-        'colonnina_elettrica': response.colonnina_elettrica,
-        'biblioteca': response.biblioteca,
-        'densita_aree_verdi': response.densita_aree_verdi,
-        'densita_fermate_bus': response.densita_fermate_bus
-    }
 
-def calcola_rank(marker_id, raggio):
-    """
-    Calcola il punteggio del marker con un sistema più permissivo e meglio allineato
-    con le posizioni ottimali.
-    """
-    nearby_pois = count_nearby_pois(db, marker_id=marker_id, distance_meters=raggio)
-    response = QuestionnaireResponse.query.first()
-    user_preferences = get_questionnaire_response_dict(response)
-    if not user_preferences:
-        return 0
-
-    rank = 0
+@utils_bp.route('/get-questionnaire/<int:id>', methods=['GET'])
+def get_questionnaire_by_id(id):
+    try:
+        # Cerca il questionario nel database
+        questionnaire = QuestionnaireResponse.query.get(id)
+        
+        # Se il questionario non viene trovato, restituisce None
+        if not questionnaire:
+            return None
+        
+        # Converte il questionario in un dizionario
+        response_data = {
+            'id': questionnaire.id,
+            'aree_verdi': questionnaire.aree_verdi,
+            'parcheggi': questionnaire.parcheggi,
+            'fermate_bus': questionnaire.fermate_bus,
+            'stazioni_ferroviarie': questionnaire.stazioni_ferroviarie,
+            'scuole': questionnaire.scuole,
+            'cinema': questionnaire.cinema,
+            'ospedali': questionnaire.ospedali,
+            'farmacia': questionnaire.farmacia,
+            'colonnina_elettrica': questionnaire.colonnina_elettrica,
+            'biblioteca': questionnaire.biblioteca,
+            'densita_aree_verdi': questionnaire.densita_aree_verdi,
+            'densita_fermate_bus': questionnaire.densita_fermate_bus,
+            'densita_farmacie': questionnaire.densita_farmacie,
+            'densita_scuole': questionnaire.densita_scuole,
+            'densita_parcheggi': questionnaire.densita_parcheggi
+        }
+        
+        return response_data
+        
+    except Exception as e:
+        # In caso di eccezione, restituisce un dizionario di errore
+        return {'error': f'Errore nel recupero del questionario: {str(e)}'}
     
-    # Pesi base più generosi
-    pesi = {
-        'aree_verdi': 1.0,
-        'parcheggi': 1.0,
-        'fermate_bus': 1.0,
-        'stazioni_ferroviarie': 1.0,
-        'scuole': 1.0,
-        'cinema': 0.8,
-        'ospedali': 1.0,
-        'farmacia': 0.8,
-        'colonnina_elettrica': 0.6,
-        'biblioteca': 0.8,
-    }
-
-    for poi_type in nearby_pois:
-        count = nearby_pois.get(poi_type, 0)
-        preferenza = user_preferences.get(poi_type, 0)
-        peso_base = pesi.get(poi_type, 0.5)
-
-        # Calcolo base del punteggio più generoso
-        if count > 0:
-            # Bonus crescente ma con diminishing returns per più POI
-            poi_score = preferenza * peso_base * (1 + min(count, 5) / 2) * 25
-
-            # Gestione speciale per densità
-            if poi_type == 'aree_verdi' and count >= 2:
-                density_bonus = user_preferences.get('densita_aree_verdi', 0) * 10
-                poi_score += density_bonus
-
-            if poi_type == 'fermate_bus' and count >= 2:
-                density_bonus = user_preferences.get('densita_fermate_bus', 0) * 10
-                poi_score += density_bonus
-
-            rank += poi_score
-
-        # Bonus per combinazioni strategiche
-        if poi_type == 'stazioni_ferroviarie' and count >= 1:
-            if nearby_pois.get('fermate_bus', 0) >= 1:
-                rank += preferenza * 20
-
-        if poi_type == 'biblioteca' and count >= 1:
-            if nearby_pois.get('farmacia', 0) >= 1:
-                rank += preferenza * 15
-
-    # Normalizzazione più permissiva
-    # Considerando che ogni POI può contribuire fino a circa 125 punti (25 * 5 di preferenza)
-    # e ci sono bonus aggiuntivi, scaliamo il punteggio in modo più generoso
-    max_theoretical = sum(pesi.values()) * 5 * 25  # Punteggio teorico massimo
-    normalized_rank = (rank / max_theoretical) * 200  # Scala fino a 200
-
-    # Aggiustiamo la scala finale per avere più punti verdi/gialli
-    if normalized_rank > 70:  # Se il punteggio è decente
-        # Boost non lineare per punteggi sopra 70
-        normalized_rank = 70 + (normalized_rank - 70) * 1.5
-
-    # Cap finale più alto
-    final_rank = min(normalized_rank, 200)
-    
-    return final_rank
-
 @utils_bp.route('/get_ranked_markers')
 def get_ranked_markers():
     try:
@@ -548,7 +557,7 @@ def get_ranked_markers():
             return jsonify({"error": "No questionnaires found"}), 404
 
         global global_radius
-        
+        questionnaire = get_questionnaire_by_id(1)
         markers = ListaImmobiliCandidati.query.all()
         ranked_markers = []
         
@@ -556,7 +565,8 @@ def get_ranked_markers():
             try:
                 lat = db.session.scalar(ST_Y(marker.marker))
                 lng = db.session.scalar(ST_X(marker.marker))
-                rank = calcola_rank(marker.id, raggio=global_radius)
+                
+                rank = calculate_rank(count_nearby_pois(marker.id, global_radius), questionnaire)
                 ranked_markers.append({
                     'id': marker.id,
                     'lat': lat,
@@ -572,171 +582,6 @@ def get_ranked_markers():
         print(f"Errore generale in get_ranked_markers: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
-def count_pois_in_geofence(db, geofence_id):
-    """
-    Conta i POI all'interno di un'area (geofence) utilizzando indici spaziali.
-    Utilizza ST_Contains e gli indici spaziali per una ricerca efficiente.
-    
-    Args:
-        db: istanza del database
-        geofence_id: ID dell'area di riferimento
-        
-    Returns:
-        dizionario con il conteggio dei POI per tipo
-    """
-    # Ottieni il geofence specifico dal database
-    geofence = db.session.query(ListaAreeCandidate).get(geofence_id)
-    if not geofence:
-        return None
-
-    # Definisci i tipi di POI da contare
-    poi_types = [
-        'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
-        'scuole', 'cinema', 'ospedali', 'farmacia', 'colonnina_elettrica', 'biblioteca'
-    ]
-    result = {poi_type: 0 for poi_type in poi_types}
-
-    try:
-        # Query ottimizzata che utilizza l'indice spaziale e ST_Contains
-        # ST_Contains verifica se il POI è completamente contenuto nel geofence
-        poi_counts = db.session.query(
-            POI.type,
-            func.count(POI.id).label('count')
-        ).filter(
-            func.ST_Contains(
-                geofence.geofence,  # Il poligono del geofence
-                POI.location        # La posizione del POI
-            )
-        ).group_by(POI.type).all()
-
-        # Popola il dizionario dei risultati
-        for poi_type, count in poi_counts:
-            if poi_type in result:
-                result[poi_type] = count
-
-        return result
-
-    except Exception as e:
-        print(f"Errore nel conteggio dei POI nell'area: {str(e)}")
-        return result
-
-# Funzione opzionale per contare i POI con buffer intorno al geofence
-def count_pois_near_geofence(db, geofence_id, buffer_meters=100):
-    """
-    Conta i POI all'interno e vicino a un'area con un buffer specificato.
-    Utile per considerare anche i POI nelle immediate vicinanze dell'area.
-    
-    Args:
-        db: istanza del database
-        geofence_id: ID dell'area di riferimento
-        buffer_meters: dimensione del buffer in metri
-        
-    Returns:
-        dizionario con il conteggio dei POI per tipo
-    """
-    geofence = db.session.query(ListaAreeCandidate).get(geofence_id)
-    if not geofence:
-        return None
-
-    poi_types = [
-        'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
-        'scuole', 'cinema', 'ospedali', 'farmacia', 'colonnina_elettrica', 'biblioteca'
-    ]
-    result = {poi_type: 0 for poi_type in poi_types}
-
-    try:
-        # Query ottimizzata che usa ST_DWithin per considerare anche i POI vicini all'area
-        poi_counts = db.session.query(
-            POI.type,
-            func.count(POI.id).label('count')
-        ).filter(
-            func.ST_DWithin(
-                func.ST_Transform(POI.location, 3857),
-                func.ST_Transform(geofence.geofence, 3857),
-                buffer_meters
-            )
-        ).group_by(POI.type).all()
-
-        for poi_type, count in poi_counts:
-            if poi_type in result:
-                result[poi_type] = count
-
-        return result
-
-    except Exception as e:
-        print(f"Errore nel conteggio dei POI nell'area con buffer: {str(e)}")
-        return result    
-
-
-def calcola_rank_geofence(geofence_id):
-    """
-    Calcola il punteggio del marker tenendo conto dei pesi delle preferenze dell'utente e della presenza di PoI.
-    :param marker: Marker dell'immobile
-    :param user_preferences: Dizionario con le preferenze dell'utente (da 0 a 5)
-    :param nearby_pois: Dizionario con il numero di PoI vicini (reali)
-    :return: Punteggio del marker
-    """
-    nearby_pois= count_pois_in_geofence(db, geofence_id=geofence_id)
-    user_preferences = get_questionnaire_response_dict(response = QuestionnaireResponse.query.get(1))
-    rank = 0
-    
-    # Definisci pesi per ciascun tipo di PoI (questi valori sono un esempio)
-    pesi = {
-        'aree_verdi': 0.8,
-        'parcheggi': 1.0,
-        'fermate_bus': 1.0,
-        'stazioni_ferroviarie': 1.0,
-        'scuole': 0.7,
-        'cinema': 0.6,
-        'ospedali': 1.0,
-        'farmacia': 0.5,
-        'colonnina_elettrica': 0.2,
-        'biblioteca': 0.4,
-    }
-    
-    # Aree Verdi
-    rank += nearby_pois.get('aree_verdi', 0) * user_preferences['aree_verdi'] * pesi['aree_verdi']
-    
-    # Parcheggi
-    if nearby_pois.get('parcheggi', 0) >= 2:
-        rank += user_preferences['parcheggi'] * pesi['parcheggi']
-    
-    # Fermate Bus
-    rank += nearby_pois.get('fermate_bus', 0) * user_preferences['fermate_bus'] * pesi['fermate_bus']
-    
-    # Luoghi di interesse
-    if nearby_pois.get('stazioni_ferroviarie', 0) >= 2:
-        rank += user_preferences['stazioni_ferroviarie'] * pesi['stazioni_ferroviarie']
-    
-    # Scuole
-    rank += nearby_pois.get('scuole', 0) * user_preferences['scuole'] * pesi['scuole']
-    
-    # Cinema
-    rank += nearby_pois.get('cinema', 0) * user_preferences['cinema'] * pesi['cinema']
-    
-    # Ospedali
-    rank += nearby_pois.get('ospedali', 0) * user_preferences['ospedali'] * pesi['ospedali']
-    
-    # Farmacia
-    rank += nearby_pois.get('farmacia', 0) * user_preferences['farmacia'] * pesi['farmacia']
-    
-    # Luogo di Culto
-    rank += nearby_pois.get('colonnina_elettrica', 0) * user_preferences['colonnina_elettrica'] * pesi['colonnina_elettrica']
-    
-    # Servizi
-    if nearby_pois.get('biblioteca', 0) >= 2:
-        rank += user_preferences['biblioteca'] * pesi['biblioteca']
-    
-    #Aree verdi densitá
-    if nearby_pois.get('aree_verdi', 0) >= 2:
-        rank += user_preferences['densita_aree_verdi'] * pesi['aree_verdi']
-
-
-    #Fermate bus densitá
-    if nearby_pois.get('fermate_bus', 0) >= 2:
-        rank += user_preferences['densita_fermate_bus'] * pesi['fermate_bus']
-
-    return rank
 
 @utils_bp.route('/get_ranked_geofences')
 def get_ranked_geofences():
@@ -756,7 +601,7 @@ def get_ranked_geofences():
                 centroid_lng = db.session.scalar(func.ST_X(centroid))
                 
                 # Calcola il rank
-                rank = calcola_rank_geofence(geofence.id)
+                rank = calculate_rank(count_nearby_pois(geofence.id), get_questionnaire_by_id(1))
                 
                 # Ottieni il geofence come GeoJSON
                 geofence_geojson = db.session.scalar(ST_AsGeoJSON(geofence.geofence))
@@ -786,7 +631,6 @@ def get_ranked_geofences():
 def check_questionnaires():
     count = QuestionnaireResponse.query.count()
     return jsonify({'count': count})
-
 
 @utils_bp.route('/delete-all-geofences', methods=['POST'])
 def delete_all_geofences():
@@ -832,7 +676,7 @@ def get_all_geofences():
         for immobile in immobili:
             lat = db.session.scalar(ST_Y(immobile.marker))
             lng = db.session.scalar(ST_X(immobile.marker))
-            rank = calcola_rank(immobile.id, raggio=global_radius)
+            rank = calculate_rank(count_nearby_pois(location_id=immobile.id, distance_meters=global_radius), user_preferences=get_questionnaire_by_id(1))
             all_geofences.append({
                 'id': immobile.id,
                 'type': 'marker',
@@ -846,7 +690,7 @@ def get_all_geofences():
             centroid = db.session.scalar(ST_Centroid(area.geofence))
             centroid_lat = db.session.scalar(func.ST_Y(centroid))
             centroid_lng = db.session.scalar(func.ST_X(centroid))
-            rank = calcola_rank_geofence(area.id)
+            rank = calculate_rank(poi_counts=count_nearby_pois(area.id), user_preferences=get_questionnaire_by_id(1))
             geofence_geojson = db.session.scalar(ST_AsGeoJSON(area.geofence))
             geofence_dict = json.loads(geofence_geojson)
             coordinates = geofence_dict['coordinates'][0]
@@ -911,94 +755,6 @@ def count_pois_near_point(lat, lon, radius):
         return {}
     
 
-def calculate_rank_for_point(poi_counts, user_preferences):
-    """
-    Calcola il rank di un punto con una normalizzazione più bilanciata
-    """
-    if not user_preferences or not poi_counts:
-        return 0
-
-    rank = 0
-    
-    # Pesi base per ciascun tipo di POI
-    pesi = {
-        'aree_verdi': 1.0,
-        'parcheggi': 1.0,
-        'fermate_bus': 1.0,
-        'stazioni_ferroviarie': 1.2,  # Peso maggiore per servizi importanti
-        'scuole': 1.1,
-        'cinema': 0.7,
-        'ospedali': 1.2,
-        'farmacia': 0.9,
-        'colonnina_elettrica': 0.6,
-        'biblioteca': 0.8,
-    }
-
-    # Soglie massime per tipo di POI (oltre queste il bonus diminuisce)
-    max_counts = {
-        'aree_verdi': 3,
-        'parcheggi': 4,
-        'fermate_bus': 5,
-        'stazioni_ferroviarie': 2,
-        'scuole': 3,
-        'cinema': 2,
-        'ospedali': 2,
-        'farmacia': 3,
-        'colonnina_elettrica': 2,
-        'biblioteca': 4,
-    }
-
-    for poi_type, count in poi_counts.items():
-        if poi_type not in pesi or poi_type not in max_counts:
-            continue
-
-        preferenza = user_preferences.get(poi_type, 0)
-        if preferenza == 0:
-            continue
-
-        peso_base = pesi[poi_type]
-        max_count = max_counts[poi_type]
-        
-        if count > 0:
-            # Calcolo base del punteggio con diminishing returns
-            normalized_count = min(count, max_count) / max_count
-            base_score = preferenza * peso_base * normalized_count * 20
-
-            # Bonus per ogni POI aggiuntivo oltre il primo, ma con diminishing returns
-            if count > 1:
-                additional_bonus = min(count - 1, max_count - 1) * 5
-                base_score += additional_bonus
-
-            # Gestione bonus densità
-            if poi_type == 'aree_verdi' and count >= 2:
-                density_bonus = user_preferences.get('densita_aree_verdi', 0) * 8
-                base_score += density_bonus
-
-            if poi_type == 'fermate_bus' and count >= 2:
-                density_bonus = user_preferences.get('densita_fermate_bus', 0) * 8
-                base_score += density_bonus
-
-            rank += base_score
-
-    # Bonus per combinazioni strategiche
-    if poi_counts.get('stazioni_ferroviarie', 0) >= 1 and poi_counts.get('fermate_bus', 0) >= 1:
-        rank += 15  # Bonus per intermodalità
-
-    if poi_counts.get('biblioteca', 0) >= 1 and poi_counts.get('farmacia', 0) >= 1:
-        rank += 10  # Bonus per servizi complementari
-
-    # Normalizzazione più bilanciata
-    max_theoretical = sum(pesi.values()) * 5 * 20  # Punteggio teorico massimo base
-    max_theoretical += 50  # Aggiungi spazio per i bonus
-    normalized_rank = (rank / max_theoretical) * 100  # Scala da 0 a 100
-
-    # Applicazione curve più graduale
-    if normalized_rank > 70:
-        normalized_rank = 70 + (normalized_rank - 70) * 0.8
-    
-    return min(round(normalized_rank, 2), 100)  # Arrotonda a 2 decimali e limita a 100
-
-
 def diverse_locations_selection(locations, num_locations=10, min_distance=0.008):
     """
     Seleziona le locations più diverse tra loro basandosi sia sulla distanza che sul rank
@@ -1037,22 +793,6 @@ def diverse_locations_selection(locations, num_locations=10, min_distance=0.008)
 
     return diverse_locations  
     
-def calculate_rank(poi_counts, user_preferences):
-    weights = {
-        'aree_verdi': 0.8,
-        'parcheggi': 1.0,
-        'fermate_bus': 1.0,
-        'stazioni_ferroviarie': 1.0,
-        'scuole': 0.7,
-        'cinema': 0.6,
-        'ospedali': 1.0,
-        'farmacia': 0.5,
-        'colonnina_elettrica': 0.2,
-        'biblioteca': 0.4,
-    }
-    return sum(count * user_preferences.get(poi_type, 0) * weights.get(poi_type, 1)
-               for poi_type, count in poi_counts.items())
-
 
 @utils_bp.route('/calculate_optimal_locations', methods=['GET'])
 def calculate_optimal_locations():
@@ -1065,14 +805,14 @@ def calculate_optimal_locations():
     
     try:
         # Verifica presenza questionario
-        user_prefs = QuestionnaireResponse.query.first()
-        if not user_prefs:
+        user_preferences = get_questionnaire_by_id(1)
+        if not user_preferences:
             return jsonify({
                 "error": "Nessun questionario trovato. Completa il questionario prima.",
                 "execution_time_seconds": time.time() - start_time
             }), 400
         
-        user_preferences = get_questionnaire_response_dict(user_prefs)
+         
         
         # Definisci i bounds di Bologna con area leggermente più ampia
         bounds = {
@@ -1133,7 +873,7 @@ def calculate_optimal_locations():
 
             # Calcola il rank per ogni punto
             for (lng, lat), poi_counts in points_data.items():
-                rank = calculate_rank_for_point(poi_counts, user_preferences)
+                rank = calculate_rank(poi_counts, user_preferences)
                 
                 # Aggiorna la distribuzione dei rank
                 if rank <= 20: rank_distribution['0-20'] += 1
@@ -1213,7 +953,7 @@ def process_point(point, user_preferences, radius):
     lat, lon = point
     poi_counts = count_pois_near_point(lat, lon, radius)
     
-    rank = calculate_rank_for_point(poi_counts, user_preferences)
+    rank = calculate_rank(poi_counts, user_preferences)
     if rank > 70:  # Considera solo punti con un punteggio decente
         return {
             'lat': lat,

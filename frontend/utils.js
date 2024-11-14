@@ -13,11 +13,11 @@ export function showNoQuestionnaireAlert() {
 }
 
 export function getColorFromRank(rank) {
-    if (rank < 70) return '#FF0000';      // Rosso
-    else if (rank < 90) return '#FFA500'; // Arancione
-    else if (rank < 120) return '#FFFF00'; // Giallo
-    else if (rank < 150) return '#90EE90'; // Verde chiaro
-    else return '#008000';                // Verde scuro
+    if (rank < 20) return '#FF0000';      // Rosso (0-19)
+    else if (rank < 40) return '#FFA500'; // Arancione (20-39)
+    else if (rank < 60) return '#FFFF00'; // Giallo (40-59)
+    else if (rank < 80) return '#05C953'; // Verde chiaro (60-79)
+    else return '#2038AF';                // Blu (80-100)
 }
 
 export function getCustomIcon(poiType) {
