@@ -1,15 +1,15 @@
+/* Base styles */
 body {
     -webkit-tap-highlight-color: transparent;
 }
 
-/* Stile per il contenitore principale */
+/* Layout containers */
 .main-container {
     position: relative;
     flex: 1;
     overflow: hidden;
 }
 
-/* Stile per il contenitore della mappa */
 #mapContainer {
     position: absolute;
     top: 0;
@@ -19,7 +19,12 @@ body {
     transition: right 0.5s ease;
 }
 
-/* Stile per il pannello di controllo */
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+/* Control Panel */
 #controlPanel {
     position: absolute;
     top: 0;
@@ -30,7 +35,6 @@ body {
     overflow-y: auto;
 }
 
-/* Quando il pannello è aperto */
 .panel-open #mapContainer {
     right: 24rem;
 }
@@ -39,13 +43,7 @@ body {
     right: 0;
 }
 
-/* Assicurati che la mappa occupi tutto lo spazio disponibile */
-#map {
-    width: 100%;
-    height: 100%;
-}
-
-/* Stili per il menu hamburger */
+/* Menu Toggle */
 #menu_checkbox {
     display: none;
 }
@@ -101,24 +99,46 @@ body {
     transform: rotateZ(-45deg);
 }
 
-/* Stili per l'alert */
-.alert {
-    opacity: 0;
-    transition: opacity 0.3s ease;
+/* Loading Overlay */
+#loadingOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
 }
 
-.alert.show {
-    opacity: 1;
+#loadingOverlay.visible {
+    display: flex;
 }
 
-.slider {
-    width: 100%;
+#loadingOverlay p {
+    color: white;
+    margin-top: 10px;
+    font-size: 16px;
 }
 
-#radiusValue {
-    font-weight: bold;
+.loading-spinner {
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
 }
 
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Map Controls and Markers */
 .leaflet-control-custom {
     background-color: #fff;
     border-radius: 4px;
@@ -137,129 +157,7 @@ body {
     font-size: 20px;
 }
 
-.poi-popup {
-    padding: 5px;
-}
-
-.poi-popup h3 {
-    margin: 0 0 5px 0;
-    font-weight: bold;
-}
-
-.poi-popup p {
-    margin: 2px 0;
-}
-
-.quick-setting-btn {
-    border-color: var(--p) !important;
-    color: var(--p) !important;
-    background-color: transparent !important;
-  }
-  
-  .quick-setting-btn:hover,
-  .quick-setting-btn.btn-active {
-    background-color: var(--p) !important;
-    border-color: var(--p) !important;
-    color: var(--pc) !important;
-  }
-  
-  .quick-setting-btn:focus {
-    box-shadow: 0 0 0 2px var(--b1), 0 0 0 4px var(--p);
-  }
-  
-  /* Stile specifico per lo stato attivo */
-  .quick-setting-btn.btn-active {
-    background-color: var(--p) !important;
-    color: var(--pc) !important;
-  }
-
-  .alert button {
-    padding: 0 5px;
-    line-height: 1;
-    background: none;
-    border: none;
-    cursor: pointer;
-}
-
-.alert button:hover {
-    opacity: 0.7;
-}
-.alert {
-    transition: opacity 300ms ease-in-out;
-}
-
-
-
-#loadingOverlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
-  
-  .loading-spinner {
-    border: 5px solid #f3f3f3;
-    border-top: 5px solid #3498db;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  
-  #loadingOverlay p {
-    color: white;
-    margin-top: 10px;
-    font-size: 16px;
-  }
-
-  #loadingOverlay.visible {
-    display: flex;  /* Mostra l'overlay solo quando ha la classe 'visible' */
-  }
-
-  .moran-section {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    padding: 12px;
-    margin: 10px 0;
-}
-
-.moran-values {
-    font-weight: bold;
-    margin: 8px 0;
-}
-
-.moran-stats {
-    font-size: 0.8em;
-    opacity: 0.8;
-}
-
-.value-positive {
-    color: #4CAF50;
-}
-
-.value-neutral {
-    color: #FFC107;
-}
-
-.value-negative {
-    color: #F44336;
-}
-
-
-/*poi quick settings */
-
+/* POI Markers */
 .poi-button {
     background-color: rgba(255, 255, 255, 0.1);
     transition: all 0.3s ease;
@@ -284,49 +182,16 @@ body {
     font-size: 0.875rem;
 }
 
-
-/*slider*/
-
-.radius-slider {
-    background: white;
-    padding: 10px;
-    border-radius: 5px;
-}
-.radius-slider h4 {
-    margin: 0 0 10px 0;
-}
-.slider {
-    width: 100%;
-}
-
-/*cluster pois */
-.marker-cluster-small {
-    background-color: rgba(181, 226, 140, 0.6);
-}
-.marker-cluster-small div {
-    background-color: rgba(110, 204, 57, 0.6);
-}
-.marker-cluster-medium {
-    background-color: rgba(241, 211, 87, 0.6);
-}
-.marker-cluster-medium div {
-    background-color: rgba(240, 194, 12, 0.6);
-}
-.marker-cluster-large {
-    background-color: rgba(253, 156, 115, 0.6);
-}
-.marker-cluster-large div {
-    background-color: rgba(241, 128, 23, 0.6);
-}
+/* Marker Clusters */
 .marker-cluster {
     background-clip: padding-box;
     border-radius: 20px;
 }
+
 .marker-cluster div {
     width: 30px;
     height: 30px;
-    margin-left: 5px;
-    margin-top: 5px;
+    margin: 5px;
     text-align: center;
     border-radius: 15px;
     font: 12px "Helvetica Neue", Arial, Helvetica, sans-serif;
@@ -336,6 +201,74 @@ body {
     align-items: center;
     justify-content: center;
 }
-.marker-cluster span {
-    line-height: 30px;
+
+.marker-cluster-small {
+    background-color: rgba(181, 226, 140, 0.6);
+}
+
+.marker-cluster-small div {
+    background-color: rgba(110, 204, 57, 0.6);
+}
+
+.marker-cluster-medium {
+    background-color: rgba(241, 211, 87, 0.6);
+}
+
+.marker-cluster-medium div {
+    background-color: rgba(240, 194, 12, 0.6);
+}
+
+.marker-cluster-large {
+    background-color: rgba(253, 156, 115, 0.6);
+}
+
+.marker-cluster-large div {
+    background-color: rgba(241, 128, 23, 0.6);
+}
+
+/* Popups */
+.poi-popup {
+    padding: 5px;
+}
+
+.poi-popup h3 {
+    margin: 0 0 5px 0;
+    font-weight: bold;
+}
+
+/* Alerts */
+.alert {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.alert.show {
+    opacity: 1;
+}
+
+.alert button {
+    padding: 0 5px;
+    line-height: 1;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.alert button:hover {
+    opacity: 0.7;
+}
+
+/* Radius Control */
+#radiusValue {
+    font-weight: bold;
+}
+
+.radius-slider {
+    background: white;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.slider {
+    width: 100%;
 }

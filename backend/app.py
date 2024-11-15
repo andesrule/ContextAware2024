@@ -47,9 +47,9 @@ def index():
 if __name__ == '__main__':  
     with app.app_context():
             print("Inizializzazione database...")
-            #reset_db()
+            reset_db()
             print("Database resettato, popolamento POI in corso...")
-            #update_pois()
+            update_pois()
             print("Inizializzazione completata!")
     
     app.run(host='0.0.0.0', port=5000, debug=True)

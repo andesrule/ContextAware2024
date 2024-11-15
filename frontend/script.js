@@ -1,3 +1,6 @@
+let currentPage = 1;
+const totalPages = 5;
+
 document.addEventListener('DOMContentLoaded', function() {
     // Menu Button
     const menuButton = document.getElementById('menuButton');
@@ -102,8 +105,7 @@ function createAlert(message, type = 'warning') {
 }
 
 
-let currentPage = 1;
-const totalPages = 5;
+
 
 // Funzione per mostrare una pagina specifica
 function showPage(pageNumber) {
@@ -322,14 +324,6 @@ function updateMoranIndex() {
         });
 }
 
-// Funzione per determinare la classe di colore in base al valore
-function getValueColorClass(value) {
-    if (value === null) return 'text-gray-500';
-    if (value > 0.5) return 'text-green-500';  // clustering forte
-    if (value > 0) return 'text-blue-500';     // clustering debole
-    if (value < -0.5) return 'text-red-500';   // dispersione forte
-    return 'text-yellow-500';                  // dispersione debole/random
-}
 
 // Modifica le funzioni esistenti per aggiornare l'indice quando necessario
 const originalSetPrice = setPrice;

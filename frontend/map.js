@@ -7,6 +7,7 @@ import {
   createMarker,
   createPolygon,
   showToast,
+  createOptimalPopup,
 } from "./utils.js";
 
 //inizializza mappa su bologna
@@ -376,7 +377,7 @@ function deleteAllGeofences() {
 
 function removeGeofenceFromMap(geofenceId) {
   console.log("Removing geofence from map:", geofenceId);
-  // Rimuovi il marker o il poligono dalla mappa
+  // Rimuovi il marker 
   drawnItems.eachLayer(function (layer) {
     if (layer.geofenceId === geofenceId) {
       drawnItems.removeLayer(layer);
@@ -384,7 +385,7 @@ function removeGeofenceFromMap(geofenceId) {
     }
   });
 
-  // rimuovi il cerchio associato nel caso è un marker
+  // rimuovi il cerchio associato
   if (circles[geofenceId]) {
     map.removeLayer(circles[geofenceId]);
     delete circles[geofenceId];
@@ -433,15 +434,13 @@ var recenterControl = L.Control.extend({
   },
 });
 
-// Aggiungiamo il nuovo controllo alla mappa
 map.addControl(new recenterControl());
 
-// Variabili per la gestione dei poligoni
+
 let drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
 let optimalPositionsLayer = L.layerGroup();
 map.addLayer(optimalPositionsLayer);
-
 
 let drawControl = new L.Control.Draw({
   edit: false, //rimuove i pulsanti di modifica ed eliminazione
@@ -490,49 +489,26 @@ var deleteAllControl = L.Control.extend({
 map.addControl(new deleteAllControl());
 
 function handleFilters() {
-  // Raccoglie i valori dai controlli
-
-  const distanceFilter = document.getElementById("distanceToggle").checked;
-
-  const travelMode = document.getElementById("travelMode").value;
-
-  const filterTime = document.getElementById("filterTime").value;
-
-  // Prepara i dati per l'invio
-
   const filterData = {
-    distanceEnabled: distanceFilter,
-
-    travelMode: travelMode,
-
-    travelTime: parseInt(filterTime),
+      distanceEnabled: document.getElementById("distanceToggle").checked,
+      travelMode: document.getElementById("travelMode").value,
+      travelTime: parseInt(document.getElementById("filterTime").value)
   };
 
-  console.log("Dati inviati al backend:", filterData);
-
-  // Invia la richiesta all'endpoint
-
   fetch("/api/filters", {
-    method: "POST",
-
-    headers: {
-      "Content-Type": "application/json",
-    },
-
-    body: JSON.stringify(filterData),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(filterData)
   })
-    .then((response) => response.json())
-
-    .then((data) => {
-      console.log("Success:", data);
-
-      // Qui puoi gestire la risposta dal server
-    })
-
-    .catch((error) => {
-      console.error("Error:", error);
-    });
+  .then(response => response.json())
+  .catch(error => showToast("error", "Errore nell'applicazione dei filtri"));
 }
+
+//listeners
+document.getElementById("distanceToggle").addEventListener("change", handleFilters);
+document.getElementById("travelMode").addEventListener("change", handleFilters);
+document.getElementById("filterTime").addEventListener("change", handleFilters);
+
 
 function initializePOIControls() {
   const poiGrid = document.querySelector(".grid.grid-cols-2.gap-2");
@@ -541,10 +517,9 @@ function initializePOIControls() {
     return;
   }
 
-  // Pulisci il contenitore
   poiGrid.innerHTML = "";
 
-  // Crea i pulsanti per ogni tipo di POI
+  //pulsanti per poi
   Object.entries(poiConfigs).forEach(([poiType, config]) => {
     const button = document.createElement("button");
     button.className =
@@ -554,7 +529,6 @@ function initializePOIControls() {
             <span class="poi-label">${config.label}</span>
         `;
 
-    // Aggiungi l'evento click
     button.addEventListener("click", function () {
       this.classList.toggle("active");
       togglePOI(poiType, this.classList.contains("active"));
@@ -564,97 +538,40 @@ function initializePOIControls() {
   });
 }
 
-// Inizializza i controlli POI quando il documento è pronto
 document.addEventListener("DOMContentLoaded", initializePOIControls);
 
-// Aggiungi event listeners per reagire ai cambiamenti
-
-document
-  .getElementById("distanceToggle")
-  .addEventListener("change", handleFilters);
-
-document.getElementById("travelMode").addEventListener("change", handleFilters);
-
-document.getElementById("filterTime").addEventListener("change", handleFilters);
-
-
-window.showOptimalPositions = function(positions) {
-  // Pulisci i marker ottimali esistenti
+//show optimal positions
+window.showOptimalPositions = function (positions) {
   window.optimalPositionsLayer.clearLayers();
 
   positions.forEach((pos, index) => {
-      const color = getColorFromRank(pos.rank);
-      // Crea il marker
-      const marker = L.marker([pos.lat, pos.lng], {
-          icon: L.divIcon({
-              className: 'custom-div-icon',
-              html: `<div style="background-color: ${color}; width: 25px; height: 25px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; color: white;">${index + 1}</div>`,
-              iconSize: [25, 25],
-              iconAnchor: [12, 12]
-          })
-      });
+    const color = getColorFromRank(pos.rank);
 
-      // Crea il popup personalizzato
-      const popupContent = document.createElement('div');
-      popupContent.className = 'p-2';
-      
-      const title = document.createElement('div');
-      title.className = 'font-bold mb-2';
-      title.textContent = `Posizione ottimale #${index + 1}`;
-      popupContent.appendChild(title);
+    const marker = L.marker([pos.lat, pos.lng], {
+      icon: L.divIcon({
+        className: "custom-div-icon",
+        html: `<div style="background-color: ${color}; width: 25px; height: 25px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; color: white;">${
+          index + 1
+        }</div>`,
+        iconSize: [25, 25],
+        iconAnchor: [12, 12],
+      }),
+    });
 
-      const rankInfo = document.createElement('div');
-      rankInfo.className = 'mb-2';
-      rankInfo.textContent = `Rank: ${pos.rank.toFixed(2)}`;
-      popupContent.appendChild(rankInfo);
+    marker.bindPopup(createOptimalPopup(pos, index));
+    window.optimalPositionsLayer.addLayer(marker);
 
-      if (pos.poi_details) {
-          const poiSection = document.createElement('div');
-          poiSection.className = 'mt-2';
-          
-          const poiTitle = document.createElement('div');
-          poiTitle.className = 'font-bold mb-1';
-          poiTitle.textContent = 'POI nelle vicinanze:';
-          poiSection.appendChild(poiTitle);
-
-          const poiList = document.createElement('ul');
-          poiList.className = 'list-disc pl-4';
-          
-          Object.entries(pos.poi_details.details).forEach(([type, count]) => {
-              if (count > 0) {
-                  const li = document.createElement('li');
-                  li.textContent = `${poiConfigs[type]?.label || type}: ${count}`;
-                  poiList.appendChild(li);
-              }
-          });
-          
-          poiSection.appendChild(poiList);
-
-          const totalPoi = document.createElement('div');
-          totalPoi.className = 'mt-2';
-          totalPoi.textContent = `Totale POI: ${pos.poi_details.total_poi}`;
-          poiSection.appendChild(totalPoi);
-
-          popupContent.appendChild(poiSection);
-      }
-
-      marker.bindPopup(popupContent);
-      window.optimalPositionsLayer.addLayer(marker);
-
-      // Aggiungi il cerchio di raggio
-      const circle = L.circle([pos.lat, pos.lng], {
-          color: color,
-          fillColor: color,
-          fillOpacity: 0.1,
-          radius: neighborhoodRadius
-      });
-      window.optimalPositionsLayer.addLayer(circle);
+    const circle = L.circle([pos.lat, pos.lng], {
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.1,
+      radius: neighborhoodRadius,
+    });
+    window.optimalPositionsLayer.addLayer(circle);
   });
 
-  // Se ci sono posizioni, centra la mappa
   if (positions.length > 0) {
-      const bounds = L.latLngBounds(positions.map(pos => [pos.lat, pos.lng]));
-      map.fitBounds(bounds);
+    const bounds = L.latLngBounds(positions.map((pos) => [pos.lat, pos.lng]));
+    map.fitBounds(bounds);
   }
-}
-
+};
