@@ -39,6 +39,8 @@ async function checkQuestionnaires() {
   });
 }
 
+
+//alert 
 function createAlert(message, type = "warning") {
   const alertHTML = `
         <div class="alert bg-yellow-900/50 border border-yellow-700 rounded-lg p-3 mb-4 flex items-start space-x-2 text-sm">
@@ -176,13 +178,6 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-function showLoadingOverlay() {
-  document.getElementById("loadingOverlay").classList.add("visible");
-}
-
-function hideLoadingOverlay() {
-  document.getElementById("loadingOverlay").classList.remove("visible");
-}
 
 function calculateOptimalPositions(e) {
   e.preventDefault();
@@ -225,7 +220,7 @@ function calculateOptimalPositions(e) {
     });
 }
 
-// Modifica l'event listener in script.js
+
 document.addEventListener("DOMContentLoaded", function () {
   const calculateButton = document.querySelector(
     'button[id="calculateOptimalPositions"]'
@@ -299,7 +294,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // Imposta l'aggiornamento automatico ogni 5 secondi
   setInterval(updateMoranIndex, 5000);
 
-  // Il resto del tuo codice DOMContentLoaded...
 });
 
 // Modifica la funzione addMarker esistente per includere l'aggiornamento dell'indice
