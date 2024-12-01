@@ -58,56 +58,74 @@ const poiLayers = poiTypes.reduce((layers, type) => {
   return layers;
 }, {});
 
+
+// Definizione globale dei filtri salvati
+let savedFilters = {
+  distanceEnabled: false,
+  travelMode: 'driving',
+  travelTime: 10
+};
+
 //da richiamare nell'html per gestire i toggle
 function togglePOI(poiType, show) {
   if (!show) {
-    map.removeLayer(poiLayers[poiType]);
-    return;
+      map.removeLayer(poiLayers[poiType]);
+      return;
   }
 
   if (poiLayers[poiType].getLayers().length > 0) {
-    map.addLayer(poiLayers[poiType]);
-    return;
+      map.addLayer(poiLayers[poiType]);
+      return;
   }
 
-  fetch(`/api/pois/${poiType}`)
-    .then((response) => response.json())
-    .then((data) => {
-      if (!data.data?.length) return;
+  // Aggiungiamo solo questa riga per scegliere l'endpoint
+  const endpoint = savedFilters.distanceEnabled ? 
+      `/api/filter_pois/${poiType}` : 
+      `/api/pois/${poiType}`;
 
-      data.data.forEach((poi) => {
-        if (!poi.lat || !poi.lng) return;
+  // Il resto della funzione rimane uguale
+  fetch(endpoint)
+      .then((response) => response.json())
+      .then((data) => {
+          if (!data.data?.length) return;
 
-        const marker = L.marker([poi.lat, poi.lng], {
-          icon: getCustomIcon(poiType),
-        });
+          data.data.forEach((poi) => {
+              if (!poi.lat || !poi.lng) return;
 
-        const name =
-          poi.properties?.denominazione_struttura ||
-          poi.properties?.denominazi ||
-          poi.properties?.name ||
-          poiConfigs[poiType].label;
+              const marker = L.marker([poi.lat, poi.lng], {
+                  icon: getCustomIcon(poiType),
+              });
 
-        marker.bindPopup(`
-                    <div class="poi-popup">
-                        <h3>${name}</h3>
-                    </div>
-                `);
+              const name = poi.properties?.denominazione_struttura ||
+                          poi.properties?.denominazi ||
+                          poi.properties?.name ||
+                          poiConfigs[poiType].label;
 
-        poiLayers[poiType].addLayer(marker);
+              marker.bindPopup(`
+                  <div class="poi-popup">
+                      <h3>${name}</h3>
+                  </div>
+              `);
+
+              poiLayers[poiType].addLayer(marker);
+          });
+
+          map.addLayer(poiLayers[poiType]);
+          map.fitBounds(poiLayers[poiType].getBounds());
+      })
+      .catch((error) => {
+          console.error(`Errore nel caricamento dei POI ${poiType}:`, error);
+          showToast(
+              "error",
+              `Errore nel caricamento dei ${poiConfigs[poiType].label}`
+          );
       });
 
-      map.addLayer(poiLayers[poiType]);
-      map.fitBounds(poiLayers[poiType].getBounds());
-    })
-    .catch((error) => {
-      console.error(`Errore nel caricamento dei POI ${poiType}:`, error);
-      showToast(
-        "error",
-        `Errore nel caricamento dei ${poiConfigs[poiType].label}`
-      );
-    });
+  
 }
+
+
+
 
 //slider geofence
 document.getElementById("radiusSlider").addEventListener("input", function (e) {
@@ -495,12 +513,24 @@ function handleFilters() {
       travelTime: parseInt(document.getElementById("filterTime").value)
   };
 
+  // Aggiorna savedFilters
+  savedFilters = filterData;
+
   fetch("/api/filters", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(filterData)
   })
   .then(response => response.json())
+  .then(() => {
+      // Ricarica i POI visibili
+      Object.entries(poiLayers).forEach(([poiType, layer]) => {
+          if (map.hasLayer(layer)) {
+              poiLayers[poiType].clearLayers();  // Pulisce i layer esistenti
+              togglePOI(poiType, true);          // Ricarica con i nuovi filtri
+          }
+      });
+  })
   .catch(error => showToast("error", "Errore nell'applicazione dei filtri"));
 }
 
