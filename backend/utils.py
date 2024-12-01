@@ -1066,58 +1066,65 @@ def save_and_return_filters():
 
 def calculate_travel_time_batch(start_coords, destinations, transport_mode, batch_size=10):
     """
-    Calcola il tempo di percorrenza per gruppi di destinazioni più piccoli.
+    Calcola tempi di percorrenza usando OpenRouteService
     """
+    # API endpoint
+    base_url = "https://api.openrouteservice.org/v2/matrix/{transport_mode}"
+    
+    # Converti modalità di trasporto
+    ors_modes = {
+        'driving': 'driving-car',
+        'walking': 'foot-walking', 
+        'cycling': 'cycling-regular'
+    }
+    
+    mode = ors_modes.get(transport_mode, 'driving-car')
+    
+    # Chiave API gratuita (richiede registrazione su openrouteservice.org)
+    headers = {
+        'Authorization': '5b3ce3597851110001cf62480413fa5f131b477d986b9d8b3eb992eb',  
+        'Content-Type': 'application/json'
+    }
+
     all_travel_times = {}
     
     for i in range(0, len(destinations), batch_size):
         batch = destinations[i:i + batch_size]
         
         try:
-            # Costruisci la stringa delle coordinate
-            coords = [f"{start_coords[1]:.6f},{start_coords[0]:.6f}"]
-            for lat, lon in batch:
-                coords.append(f"{lon:.6f},{lat:.6f}")
-            
-            coordinates_str = ";".join(coords)
-            url = f"http://router.project-osrm.org/table/v1/{transport_mode}/{coordinates_str}"
-            
-            # Costruisci la stringa delle destinazioni
-            destinations_str = ",".join(str(j) for j in range(1, len(coords)))
-            
-            params = {
-                "sources": "0",
-                "destinations": destinations_str,
-                "annotations": "duration"
+            # Prepara i dati per la richiesta
+            data = {
+                "locations": [[start_coords[1], start_coords[0]]] + [[lon, lat] for lat, lon in batch],
+                "sources": [0],
+                "destinations": list(range(1, len(batch) + 1))
             }
             
-            logging.debug(f"Requesting URL: {url}, params: {params}")
-            response = requests.get(url, params=params)
+            response = requests.post(
+                base_url.format(transport_mode=mode),
+                json=data,
+                headers=headers,
+                timeout=30
+            )
             
             if response.status_code == 200:
-                data = response.json()
-                if data.get("code") == "Ok":
-                    durations = data["durations"][0]
-                    for idx, duration in enumerate(durations):
-                        all_travel_times[i + idx] = duration / 60  # Converti in minuti
-                else:
-                    logging.error(f"OSRM API error for batch {i}: {data}")
-                    for idx in range(len(batch)):
-                        all_travel_times[i + idx] = float('inf')
+                matrix = response.json()
+                durations = matrix.get('durations', [[]])[0]
+                
+                for idx, duration in enumerate(durations):
+                    all_travel_times[i + idx] = duration / 60 if duration else float('inf')
             else:
-                logging.error(f"HTTP error {response.status_code} for batch {i}")
+                logging.error(f"API error: {response.text}")
                 for idx in range(len(batch)):
                     all_travel_times[i + idx] = float('inf')
-                
+                    
         except Exception as e:
-            logging.error(f"Error processing batch {i}: {str(e)}")
+            logging.error(f"Batch {i} error: {str(e)}")
             for idx in range(len(batch)):
                 all_travel_times[i + idx] = float('inf')
-            continue
+            time.sleep(1)
+            
+        time.sleep(0.1)  # Rate limiting
         
-        # Aggiungi un piccolo ritardo tra le richieste per non sovraccaricare il server
-        time.sleep(0.1)
-    
     return all_travel_times
 
 @utils_bp.route('/api/filter_pois/<poi_type>', methods=['GET'])
