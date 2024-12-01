@@ -67,65 +67,15 @@ let savedFilters = {
 };
 
 //da richiamare nell'html per gestire i toggle
-function togglePOI(poiType, show) {
-  if (!show) {
-      map.removeLayer(poiLayers[poiType]);
-      return;
-  }
-
-  if (poiLayers[poiType].getLayers().length > 0) {
-      map.addLayer(poiLayers[poiType]);
-      return;
-  }
-
-  // Aggiungiamo solo questa riga per scegliere l'endpoint
-  const endpoint = savedFilters.distanceEnabled ? 
-      `/api/filter_pois/${poiType}` : 
-      `/api/pois/${poiType}`;
-
-  // Il resto della funzione rimane uguale
-  fetch(endpoint)
-      .then((response) => response.json())
-      .then((data) => {
-          if (!data.data?.length) return;
-
-          data.data.forEach((poi) => {
-              if (!poi.lat || !poi.lng) return;
-
-              const marker = L.marker([poi.lat, poi.lng], {
-                  icon: getCustomIcon(poiType),
-              });
-
-              const name = poi.properties?.denominazione_struttura ||
-                          poi.properties?.denominazi ||
-                          poi.properties?.name ||
-                          poiConfigs[poiType].label;
-
-              marker.bindPopup(`
-                  <div class="poi-popup">
-                      <h3>${name}</h3>
-                  </div>
-              `);
-
-              poiLayers[poiType].addLayer(marker);
-          });
-
-          map.addLayer(poiLayers[poiType]);
-          map.fitBounds(poiLayers[poiType].getBounds());
-      })
-      .catch((error) => {
-          console.error(`Errore nel caricamento dei POI ${poiType}:`, error);
-          showToast(
-              "error",
-              `Errore nel caricamento dei ${poiConfigs[poiType].label}`
-          );
-      });
-
-  
-}
-
-
-
+// Aggiungiamo il tempo di percorrenza nel popup
+let popupContent = `
+    <div class="poi-popup">
+        <h3>${name}</h3>
+        ${savedFilters.distanceEnabled && poi.travel_time ? 
+            `<p class="text-sm mt-2">⏱️ ${Math.round(poi.travel_time)} minuti</p>` 
+            : ''}
+    </div>
+`;
 
 //slider geofence
 document.getElementById("radiusSlider").addEventListener("input", function (e) {
@@ -533,7 +483,76 @@ function handleFilters() {
   })
   .catch(error => showToast("error", "Errore nell'applicazione dei filtri"));
 }
+function togglePOI(poiType, show) {
+  if (!show) {
+      map.removeLayer(poiLayers[poiType]);
+      return;
+  }
 
+  if (poiLayers[poiType].getLayers().length > 0) {
+      map.addLayer(poiLayers[poiType]);
+      return;
+  }
+
+  const endpoint = savedFilters.distanceEnabled ? 
+      `/api/filter_pois/${poiType}` : 
+      `/api/pois/${poiType}`;
+
+  fetch(endpoint)
+      .then((response) => response.json())
+      .then((data) => {
+          poiLayers[poiType].clearLayers();
+
+          if (!data.data || data.data.length === 0) {
+              alert(`Nessun ${poiConfigs[poiType].label} raggiungibile in ${savedFilters.travelTime} minuti ${
+                  savedFilters.travelMode === 'driving' ? 'in auto' : 
+                  savedFilters.travelMode === 'walking' ? 'a piedi' : 'in bici'
+              }`);
+              return;
+          }
+
+          let addedMarkers = 0;
+          data.data.forEach((poi) => {
+              if (!poi.lat || !poi.lng) return;
+
+              const marker = L.marker([poi.lat, poi.lng], {
+                  icon: getCustomIcon(poiType),
+              });
+
+              const name = poi.properties?.denominazione_struttura ||
+                          poi.properties?.denominazi ||
+                          poi.properties?.name ||
+                          poiConfigs[poiType].label;
+
+              let popupContent = `
+                  <div class="poi-popup">
+                      <h3>${name}</h3>
+                      ${savedFilters.distanceEnabled && poi.travel_time ? 
+                          `<p class="text-sm mt-2">⏱️ ${Math.round(poi.travel_time)} minuti</p>` 
+                          : ''}
+                  </div>
+              `;
+
+              marker.bindPopup(popupContent);
+              poiLayers[poiType].addLayer(marker);
+              addedMarkers++;
+          });
+
+          if (addedMarkers === 0) {
+              alert(`Nessun ${poiConfigs[poiType].label} raggiungibile in ${savedFilters.travelTime} minuti ${
+                  savedFilters.travelMode === 'driving' ? 'in auto' : 
+                  savedFilters.travelMode === 'walking' ? 'a piedi' : 'in bici'
+              }`);
+          } else {
+              map.addLayer(poiLayers[poiType]);
+              map.fitBounds(poiLayers[poiType].getBounds());
+          }
+      })
+      .catch((error) => {
+          console.error(`Errore nel caricamento dei POI ${poiType}:`, error);
+          alert(`Errore nel caricamento dei ${poiConfigs[poiType].label}`);
+      });
+}
 //listeners
 document.getElementById("distanceToggle").addEventListener("change", handleFilters);
 document.getElementById("travelMode").addEventListener("change", handleFilters);
