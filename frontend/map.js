@@ -154,8 +154,7 @@ function loadAllGeofences() {
     .catch((error) => {
       console.error("Errore nel caricamento dei geofence:", error);
       error.message === "No questionnaires found"
-        ? showNoQuestionnaireAlert()
-        : showToast(
+        showToast(
             "error",
             `Errore nel caricamento dei geofence: ${error.message}`
           );

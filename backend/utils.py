@@ -806,14 +806,14 @@ def calculate_optimal_locations():
     try:
         # Verifica presenza questionario
         user_preferences = get_questionnaire_by_id(1)
-        if not user_preferences:
+        print("User preferences trovate:", user_preferences)
+        
+        if user_preferences is None:
             return jsonify({
                 "error": "Nessun questionario trovato. Completa il questionario prima.",
                 "execution_time_seconds": time.time() - start_time
             }), 400
-        
-         
-        
+            
         # Definisci i bounds di Bologna con area leggermente più ampia
         bounds = {
             'min_lat': 44.4, 'max_lat': 44.6,
@@ -882,15 +882,15 @@ def calculate_optimal_locations():
                 elif rank <= 80: rank_distribution['61-80'] += 1
                 else: rank_distribution['81-100'] += 1
                 
-                if rank > 40:  # Consideriamo punti con rank > 40
+                if rank > 30:  # Abbassiamo da 40 a 30
                     results.append({
-                        'lat': lat,
-                        'lng': lng,
-                        'rank': rank,
-                        'poi_counts': poi_counts
-                    })
+                    'lat': lat,
+                    'lng': lng,
+                    'rank': rank,
+                    'poi_counts': poi_counts
+    })
 
-        # Usa la nuova funzione per selezionare locations diverse
+        # Usa la funzione per selezionare locations diverse
         diverse_locations = diverse_locations_selection(results)
         
         # Aggiungi dettagli POI per le locations selezionate

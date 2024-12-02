@@ -133,41 +133,39 @@ function calculateOptimalPositions(e) {
 
   const loadingOverlay = document.getElementById("loadingOverlay");
   if (loadingOverlay) {
-    loadingOverlay.classList.remove("hidden");
+      loadingOverlay.classList.remove("hidden");
   }
 
   fetch("/calculate_optimal_locations")
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then((data) => {
-      console.log("Data received:", data);
-      if (data.error) {
-        showToast("error", data.error);
-        return;
-      }
+      .then((response) => {
+          if (!response.ok) {
+              if (response.status === 400) {
+                  throw new Error("Devi prima compilare il questionario per calcolare le posizioni ottimali");
+              }
+              throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+      })
+      .then((data) => {
+          console.log("Data received:", data);
+          if (data.error) {
+              alert(data.error);
+              return;
+          }
 
-      // Usa la funzione globale da map.js
-      window.showOptimalPositions(data.suggestions);
-      showToast(
-        "success",
-        `Trovate ${data.suggestions.length} posizioni ottimali`
-      );
-    })
-    .catch((error) => {
-      console.error("Error:", error);
-      showToast("error", error.message);
-    })
-    .finally(() => {
-      if (loadingOverlay) {
-        loadingOverlay.classList.add("hidden");
-      }
-    });
+          // Usa la funzione globale da map.js
+          window.showOptimalPositions(data.suggestions);
+      })
+      .catch((error) => {
+          console.error("Error:", error);
+          alert(error.message);
+      })
+      .finally(() => {
+          if (loadingOverlay) {
+              loadingOverlay.classList.add("hidden");
+          }
+      });
 }
-
 
 document.addEventListener("DOMContentLoaded", function () {
   const calculateButton = document.querySelector(
