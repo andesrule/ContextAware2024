@@ -1,14 +1,3 @@
-//mostra alert nella sezione degli alerts
-export function showNoQuestionnaireAlert() {
-  const alertsSection = document.getElementById("alertsSection");
-  if (alertsSection) {
-    alertsSection.style.display = "block";
-  }
-
-  createAlert(
-    "Non ci sono questionari nel database. Compilare almeno un questionario per visualizzare i dati."
-  );
-}
 
 //restituisci colore in base al rank 
 export function getColorFromRank(rank) {
@@ -116,20 +105,7 @@ export function createPolygon(map, data, color, geofencesLayer) {
   geofencesLayer.addLayer(polygon);
 }
 
-//toast alert
-export function showToast(type, message) {
-  const toast = document.createElement("div");
-  toast.className = `alert ${
-    type === "success" ? "alert-success" : "alert-error"
-  } fixed bottom-4 right-4 z-50`;
-  toast.innerHTML = `<span>${message}</span>`;
 
-  document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.remove();
-  }, 3000);
-}
 
 //popup posizione ottimale
 export function createOptimalPopup(pos, index) {

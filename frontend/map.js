@@ -1,12 +1,10 @@
 import {
-  showNoQuestionnaireAlert,
   getColorFromRank,
   getCustomIcon,
   createClusterCustomIcon,
   poiConfigs,
   createMarker,
   createPolygon,
-  showToast,
   createOptimalPopup,
 } from "./utils.js";
 
