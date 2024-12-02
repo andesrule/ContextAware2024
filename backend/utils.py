@@ -104,6 +104,9 @@ def get_pois_by_type(poi_type):
     
 @utils_bp.route('/get_radius', methods=['POST'])
 def get_radius():
+    """
+    Aggiorna il raggio globale con quello specificato dall'utente.
+    """
     global global_radius
     try:
         data = request.get_json(force=True)
@@ -111,8 +114,12 @@ def get_radius():
             return jsonify({"error": "Il parametro 'radius' è mancante"}), 400
         
         radius = int(data['radius'])
-        global_radius = radius  # Salva il raggio nella variabile globale
-        return jsonify({"message": f"Raggio aggiornato a {radius} metri", "radius": radius}), 200
+        global_radius = radius  # Aggiorna il raggio globale
+        print(f"Radius updated to: {radius}m")
+        return jsonify({
+            "message": f"Raggio aggiornato a {radius} metri", 
+            "radius": radius
+        }), 200
     
     except ValueError:
         return jsonify({"error": "Il raggio deve essere un numero intero"}), 400
@@ -663,8 +670,90 @@ def delete_geofence(geofence_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+def calculate_location_rank(lat, lng, radius=None):
+    """
+    Calcola il rank di una posizione usando il raggio definito dall'utente.
+    
+    Args:
+        lat (float): Latitudine della posizione
+        lng (float): Longitudine della posizione
+        radius (int, optional): Raggio in metri. Se None, usa global_radius
+        
+    Returns:
+        float: Il rank calcolato per la posizione
+    """
+    if radius is None:
+        radius = global_radius
+        
+    print(f"Calculating rank using radius: {radius}m")
+    
+    sql_query = """
+    WITH location AS (
+        SELECT ST_SetSRID(ST_MakePoint(:lng, :lat), 4326) as point
+    ),
+    poi_distances AS (
+        SELECT 
+            p.type,
+            ST_Distance(
+                ST_Transform(location.point, 3857),
+                ST_Transform(p.location, 3857)
+            ) as distance
+        FROM points_of_interest p, location
+        WHERE ST_DWithin(
+            ST_Transform(location.point, 3857),
+            ST_Transform(p.location, 3857),
+            :extended_radius
+        )
+    ),
+    weighted_counts AS (
+        SELECT 
+            type,
+            SUM(
+                CASE 
+                    WHEN distance <= :radius THEN 1.0
+                    ELSE 1.0 - ((distance - :radius) / :radius)
+                END
+            ) as weighted_count
+        FROM poi_distances
+        GROUP BY type
+    )
+    SELECT type, ROUND(weighted_count::numeric, 2) as count
+    FROM weighted_counts;
+    """
+    
+    try:
+        extended_radius = radius * 1.5
+        
+        with db.engine.connect() as conn:
+            result = conn.execute(text(sql_query), {
+                'lat': lat,
+                'lng': lng,
+                'radius': radius,
+                'extended_radius': extended_radius
+            })
+            
+            poi_counts = {row.type: float(row.count) for row in result}
+            user_preferences = get_questionnaire_by_id(1)
+            
+            if not user_preferences:
+                print("Warning: No questionnaire found")
+                return 0
+                
+            rank = calculate_rank(poi_counts, user_preferences)
+            print(f"Calculated rank for location ({lat}, {lng}): {rank}")
+            print(f"Using radius: {radius}m (extended: {extended_radius}m)")
+            print(f"Weighted POI counts: {poi_counts}")
+            return rank
+            
+    except Exception as e:
+        print(f"Error calculating location rank: {str(e)}")
+        return 0
+
 @utils_bp.route('/get_all_geofences')
 def get_all_geofences():
+    """
+    Restituisce tutti i geofence con i loro rank calcolati usando il raggio utente.
+    """
     try:
         if QuestionnaireResponse.query.count() == 0:
             return jsonify({"error": "No questionnaires found"}), 404
@@ -673,43 +762,57 @@ def get_all_geofences():
         aree = ListaAreeCandidate.query.all()
         all_geofences = []
         
+        # Processa i marker
         for immobile in immobili:
-            lat = db.session.scalar(ST_Y(immobile.marker))
-            lng = db.session.scalar(ST_X(immobile.marker))
-            rank = calculate_rank(count_nearby_pois(location_id=immobile.id, distance_meters=global_radius), user_preferences=get_questionnaire_by_id(1))
-            all_geofences.append({
-                'id': immobile.id,
-                'type': 'marker',
-                'lat': lat,
-                'lng': lng,
-                'rank': rank,
-                'price': immobile.marker_price
-            })
+            try:
+                lat = db.session.scalar(ST_Y(immobile.marker))
+                lng = db.session.scalar(ST_X(immobile.marker))
+                
+                rank = calculate_location_rank(lat, lng)
+                
+                all_geofences.append({
+                    'id': immobile.id,
+                    'type': 'marker',
+                    'lat': lat,
+                    'lng': lng,
+                    'rank': rank,
+                    'price': immobile.marker_price
+                })
+                print(f"Processed marker {immobile.id} with rank {rank}")
+                
+            except Exception as e:
+                print(f"Error processing marker {immobile.id}: {str(e)}")
+                continue
         
+        # Processa le aree
         for area in aree:
-            centroid = db.session.scalar(ST_Centroid(area.geofence))
-            centroid_lat = db.session.scalar(func.ST_Y(centroid))
-            centroid_lng = db.session.scalar(func.ST_X(centroid))
-            rank = calculate_rank(poi_counts=count_nearby_pois(area.id), user_preferences=get_questionnaire_by_id(1))
-            geofence_geojson = db.session.scalar(ST_AsGeoJSON(area.geofence))
-            geofence_dict = json.loads(geofence_geojson)
-            coordinates = geofence_dict['coordinates'][0]
-            all_geofences.append({
-                'id': area.id,
-                'type': 'polygon',
-                'centroid': {
-                    'lat': centroid_lat,
-                    'lng': centroid_lng
-                },
-                'coordinates': coordinates,
-                'rank': rank
-            })
+            try:
+                centroid = db.session.scalar(ST_Centroid(area.geofence))
+                lat = db.session.scalar(func.ST_Y(centroid))
+                lng = db.session.scalar(func.ST_X(centroid))
+                
+                rank = calculate_location_rank(lat, lng)
+                
+                geofence_geojson = db.session.scalar(ST_AsGeoJSON(area.geofence))
+                geofence_dict = json.loads(geofence_geojson)
+                
+                all_geofences.append({
+                    'id': area.id,
+                    'type': 'polygon',
+                    'rank': rank,
+                    'coordinates': geofence_dict['coordinates'][0]
+                })
+                
+            except Exception as e:
+                print(f"Error processing area {area.id}: {str(e)}")
+                continue
         
         return jsonify(all_geofences)
+        
     except Exception as e:
-        print(f"Errore generale in get_all_geofences: {str(e)}")
-        return jsonify({"error": str(e)}), 50
-
+        print(f"Error in get_all_geofences: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
 def get_bologna_bounds():
     return {
         'min_lat': 44.4, 'max_lat': 44.6,
@@ -794,17 +897,15 @@ def diverse_locations_selection(locations, num_locations=10, min_distance=0.008)
     return diverse_locations  
     
 
-@utils_bp.route('/calculate_optimal_locations', methods=['GET'])
+@utils_bp.route('/calculate_optimal_locations')
 def calculate_optimal_locations():
     """
-    Calcola le 10 migliori posizioni per l'acquisto di una casa a Bologna
-    basandosi sui POI vicini e le preferenze dell'utente.
+    Calcola le posizioni ottimali usando il raggio definito dall'utente.
     """
     print("Inizio calculate_optimal_locations")
     start_time = time.time()
     
     try:
-        # Verifica presenza questionario
         user_preferences = get_questionnaire_by_id(1)
         print("User preferences trovate:", user_preferences)
         
@@ -814,94 +915,45 @@ def calculate_optimal_locations():
                 "execution_time_seconds": time.time() - start_time
             }), 400
             
-        # Definisci i bounds di Bologna con area leggermente più ampia
         bounds = {
             'min_lat': 44.4, 'max_lat': 44.6,
             'min_lon': 11.2, 'max_lon': 11.4
         }
         
-        # Query SQL per la griglia e conteggio POI
-        sql_query = """
-            WITH RECURSIVE grid_points AS (
-                SELECT ST_SetSRID(
-                    ST_MakePoint(
-                        :min_lon + (n % 30) * (:max_lon - :min_lon) / 30,
-                        :min_lat + (n / 30) * (:max_lat - :min_lat) / 30
-                    ),
-                    4326
-                ) AS point
-                FROM generate_series(0, 899) n
-            ),
-            poi_counts AS (
-                SELECT 
-                    ST_X(g.point) as lng,
-                    ST_Y(g.point) as lat,
-                    p.type,
-                    COUNT(*) as count
-                FROM grid_points g
-                JOIN points_of_interest p ON ST_DWithin(
-                    ST_Transform(g.point, 3857),
-                    ST_Transform(p.location, 3857),
-                    500
-                )
-                GROUP BY g.point, p.type
-            )
-            SELECT 
-                lng,
-                lat,
-                type,
-                count
-            FROM poi_counts;
-        """
+        grid_points = []
+        lat_step = (bounds['max_lat'] - bounds['min_lat']) / 30
+        lon_step = (bounds['max_lon'] - bounds['min_lon']) / 30
         
-        # Esegui la query
+        for i in range(30):
+            for j in range(30):
+                lat = bounds['min_lat'] + i * lat_step
+                lon = bounds['min_lon'] + j * lon_step
+                grid_points.append((lat, lon))
+        
         results = []
         rank_distribution = {
             '0-20': 0, '21-40': 0, '41-60': 0, '61-80': 0, '81-100': 0
         }
         
-        with db.engine.connect() as conn:
-            grid_results = conn.execute(text(sql_query), bounds)
+        for point in grid_points:
+            lat, lon = point
+            rank = calculate_location_rank(lat, lon)
             
-            # Raggruppa i risultati per coordinate
-            points_data = {}
-            for row in grid_results:
-                key = (float(row.lng), float(row.lat))
-                if key not in points_data:
-                    points_data[key] = {}
-                points_data[key][row.type] = row.count
-
-            # Calcola il rank per ogni punto
-            for (lng, lat), poi_counts in points_data.items():
-                rank = calculate_rank(poi_counts, user_preferences)
-                
-                # Aggiorna la distribuzione dei rank
-                if rank <= 20: rank_distribution['0-20'] += 1
-                elif rank <= 40: rank_distribution['21-40'] += 1
-                elif rank <= 60: rank_distribution['41-60'] += 1
-                elif rank <= 80: rank_distribution['61-80'] += 1
-                else: rank_distribution['81-100'] += 1
-                
-                if rank > 30:  # Abbassiamo da 40 a 30
-                    results.append({
+            if rank <= 20: rank_distribution['0-20'] += 1
+            elif rank <= 40: rank_distribution['21-40'] += 1
+            elif rank <= 60: rank_distribution['41-60'] += 1
+            elif rank <= 80: rank_distribution['61-80'] += 1
+            else: rank_distribution['81-100'] += 1
+            
+            if rank > 30:
+                results.append({
                     'lat': lat,
-                    'lng': lng,
-                    'rank': rank,
-                    'poi_counts': poi_counts
-    })
-
-        # Usa la funzione per selezionare locations diverse
+                    'lng': lon,
+                    'rank': rank
+                })
+        
         diverse_locations = diverse_locations_selection(results)
         
-        # Aggiungi dettagli POI per le locations selezionate
-        for loc in diverse_locations:
-            poi_summary = {
-                'total_poi': sum(loc['poi_counts'].values()),
-                'details': loc['poi_counts']
-            }
-            loc['poi_details'] = poi_summary
-            del loc['poi_counts']
-
         execution_time = time.time() - start_time
         
         return jsonify({
@@ -912,9 +964,8 @@ def calculate_optimal_locations():
             "rank_distribution": rank_distribution,
             "user_preferences": user_preferences,
             "search_parameters": {
-                "radius_meters": 500,
-                "min_rank_threshold": 40,
-                "min_distance_between_points": 0.008 * 111000  # Conversione approssimativa in metri
+                "radius_meters": global_radius,
+                "min_rank_threshold": 30
             }
         })
 
@@ -924,7 +975,6 @@ def calculate_optimal_locations():
             "error": str(e),
             "execution_time_seconds": time.time() - start_time
         }), 500
-
 
 @utils_bp.route('/addMarkerPrice', methods=['POST'])
 def add_marker_price():

@@ -107,58 +107,45 @@ function sendRadiusToBackend(radius) {
 }
 
 //carica marker e poligoni
+// In map.js - dove vengono gestiti i marker manuali
 function loadAllGeofences() {
   fetch("/get_all_geofences")
-    .then((response) => {
-      if (response.status === 404) throw new Error("No questionnaires found");
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-      return response.json();
-    })
-    .then((data) => {
-      drawnItems.clearLayers();
-      Object.values(circles).forEach((circle) => map.removeLayer(circle));
-      circles = {};
+      .then((response) => {
+          if (response.status === 404) throw new Error("No questionnaires found");
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          return response.json();
+      })
+      .then((data) => {
+          console.log("Received geofences data:", data);
+          
+          drawnItems.clearLayers();
+          Object.values(circles).forEach((circle) => map.removeLayer(circle));
+          circles = {};
 
-      window.geofencesLayer =
-        window.geofencesLayer || L.layerGroup().addTo(map);
-      window.geofencesLayer.clearLayers();
+          window.geofencesLayer = window.geofencesLayer || L.layerGroup().addTo(map);
+          window.geofencesLayer.clearLayers();
 
-      data.forEach((geofenceData) => {
-        const color = getColorFromRank(geofenceData.rank);
-        if (geofenceData.type === "marker") {
-          createMarker(
-            map,
-            drawnItems,
-            circles,
-            geofenceData,
-            color,
-            neighborhoodRadius
-          );
-        } else if (geofenceData.type === "polygon") {
-          createPolygon(map, geofenceData, color, window.geofencesLayer);
-        }
+          data.forEach((geofenceData) => {
+              console.log("Processing geofence raw data:", geofenceData); // Log aggiuntivo
+              
+              // Qui calcoliamo il rank esattamente come per le posizioni ottimali
+              if (geofenceData.type === "marker") {
+                  // Estraiamo le coordinate vicine e calcoliamo il rank in modo coerente
+                  // con il calcolo delle posizioni ottimali
+                  const color = getColorFromRank(geofenceData.rank);
+                  console.log(`Using getColorFromRank for rank ${geofenceData.rank}: ${color}`);
+                  
+                  createMarker(
+                      map,
+                      drawnItems,
+                      circles,
+                      geofenceData,
+                      color,
+                      neighborhoodRadius
+                  );
+              }
+          });
       });
-
-      const bounds = L.latLngBounds();
-      drawnItems.eachLayer((layer) =>
-        bounds.extend(layer.getBounds ? layer.getBounds() : layer.getLatLng())
-      );
-      window.geofencesLayer.eachLayer((layer) =>
-        bounds.extend(layer.getBounds())
-      );
-
-      if (!bounds.isValid()) return;
-      map.fitBounds(bounds);
-    })
-    .catch((error) => {
-      console.error("Errore nel caricamento dei geofence:", error);
-      error.message === "No questionnaires found"
-        showToast(
-            "error",
-            `Errore nel caricamento dei geofence: ${error.message}`
-          );
-    });
 }
 
 document.addEventListener("DOMContentLoaded", loadAllGeofences);
@@ -586,38 +573,53 @@ function initializePOIControls() {
 
 document.addEventListener("DOMContentLoaded", initializePOIControls);
 
-//show optimal positions
-window.showOptimalPositions = function (positions) {
+// In map.js
+window.showOptimalPositions = function(positions) {
   window.optimalPositionsLayer.clearLayers();
 
   positions.forEach((pos, index) => {
-    const color = getColorFromRank(pos.rank);
+      const color = getColorFromRank(pos.rank);
+      
+      // Creiamo un div per il marker numerato
+      const markerDiv = document.createElement('div');
+      markerDiv.style.backgroundColor = color;
+      markerDiv.style.width = '25px';
+      markerDiv.style.height = '25px';
+      markerDiv.style.borderRadius = '50%';
+      markerDiv.style.border = '2px solid white';
+      markerDiv.style.boxShadow = '0 0 4px rgba(0,0,0,0.5)';
+      markerDiv.style.display = 'flex';
+      markerDiv.style.justifyContent = 'center';
+      markerDiv.style.alignItems = 'center';
+      markerDiv.style.color = 'white';
+      markerDiv.style.fontWeight = 'bold';
+      markerDiv.textContent = (index + 1).toString();
 
-    const marker = L.marker([pos.lat, pos.lng], {
-      icon: L.divIcon({
-        className: "custom-div-icon",
-        html: `<div style="background-color: ${color}; width: 25px; height: 25px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; color: white;">${
-          index + 1
-        }</div>`,
-        iconSize: [25, 25],
-        iconAnchor: [12, 12],
-      }),
-    });
+      const marker = L.marker([pos.lat, pos.lng], {
+          icon: L.divIcon({
+              html: markerDiv,
+              className: '',
+              iconSize: [25, 25],
+              iconAnchor: [12, 12]
+          }),
+          zIndexOffset: 1000
+      });
 
-    marker.bindPopup(createOptimalPopup(pos, index));
-    window.optimalPositionsLayer.addLayer(marker);
+      const circle = L.circle([pos.lat, pos.lng], {
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.1,
+          weight: 2,
+          radius: neighborhoodRadius
+      });
 
-    const circle = L.circle([pos.lat, pos.lng], {
-      color: color,
-      fillColor: color,
-      fillOpacity: 0.1,
-      radius: neighborhoodRadius,
-    });
-    window.optimalPositionsLayer.addLayer(circle);
+      marker.bindPopup(createOptimalPopup(pos, index));
+      window.optimalPositionsLayer.addLayer(marker);
+      window.optimalPositionsLayer.addLayer(circle);
   });
 
   if (positions.length > 0) {
-    const bounds = L.latLngBounds(positions.map((pos) => [pos.lat, pos.lng]));
-    map.fitBounds(bounds);
+      const bounds = L.latLngBounds(positions.map((pos) => [pos.lat, pos.lng]));
+      map.fitBounds(bounds);
   }
 };

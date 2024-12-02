@@ -1,11 +1,34 @@
 
 //restituisci colore in base al rank 
+// In utils.js
 export function getColorFromRank(rank) {
-  if (rank < 20) return "#FF0000"; // Rosso (0-19)
-  else if (rank < 40) return "#FFA500"; // Arancione (20-39)
-  else if (rank < 60) return "#FFFF00"; // Giallo (40-59)
-  else if (rank < 80) return "#05C953"; // Verde chiaro (60-79)
-  else return "#2038AF"; // Blu (80-100)
+  console.log("Calculating color for rank:", rank);
+  
+  if (rank === undefined || rank === null) {
+      console.log("Default color for undefined rank");
+      return "#808080";  // grigio per undefined
+  }
+  
+  // Considerando 50.40 come massimo, riscaliamo le fasce
+  if (rank < 10) {
+      console.log("Rank < 10, using red");
+      return "#FF0000";     // Rosso per i punteggi più bassi
+  }
+  if (rank < 20) {
+      console.log("Rank < 20, using orange");
+      return "#FF8C00";     // Arancione
+  }
+  if (rank < 30) {
+      console.log("Rank < 30, using yellow");
+      return "#FFD700";     // Giallo
+  }
+  if (rank < 40) {
+      console.log("Rank < 40, using green");
+      return "#32CD32";     // Verde
+  }
+  
+  console.log("Rank >= 40, using blue");
+  return "#0000CD";         // Blu per i punteggi migliori (40-50.40)
 }
 
 //icon per quicksettings
@@ -56,34 +79,42 @@ export const poiConfigs = {
 };
 
 //marker
-export function createMarker(
-  map,
-  drawnItems,
-  circles,
-  data,
-  color,
-  neighborhoodRadius
-) {
-  const marker = L.marker([data.lat, data.lng], {
-    icon: L.divIcon({
-      className: "custom-div-icon",
-      html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%;"></div>`,
+// In utils.js
+export function createMarker(map, drawnItems, circles, data, color, neighborhoodRadius) {
+  // Creiamo un div colorato come marker
+  const markerDiv = document.createElement('div');
+  markerDiv.style.backgroundColor = color;
+  markerDiv.style.width = '20px';
+  markerDiv.style.height = '20px';
+  markerDiv.style.borderRadius = '50%';
+  markerDiv.style.border = '2px solid white';
+  markerDiv.style.boxShadow = '0 0 4px rgba(0,0,0,0.5)';
+
+  const icon = L.divIcon({
+      html: markerDiv,
+      className: '', // Rimuoviamo la classe per evitare stili CSS che potrebbero interferire
       iconSize: [20, 20],
-      iconAnchor: [10, 10],
-    }),
+      iconAnchor: [10, 10]
+  });
+
+  const marker = L.marker([data.lat, data.lng], {
+      icon: icon,
+      zIndexOffset: 1000 // Mettiamo il marker sopra altri elementi
+  }).addTo(map);
+
+  // Il cerchio sotto il marker
+  const circle = L.circle([data.lat, data.lng], {
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.2,
+      weight: 2,
+      radius: neighborhoodRadius
   }).addTo(map);
 
   marker.bindPopup(createGeofencePopup(data.id, true));
   marker.geofenceId = data.id;
+  
   drawnItems.addLayer(marker);
-
-  const circle = L.circle([data.lat, data.lng], {
-    color: "blue",
-    fillColor: "#30f",
-    fillOpacity: 0.2,
-    radius: neighborhoodRadius,
-  }).addTo(map);
-
   circles[data.id] = circle;
   drawnItems.addLayer(circle);
 }
