@@ -408,56 +408,54 @@ def update_pois():
     return results
 
 def calculate_rank(poi_counts, user_preferences):
+    total_counts_query = """
+    SELECT type, COUNT(*) as total 
+    FROM points_of_interest 
+    GROUP BY type;
     """
-    Calcola il rank basato sulla media tra percentuale di POI presenti
-    e percentuale della preferenza espressa.
-    
-    Args:
-        poi_counts (dict): Conteggio dei POI nel raggio
-        user_preferences (dict): Preferenze utente (0-5)
-    
-    Returns:
-        float: Punteggio da 0 a 100
-    """
-    # Totali POI in città
-    CITY_POI_COUNTS = {
-        "aree_verdi": 250,
-        "biblioteca": 18,
-        "cinema": 61,
-        "colonnina_elettrica": 129,
-        "farmacia": 125,
-        "fermate_bus": 1288,
-        "ospedali": 37,
-        "parcheggi": 44,
-        "scuole": 359,
-        "stazioni_ferroviarie": 8
-    }
     
     if not poi_counts or not user_preferences:
         return 0
-    
-    total_score = 0
-    counted_types = 0
-    
-    for poi_type, count in poi_counts.items():
-        preference = user_preferences.get(poi_type, 0)
-        total_count = CITY_POI_COUNTS.get(poi_type, 0)
         
-        if preference > 0 and total_count > 0:
-            # Percentuale di POI presenti
-            poi_percentage = (count / total_count) * 100
-            # Percentuale preferenza
-            preference_percentage = (preference / 5) * 100
-            # Media delle percentuali
-            type_score = (poi_percentage + preference_percentage) / 2
+    try:
+        with db.engine.connect() as conn:
+            result = conn.execute(text(total_counts_query))
+            city_poi_counts = {row.type: row.total for row in result}
             
-            total_score += type_score
-            counted_types += 1
-    
-    # Calcola il rank finale come media dei type_score
-    final_rank = total_score / counted_types if counted_types > 0 else 0
-    
-    return round(min(final_rank, 100), 2)
+            print(f"City total POIs: {city_poi_counts}")
+            total_score = 0
+            counted_types = 0
+            
+            for poi_type, count in poi_counts.items():
+                preference = user_preferences.get(poi_type, 0)
+                total_count = city_poi_counts.get(poi_type, 0)
+                
+                if preference > 0 and total_count > 0:
+                    poi_percentage = (count / total_count) * 100
+                    preference_percentage = (preference / 5) * 100
+                    type_score = (poi_percentage * 0.7) + (preference_percentage * 0.3)
+                    
+                    print(f"POI Type: {poi_type}")
+                    print(f"  Count: {count}")
+                    print(f"  Total: {total_count}")
+                    print(f"  POI %: {poi_percentage:.2f}")
+                    print(f"  Pref %: {preference_percentage:.2f}")
+                    print(f"  Score: {type_score:.2f}")
+                    
+                    total_score += type_score
+                    counted_types += 1
+            
+            if counted_types > 0:
+                final_rank = (total_score / counted_types) * 1.5
+                final_rank = round(min(final_rank, 100), 2)
+                print(f"Final rank: {final_rank}")
+                return final_rank
+            
+            return 0
+            
+    except Exception as e:
+        print(f"Error in calculate_rank: {str(e)}")
+        return 0
 
 @utils_bp.route('/count_nearby_pois', methods=['POST'])
 def count_nearby_pois_endpoint():
