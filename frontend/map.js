@@ -65,7 +65,6 @@ let savedFilters = {
 };
 
 //da richiamare nell'html per gestire i toggle
-// Aggiungiamo il tempo di percorrenza nel popup
 let popupContent = `
     <div class="poi-popup">
         <h3>${name}</h3>
@@ -90,7 +89,7 @@ function updateNeighborhoodCircles() {
 }
 
 function sendRadiusToBackend(radius) {
-  fetch("/get_radius", {
+  fetch("/set_radius", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -107,7 +106,6 @@ function sendRadiusToBackend(radius) {
 }
 
 //carica marker e poligoni
-// In map.js - dove vengono gestiti i marker manuali
 function loadAllGeofences() {
   fetch("/get_all_geofences")
       .then((response) => {

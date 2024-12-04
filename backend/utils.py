@@ -47,25 +47,21 @@ def get_pois():
     print(f"Numero di POI restituiti: {len(poi_list)}")
     return jsonify(poi_list)
     
-
+# ritorna i POI di un certo tipo
 @utils_bp.route('/api/pois/<poi_type>', methods=['GET'])
 def get_pois_by_type(poi_type):
-    """
-    Restituisce tutti i POI di un determinato tipo dal database.
-    Usa direttamente le coordinate geometriche salvate.
-    """
     try:
-        # Query per ottenere tutti i POI del tipo specificato
+        # prendi tutti i poi dal db
         pois = POI.query.filter_by(type=poi_type).all()
         print(f"Trovati {len(pois)} POI di tipo {poi_type}")
         
         poi_list = []
         for poi in pois:
             try:
-                # Converti la geometria in coordinate
+                # converti la geometria in coordinate
                 point = to_shape(poi.location)
                 
-                # Crea il dizionario POI
+                
                 poi_data = {
                     'id': poi.id,
                     'type': poi_type,
@@ -102,36 +98,27 @@ def get_pois_by_type(poi_type):
             'message': str(e)
         }), 500
     
-@utils_bp.route('/get_radius', methods=['POST'])
-def get_radius():
-    """
-    Aggiorna il raggio globale con quello specificato dall'utente.
-    """
+@utils_bp.route('/set_radius', methods=['POST'])
+def set_radius():
     global global_radius
     try:
         data = request.get_json(force=True)
-        if 'radius' not in data:
-            return jsonify({"error": "Il parametro 'radius' è mancante"}), 400
         
         radius = int(data['radius'])
         global_radius = radius  # Aggiorna il raggio globale
-        print(f"Radius updated to: {radius}m")
         return jsonify({
-            "message": f"Raggio aggiornato a {radius} metri", 
             "radius": radius
         }), 200
     
     except ValueError:
         return jsonify({"error": "Il raggio deve essere un numero intero"}), 400
-    except Exception as e:
-        return jsonify({"error": f"Errore imprevisto: {str(e)}"}), 500
 
+#salva un marker o un geofence nel database
 @utils_bp.route('/save-geofence', methods=['POST'])
 def save_geofence():
     data = request.json
     
     if 'marker' in data:
-        # Salvataggio del marker (immobile candidato)
         lat = data['marker']['lat']
         lng = data['marker']['lng']
         point = Point(lng, lat)
@@ -144,17 +131,11 @@ def save_geofence():
             db.session.rollback()
             return jsonify({'status': 'error', 'message': str(e)}), 500
     elif 'geofence' in data:
-        # Salvataggio del geofence (area candidata)
         try:
-            # Se il geofence è già una stringa WKT
             if isinstance(data['geofence'], str):
                 polygon = loads(data['geofence'])
             else:
-                # Se il geofence è una lista di coordinate
                 coords = [(p['lng'], p['lat']) for p in data['geofence']]
-                # Assicuriamoci che il poligono sia chiuso
-                if coords[0] != coords[-1]:
-                    coords.append(coords[0])
                 polygon = Polygon(coords)
             
             new_area = ListaAreeCandidate(geofence=from_shape(polygon, srid=4326))
@@ -164,22 +145,18 @@ def save_geofence():
         except Exception as e:
             db.session.rollback()
             return jsonify({'status': 'error', 'message': str(e)}), 500
-    else:
-        return jsonify({'status': 'error', 'message': 'Invalid data'}), 400
     
+#aggiunge le user preference nel db una volta configurato il questionario    
 @utils_bp.route('/submit-questionnaire', methods=['POST'])
 def submit_questionnaire():
     data = request.get_json()
     
-    # Cerca se esiste già un questionario nel database
+    # se esite gia aggiorniamo i valori
     existing_questionnaire = QuestionnaireResponse.query.first()
-
     if existing_questionnaire:
-        # Se esiste, aggiorna i valori
         for key, value in data.items():
             setattr(existing_questionnaire, key, value)
     else:
-        # Se non esiste, crea un nuovo questionario
         new_questionnaire = QuestionnaireResponse(
             aree_verdi=data.get('aree_verdi'),
             parcheggi=data.get('parcheggi'),
@@ -206,6 +183,7 @@ def submit_questionnaire():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+#estrae le coordinate dei POI presei dall'api
 def get_poi_coordinates(poi):
     """Estrae le coordinate dal PoI, gestendo diversi formati."""
     if 'geo_point_2d' in poi and 'lat' in poi['geo_point_2d'] and 'lon' in poi['geo_point_2d']:
@@ -231,33 +209,16 @@ def get_poi_coordinates(poi):
         raise ValueError("Formato coordinate non riconosciuto")
 
 def count_nearby_pois(location_id, distance_meters=None):
-    """
-    Conta i POI vicini a un punto o all'interno di un'area.
-    
-    Args:
-        location_id: ID del marker o del geofence
-        distance_meters: raggio di ricerca in metri (solo per marker)
-    
-    Returns:
-        dizionario con il conteggio dei POI per tipo
-    """
-    # Definisci i tipi di POI da contare
-    poi_types = [
-        'aree_verdi', 'parcheggi', 'fermate_bus', 'stazioni_ferroviarie',
-        'scuole', 'cinema', 'ospedali', 'farmacia', 'colonnina_elettrica', 'biblioteca'
-    ]
-    result = {poi_type: 0 for poi_type in poi_types}
 
-    try:
-        # Verifica se è un marker o un geofence
+        # Get POI types from database
+        unique_types = db.session.query(POI.type).distinct().all()
+        poi_types = [type_[0] for type_ in unique_types]
+        result = {poi_type: 0 for poi_type in poi_types}
+        
         marker = ListaImmobiliCandidati.query.get(location_id)
         geofence = None if marker else ListaAreeCandidate.query.get(location_id)
 
-        if not marker and not geofence:
-            return None
-
         if marker:
-            # Query per marker con buffer circolare
             poi_counts = db.session.query(
                 POI.type,
                 func.count(POI.id).label('count')
@@ -268,8 +229,11 @@ def count_nearby_pois(location_id, distance_meters=None):
                     distance_meters
                 )
             ).group_by(POI.type).all()
+            
+            print(f"Counted POIs within {distance_meters}m of marker {location_id}")
+            
         else:
-            # Query per geofence (area poligonale)
+
             poi_counts = db.session.query(
                 POI.type,
                 func.count(POI.id).label('count')
@@ -279,17 +243,21 @@ def count_nearby_pois(location_id, distance_meters=None):
                     POI.location
                 )
             ).group_by(POI.type).all()
+            
+            print(f"Counted POIs within geofence {location_id}")
 
-        # Popola il dizionario dei risultati
+        # Populate results dictionary
         for poi_type, count in poi_counts:
             if poi_type in result:
                 result[poi_type] = count
+            else:
+                print(f"Warning: Unexpected POI type found: {poi_type}")
 
+
+        
         return result
 
-    except Exception as e:
-        print(f"Errore nel conteggio dei POI: {str(e)}")
-        return result
+    
 
 def fetch_and_insert_pois(poi_type, api_url):
     total_count = 0

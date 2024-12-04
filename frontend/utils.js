@@ -20,12 +20,12 @@ export function getColorFromRank(rank) {
       console.log("Rank < 60, using yellow");
       return "#FFD700";     // Giallo
   }
-  if (rank < 85) {
-      console.log("Rank < 85, using green");
+  if (rank < 90) {
+      console.log("Rank < 90, using green");
       return "#32CD32";     // Verde
   }
   
-  console.log("Rank >= 85, using blue");
+  console.log("Rank >= 90, using blue");
   return "#0000CD";         // Blu per i punteggi migliori (40-50.40)
 }
 
