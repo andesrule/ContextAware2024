@@ -8,26 +8,24 @@ export function getColorFromRank(rank) {
       console.log("Default color for undefined rank");
       return "#808080";  // grigio per undefined
   }
-  
-  // Considerando 50.40 come massimo, riscaliamo le fasce
-  if (rank < 10) {
-      console.log("Rank < 10, using red");
+  if (rank < 20) {
+      console.log("Rank < 20, using red");
       return "#FF0000";     // Rosso per i punteggi più bassi
   }
-  if (rank < 20) {
-      console.log("Rank < 20, using orange");
+  if (rank < 40) {
+      console.log("Rank < 40, using orange");
       return "#FF8C00";     // Arancione
   }
-  if (rank < 30) {
-      console.log("Rank < 30, using yellow");
+  if (rank < 60) {
+      console.log("Rank < 60, using yellow");
       return "#FFD700";     // Giallo
   }
-  if (rank < 40) {
-      console.log("Rank < 40, using green");
+  if (rank < 85) {
+      console.log("Rank < 85, using green");
       return "#32CD32";     // Verde
   }
   
-  console.log("Rank >= 40, using blue");
+  console.log("Rank >= 85, using blue");
   return "#0000CD";         // Blu per i punteggi migliori (40-50.40)
 }
 

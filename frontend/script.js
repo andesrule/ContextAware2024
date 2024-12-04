@@ -96,13 +96,13 @@ function submitForm() {
     })
     .then((data) => {
       console.log("Risposta del server:", data);
-      showToast("success", "Questionario inviato con successo!");
+      alert("Questionario inviato con successo!");
       currentPage = 1;
       showPage(1);
     })
     .catch((error) => {
       console.error("Errore durante l'invio del questionario:", error);
-      showToast("error", `Si è verificato un errore: ${error.message}`);
+      alert(`Si è verificato un errore: ${error.message}`);
     })
     .finally(() => {
       submitButton.innerHTML = originalText;
@@ -192,7 +192,6 @@ function updateMoranIndex() {
       const numImmobili = document.getElementById("numImmobili");
 
       if (data.error) {
-        showToast("warning", data.error);
         moranPrices.textContent = "N/A";
         moranPoi.textContent = "N/A";
         avgPrice.textContent = "-";
@@ -213,7 +212,7 @@ function updateMoranIndex() {
     })
     .catch((error) => {
       console.error("Errore nel recupero dell'indice di Moran:", error);
-      showToast("error", "Errore nel calcolo dell'indice di Moran");
+      console.log("Errore nel calcolo dell'indice di Moran");
     });
 }
 

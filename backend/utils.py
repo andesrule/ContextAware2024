@@ -408,54 +408,57 @@ def update_pois():
     return results
 
 def calculate_rank(poi_counts, user_preferences):
-    total_counts_query = """
-    SELECT type, COUNT(*) as total 
-    FROM points_of_interest 
-    GROUP BY type;
-    """
-    
-    if not poi_counts or not user_preferences:
-        return 0
-        
-    try:
-        with db.engine.connect() as conn:
-            result = conn.execute(text(total_counts_query))
-            city_poi_counts = {row.type: row.total for row in result}
-            
-            print(f"City total POIs: {city_poi_counts}")
-            total_score = 0
-            counted_types = 0
-            
-            for poi_type, count in poi_counts.items():
-                preference = user_preferences.get(poi_type, 0)
-                total_count = city_poi_counts.get(poi_type, 0)
-                
-                if preference > 0 and total_count > 0:
-                    poi_percentage = (count / total_count) * 100
-                    preference_percentage = (preference / 5) * 100
-                    type_score = (poi_percentage * 0.7) + (preference_percentage * 0.3)
-                    
-                    print(f"POI Type: {poi_type}")
-                    print(f"  Count: {count}")
-                    print(f"  Total: {total_count}")
-                    print(f"  POI %: {poi_percentage:.2f}")
-                    print(f"  Pref %: {preference_percentage:.2f}")
-                    print(f"  Score: {type_score:.2f}")
-                    
-                    total_score += type_score
-                    counted_types += 1
-            
-            if counted_types > 0:
-                final_rank = (total_score / counted_types) * 1.5
-                final_rank = round(min(final_rank, 100), 2)
-                print(f"Final rank: {final_rank}")
-                return final_rank
-            
-            return 0
-            
-    except Exception as e:
-        print(f"Error in calculate_rank: {str(e)}")
-        return 0
+   total_counts_query = """
+   SELECT type, COUNT(*) as total 
+   FROM points_of_interest 
+   GROUP BY type;
+   """
+   
+   if not poi_counts or not user_preferences:
+       return 0
+       
+   try:
+       with db.engine.connect() as conn:
+           result = conn.execute(text(total_counts_query))
+           city_poi_counts = {row.type: row.total for row in result}
+           
+           print(f"City total POIs: {city_poi_counts}")
+           total_score = 0
+           counted_types = 0
+           
+           for poi_type, count in poi_counts.items():
+               preference = user_preferences.get(poi_type, 0)
+               total_count = city_poi_counts.get(poi_type, 0)
+               
+               if preference > 0 and total_count > 0:
+                   city_density = total_count / 100
+                   local_density = count
+                   density_score = min((local_density / city_density) * 100, 100)
+                   
+                   preference_percentage = (preference / 5) * 100
+                   type_score = (density_score * 0.7) + (preference_percentage * 0.3)
+                   
+                   print(f"POI Type: {poi_type}")
+                   print(f"  Count: {count}")
+                   print(f"  Total: {total_count}")
+                   print(f"  Density Score: {density_score:.2f}")
+                   print(f"  Pref %: {preference_percentage:.2f}")
+                   print(f"  Score: {type_score:.2f}")
+                   
+                   total_score += type_score
+                   counted_types += 1
+           
+           if counted_types > 0:
+               final_rank = total_score / counted_types
+               final_rank = round(min(final_rank, 100), 2)
+               print(f"Final rank: {final_rank}")
+               return final_rank
+           
+           return 0
+           
+   except Exception as e:
+       print(f"Error in calculate_rank: {str(e)}")
+       return 0
 
 @utils_bp.route('/count_nearby_pois', methods=['POST'])
 def count_nearby_pois_endpoint():

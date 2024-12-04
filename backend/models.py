@@ -8,8 +8,8 @@ db = SQLAlchemy()
 class ListaImmobiliCandidati(db.Model):
     __tablename__ = 'lista_immobili_candidati'
     id = db.Column(db.Integer, primary_key=True)
-    marker = db.Column(Geometry(geometry_type='POINT', srid=4326))  # Memorizza i marker come POINT
-    marker_price = db.Column(db.Float)  # Prezzo del marker
+    marker = db.Column(Geometry(geometry_type='POINT', srid=4326))  
+    marker_price = db.Column(db.Float)  
 
     def __init__(self, marker=None, marker_price=None):
         self.marker = marker
@@ -19,7 +19,7 @@ class ListaImmobiliCandidati(db.Model):
 class ListaAreeCandidate(db.Model):
     __tablename__ = 'lista_aree_candidate'
     id = db.Column(db.Integer, primary_key=True)
-    geofence = db.Column(Geometry(geometry_type='POLYGON', srid=4326))  # Memorizza i poligoni come POLYGON
+    geofence = db.Column(Geometry(geometry_type='POLYGON', srid=4326))  
 
     def __init__(self, geofence=None):
         self.geofence = geofence
@@ -48,13 +48,12 @@ class POI(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     type = db.Column(db.String)
     location = db.Column(Geometry(geometry_type='POINT', srid=4326))
-    additional_data = db.Column(db.String)  # Per memorizzare dati aggiuntivi in formato JSON
+    additional_data = db.Column(db.String) 
     
-    # Create separate indexes for type and location
+
     __table_args__ = (
-        # GiST index for spatial queries on location
+
         Index('idx_poi_location', 'location', postgresql_using='gist'),
-        # B-tree index for type queries
         Index('idx_poi_type', 'type'),
     )
 
@@ -62,7 +61,6 @@ def reset_db():
     """Drop all tables from the database."""
     db.drop_all()
     db.create_all()
-        # Aggiungi solo l'indice funzionale per i POI dopo la creazione delle tabelle
     db.session.execute(text("""
         CREATE INDEX IF NOT EXISTS idx_poi_location_3857 
         ON points_of_interest 

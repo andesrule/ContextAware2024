@@ -111,29 +111,32 @@ function sendRadiusToBackend(radius) {
 function loadAllGeofences() {
   fetch("/get_all_geofences")
       .then((response) => {
-          if (response.status === 404) throw new Error("No questionnaires found");
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          if (response.status === 404) {
+              throw new Error("No questionnaires found");
+          }
+          if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+          }
           return response.json();
       })
       .then((data) => {
           console.log("Received geofences data:", data);
           
+          // Clear existing layers
           drawnItems.clearLayers();
           Object.values(circles).forEach((circle) => map.removeLayer(circle));
           circles = {};
 
+          // Initialize or clear geofences layer
           window.geofencesLayer = window.geofencesLayer || L.layerGroup().addTo(map);
           window.geofencesLayer.clearLayers();
 
           data.forEach((geofenceData) => {
-              console.log("Processing geofence raw data:", geofenceData); // Log aggiuntivo
+              console.log("Processing geofence:", geofenceData);
               
-              // Qui calcoliamo il rank esattamente come per le posizioni ottimali
               if (geofenceData.type === "marker") {
-                  // Estraiamo le coordinate vicine e calcoliamo il rank in modo coerente
-                  // con il calcolo delle posizioni ottimali
                   const color = getColorFromRank(geofenceData.rank);
-                  console.log(`Using getColorFromRank for rank ${geofenceData.rank}: ${color}`);
+                  console.log(`Creating marker with rank ${geofenceData.rank}, color: ${color}`);
                   
                   createMarker(
                       map,
@@ -143,8 +146,32 @@ function loadAllGeofences() {
                       color,
                       neighborhoodRadius
                   );
+              } 
+              else if (geofenceData.type === "polygon") {
+                  const color = getColorFromRank(geofenceData.rank);
+                  console.log(`Creating polygon with rank ${geofenceData.rank}, color: ${color}`);
+                  
+                  createPolygon(
+                      map,
+                      geofenceData,
+                      color,
+                      window.geofencesLayer
+                  );
               }
           });
+
+          // If there are geofences, fit the map to show all of them
+          if (data.length > 0) {
+              const bounds = L.featureGroup([drawnItems, window.geofencesLayer])
+                  .getBounds();
+              map.fitBounds(bounds);
+          }
+      })
+      .catch((error) => {
+          console.error("Error loading geofences:", error);
+          if (error.message === "No questionnaires found") {
+              alert("Completa prima il questionario per visualizzare i dati.");
+          }
       });
 }
 
@@ -214,12 +241,8 @@ window.deleteGeofence = function (geofenceId) {
     .then((data) => {
       console.log("Geofence eliminato:", data);
       removeGeofenceFromMap(geofenceId);
-      showToast("success", `Geofence ${geofenceId} eliminato con successo`);
       updateMoranIndex();
     })
-    .catch((error) => {
-      showToast("error", `Errore nell'eliminazione del geofence ${geofenceId}`);
-    });
 };
 
 //aggiunge il prezzo ad un marker/poligono
@@ -229,7 +252,7 @@ window.addMarkerPrice = function (geofenceId) {
   const price = parseFloat(priceInput.value);
 
   if (!price || price <= 0) {
-    showToast("error", "Inserisci un prezzo valido.");
+    alert("Inserisci un prezzo valido.");
     return;
   }
 
@@ -245,15 +268,14 @@ window.addMarkerPrice = function (geofenceId) {
   })
     .then((response) => response.json())
     .then((data) => {
-      showToast(
-        "success",
+      alert(
         `Prezzo di €${price} aggiunto con successo per il marker ${geofenceId}`
       );
       updateMoranIndex();
     })
     .catch((error) => {
       console.error("Errore durante l'aggiunta del prezzo:", error);
-      showToast("error", "Errore durante l'aggiunta del prezzo");
+      alert("Errore durante l'aggiunta del prezzo");
     });
 };
 
@@ -307,24 +329,45 @@ function saveGeofenceToDatabase(markers, geofences) {
 //rimuovi tutti i geofence dalla mappa e dal db
 function deleteAllGeofences() {
   fetch("/delete-all-geofences", {
-    method: "POST",
+      method: "POST",
   })
-    .then((response) => response.json())
-    .then((data) => {
-      console.log("Tutti i geofence cancellati:", data);
+  .then((response) => {
+      if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+  })
+  .then((data) => {
+      console.log("Cancellazione geofence completata:", data);
+      
+      // Clear all drawn items
       drawnItems.clearLayers();
+      
+      // Clear all circles
       Object.values(circles).forEach((circle) => map.removeLayer(circle));
       circles = {};
-      databaseMarkers.clearLayers();
-      if (window.geofencesLayer) {
-        window.geofencesLayer.clearLayers();
+      
+      // Clear database markers if exists
+      if (typeof databaseMarkers !== 'undefined' && databaseMarkers) {
+          databaseMarkers.clearLayers();
       }
-      showToast("success", "Tutti i geofence sono stati cancellati");
-    })
-    .catch((error) => {
+      
+      // Clear geofences layer
+      if (window.geofencesLayer) {
+          window.geofencesLayer.clearLayers();
+      }
+      
+      // Update Moran's index if the function exists
+      if (typeof updateMoranIndex === 'function') {
+          updateMoranIndex();
+      }
+      
+      alert("Tutti i geofence sono stati cancellati con successo");
+  })
+  .catch((error) => {
       console.error("Errore nella cancellazione dei geofence:", error);
-      showToast("error", "Errore nella cancellazione dei geofence");
-    });
+      alert("Si è verificato un errore durante la cancellazione dei geofence");
+  });
 }
 
 function removeGeofenceFromMap(geofenceId) {
@@ -465,8 +508,8 @@ function handleFilters() {
           }
       });
   })
-  .catch(error => showToast("error", "Errore nell'applicazione dei filtri"));
 }
+
 function togglePOI(poiType, show) {
   if (!show) {
       map.removeLayer(poiLayers[poiType]);
