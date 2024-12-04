@@ -13,13 +13,13 @@
     />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css" />
-    <!-- Leaflet CSS e JS CDN (Ultima versione disponibile) -->
+    <!-- Leaflet CSS e JS CDN -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet Draw CSS e JS CDN (Ultima versione disponibile) -->
+    <!-- Leaflet Draw CSS e JS CDN -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"
@@ -29,7 +29,6 @@
       defer
     ></script>
   </head>
-  <!-- Aggiungi la classe 'panel-open' direttamente nel body -->
   <body class="dark flex flex-col h-screen panel-open">
     <!-- Navbar -->
     <nav class="w-full dark p-4 z-50 flex items-center">
@@ -56,10 +55,6 @@
       <div id="mapContainer">
         <div id="map"></div>
       </div>
-      <div id="loadingOverlay" class="hidden">
-        <div class="loading-spinner"></div>
-        <p>Calcolo delle posizioni ottimali in corso...</p>
-      </div>
       <!-- Pannello di controllo -->
       <div id="controlPanel" class="text-white bg-base-200 dark">
         <div class="p-4 space-y-4">
@@ -71,7 +66,6 @@
             </div>
             <div class="collapse-content">
               <div class="space-y-4">
-                <!-- Sostituisci la sezione dell'Indice di Moran attuale con questa -->
                 <label
                   for="radiusSlider"
                   class="block text-sm font-medium text-white"
@@ -86,9 +80,9 @@
                   class="range range-primary"
                   id="radiusSlider"
                 />
-                <div class="divider">Analisi di Clustering Spaziale</div>
+                <div class="divider">Indice Di Moran</div>
                 <div class="space-y-4">
-                  <!-- Indice di Moran per i Prezzi -->
+                  <!-- Indice di Moran-->
                   <div class="bg-base-200 rounded-lg p-3">
                     <div class="flex justify-between items-center mb-2">
                       <span class="font-medium">Clustering dei Prezzi</span>
@@ -99,42 +93,7 @@
                       sono raggruppati
                     </div>
                   </div>
-                  <!-- Indice di Moran per i POI -->
-                  <div class="bg-base-200 rounded-lg p-3">
-                    <div class="flex justify-between items-center mb-2">
-                      <span class="font-medium">Clustering dei POI</span>
-                      <span id="moranPoi" class="text-lg font-bold">-</span>
-                    </div>
-                    <div class="text-sm opacity-75">
-                      Un valore positivo indica concentrazione di servizi in
-                      certe aree
-                    </div>
-                  </div>
-                  <!-- Legenda dei valori -->
-                  <div class="text-sm bg-base-200 rounded-lg p-3">
-                    <div class="font-medium mb-1">
-                      Interpretazione dei valori:
-                    </div>
-                    <div class="grid grid-cols-1 gap-1">
-                      <div class="flex items-center gap-2">
-                        <span class="text-green-500">●</span> Positivo (> 0):
-                        Presenza di clustering
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <span class="text-yellow-500">●</span> Vicino a 0:
-                        Distribuzione casuale
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <span class="text-red-500">●</span> Negativo (< 0):
-                        Dispersione uniforme
-                      </div>
-                    </div>
-                  </div>
-                  <!-- Info base -->
-                  <div class="text-sm opacity-75 text-center">
-                    Immobili analizzati:
-                    <span id="numImmobili" class="font-medium">-</span>
-                  </div>
+                  <!-- Filtri -->
                 </div>
                 <div class="divider">Filtri</div>
                 <div class="form-control">
