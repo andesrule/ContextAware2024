@@ -400,28 +400,17 @@ def count_nearby_pois(location_id, distance_meters=None):
 
 
 def calculate_rank(poi_counts, user_preferences, radius_meters=500):
-    """
-    Calcola il rank di una location basandosi sulle densità reali dei POI e le preferenze utente.
-    
-    Args:
-        poi_counts (dict): Conteggio dei POI per tipo nell'area
-        user_preferences (dict): Preferenze utente per tipo di POI (1-5)
-        radius_meters (int): Raggio dell'area di ricerca in metri
-        
-    Returns:
-        float: Rank normalizzato (0-100)
-    """
-    # Area di Bologna in km² (approssimativa)
+    # area di Bologna in km² 
     BOLOGNA_AREA = 140.86
     
-    # Area del buffer in km²
+    # area del buffer in km² (vicinato)
     buffer_area = math.pi * (radius_meters/1000)**2
     
     if not poi_counts or not user_preferences:
         return 0
         
     try:
-        # Query per ottenere il totale dei POI per tipo
+        # numero poi totali
         total_counts_query = """
         SELECT type, COUNT(*) as total 
         FROM points_of_interest 
@@ -430,7 +419,7 @@ def calculate_rank(poi_counts, user_preferences, radius_meters=500):
            
         with db.engine.connect() as conn:
             result = conn.execute(text(total_counts_query))
-            # Calcolo densità città (POI/km²)
+            # densita
             city_poi_density = {row.type: row.total / BOLOGNA_AREA for row in result}
             
             print(f"Densità POI città: {city_poi_density}")
@@ -442,21 +431,13 @@ def calculate_rank(poi_counts, user_preferences, radius_meters=500):
                 city_density = city_poi_density.get(poi_type, 0)
                 
                 if preference > 0 and city_density > 0:
-                    # Calcolo densità locale (POI/km²)
+            
                     local_density = count / buffer_area
                     
-                    # Normalizzazione e calcolo score
+                    # normalize
                     density_score = min((local_density / city_density) * 100, 100)
                     preference_percentage = (preference / 5) * 100
                     type_score = (density_score * 0.7) + (preference_percentage * 0.3)
-                    
-                    print(f"POI Type: {poi_type}")
-                    print(f"  Count: {count}")
-                    print(f"  Local Density: {local_density:.2f}/km²")
-                    print(f"  City Density: {city_density:.2f}/km²")
-                    print(f"  Density Score: {density_score:.2f}")
-                    print(f"  Preference %: {preference_percentage:.2f}")
-                    print(f"  Type Score: {type_score:.2f}")
                     
                     total_score += type_score
                     counted_types += 1
@@ -494,50 +475,6 @@ def calculate_rank_endpoint():
     rank = calculate_rank(poi_counts, user_preferences)
 
     return jsonify({"rank": rank})
-
-
-@utils_bp.route("/get_markers")
-def get_markers():
-    markers = ListaImmobiliCandidati.query.all()
-    marker_list = []
-    for marker in markers:
-        if marker.marker is not None:
-            point = to_shape(marker.marker)
-            geojson = mapping(point)
-            marker_list.append(
-                {
-                    "lat": geojson["coordinates"][1],
-                    "lng": geojson["coordinates"][0],
-                    "price": marker.marker_price,
-                }
-            )
-    return jsonify(marker_list)
-
-
-@utils_bp.route("/get-geofences")
-def get_geofences():
-    immobili = ListaImmobiliCandidati.query.all()
-    aree = ListaAreeCandidate.query.all()
-    geofences_data = []
-
-    for immobile in immobili:
-        point = to_shape(immobile.marker)
-        geofences_data.append(
-            {
-                "id": immobile.id,
-                "type": "marker",
-                "marker": mapping(point),
-                "price": immobile.marker_price,
-            }
-        )
-
-    for area in aree:
-        polygon = to_shape(area.geofence)
-        geofences_data.append(
-            {"id": area.id, "type": "geofence", "geofence": mapping(polygon)}
-        )
-
-    return jsonify(geofences_data)
 
 
 def get_questionnaire():
@@ -1052,18 +989,6 @@ def add_marker_price():
         }
     )
 
-
-def process_point(point, user_preferences, radius):
-    """
-    Processa un punto per il calcolo delle posizioni ottimali usando la stessa funzione di ranking.
-    """
-    lat, lon = point
-    poi_counts = count_pois_near_point(lat, lon, radius)
-
-    rank = calculate_rank(poi_counts, user_preferences)
-    if rank > 70:  # Considera solo punti con un punteggio decente
-        return {"lat": lat, "lng": lon, "rank": rank}
-    return None
 
 
 @utils_bp.route("/calculate_morans_i", methods=["GET"])
