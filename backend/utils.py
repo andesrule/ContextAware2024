@@ -44,30 +44,6 @@ def update_pois():
     return results
 
 
-@utils_bp.route("/get_pois")
-def get_pois():
-    pois = POI.query.all()
-    print(f"Numero totale di POI nel database: {len(pois)}")
-
-    poi_list = []
-    for index, poi in enumerate(pois):
-        print(f"Elaborazione POI {index + 1}: Tipo = {poi.type}")
-        # Convert WKBElement to Shapely object
-        point = to_shape(poi.location)
-        # Convert Shapely object to GeoJSON
-        geojson = mapping(point)
-        poi_data = {
-            "type": poi.type,
-            "lat": geojson["coordinates"][1],
-            "lng": geojson["coordinates"][0],
-            "additional_data": json.loads(poi.additional_data),
-        }
-        print(f"Dati POI {index + 1}: {poi_data}")
-        poi_list.append(poi_data)
-
-    print(f"Numero di POI restituiti: {len(poi_list)}")
-    return jsonify(poi_list)
-
 
 # estrae le coordinate dei POI presei dall'api
 def get_poi_coordinates(poi):
@@ -506,91 +482,6 @@ def get_questionnaire():
         return None
 
 
-@utils_bp.route("/get_ranked_markers")
-def get_ranked_markers():
-    try:
-        if QuestionnaireResponse.query.count() == 0:
-            return jsonify({"error": "No questionnaires found"}), 404
-
-        global global_radius
-        questionnaire = get_questionnaire()
-        markers = ListaImmobiliCandidati.query.all()
-        ranked_markers = []
-
-        for marker in markers:
-            try:
-                lat = db.session.scalar(ST_Y(marker.marker))
-                lng = db.session.scalar(ST_X(marker.marker))
-
-                rank = calculate_rank(
-                    count_nearby_pois(marker.id, global_radius), questionnaire
-                )
-                ranked_markers.append(
-                    {
-                        "id": marker.id,
-                        "lat": lat,
-                        "lng": lng,
-                        "rank": rank,
-                        "price": marker.marker_price,
-                    }
-                )
-            except Exception as e:
-                print(f"Errore nell'elaborazione del marker {marker.id}: {str(e)}")
-
-        return jsonify(ranked_markers)
-    except Exception as e:
-        print(f"Errore generale in get_ranked_markers: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-
-@utils_bp.route("/get_ranked_geofences")
-def get_ranked_geofences():
-    try:
-        # Controlla se ci sono questionari nel database
-        if QuestionnaireResponse.query.count() == 0:
-            return jsonify({"error": "No questionnaires found"}), 404
-
-        geofences = ListaAreeCandidate.query.filter(
-            ListaAreeCandidate.geofence.isnot(None)
-        ).all()
-        ranked_geofences = []
-
-        for geofence in geofences:
-            try:
-                # Ottieni il centroide del geofence
-                centroid = db.session.scalar(ST_Centroid(geofence.geofence))
-                centroid_lat = db.session.scalar(func.ST_Y(centroid))
-                centroid_lng = db.session.scalar(func.ST_X(centroid))
-
-                # Calcola il rank
-                rank = calculate_rank(
-                    count_nearby_pois(geofence.id), get_questionnaire()
-                )
-
-                # Ottieni il geofence come GeoJSON
-                geofence_geojson = db.session.scalar(ST_AsGeoJSON(geofence.geofence))
-                geofence_dict = json.loads(geofence_geojson)
-
-                # Estrai le coordinate dal GeoJSON
-                coordinates = geofence_dict["coordinates"][
-                    0
-                ]  # Prendi il primo (e unico) anello di coordinate
-
-                ranked_geofences.append(
-                    {
-                        "id": geofence.id,
-                        "centroid": {"lat": centroid_lat, "lng": centroid_lng},
-                        "coordinates": coordinates,
-                        "rank": rank,
-                    }
-                )
-            except Exception as e:
-                print(f"Errore nell'elaborazione del geofence {geofence.id}: {str(e)}")
-
-        return jsonify(ranked_geofences)
-    except Exception as e:
-        print(f"Errore generale in get_ranked_geofences: {str(e)}")
-        return jsonify({"error": str(e)}), 500
 
 
 @utils_bp.route("/check-questionnaires")
@@ -644,14 +535,17 @@ def delete_geofence(geofence_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
+#calcola il rank per una location
 def calculate_location_rank(lat, lng, radius=None):
     if radius is None:
         radius = global_radius
 
     print(f"Calculating rank using radius: {radius}m")
 
+    
+    #crea prima un punto geometrico, poi calcola la distanza, infine aggiunge il rank degradando in base alla distanza
     sql_query = """
+    
     WITH location AS (
         SELECT ST_SetSRID(ST_MakePoint(:lng, :lat), 4326) as point
     ),
@@ -716,12 +610,9 @@ def calculate_location_rank(lat, lng, radius=None):
         print(f"Error calculating location rank: {str(e)}")
         return 0
 
-
+#get di tutti i geofence
 @utils_bp.route("/get_all_geofences")
 def get_all_geofences():
-    """
-    Restituisce tutti i geofence con i loro rank calcolati usando il raggio utente.
-    """
     try:
         if QuestionnaireResponse.query.count() == 0:
             return jsonify({"error": "No questionnaires found"}), 404
@@ -789,21 +680,6 @@ def get_all_geofences():
 def get_bologna_bounds():
     return {"min_lat": 44.4, "max_lat": 44.6, "min_lon": 11.2, "max_lon": 11.4}
 
-
-def create_grid(bounds, grid_size):
-    lats = np.linspace(bounds["min_lat"], bounds["max_lat"], grid_size)
-    lons = np.linspace(bounds["min_lon"], bounds["max_lon"], grid_size)
-    return [(float(lat), float(lon)) for lat in lats for lon in lons]
-
-
-def create_centered_grid(center_lat, center_lon, radius, density):
-    lat_offset = radius / 111000  # Approssimazione dei gradi di latitudine per metro
-    lon_offset = radius / (111000 * np.cos(np.radians(center_lat)))
-
-    lats = np.linspace(center_lat - lat_offset, center_lat + lat_offset, density)
-    lons = np.linspace(center_lon - lon_offset, center_lon + lon_offset, density)
-
-    return [(float(lat), float(lon)) for lat in lats for lon in lons]
 
 
 @lru_cache(maxsize=1000)
