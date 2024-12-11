@@ -1,0 +1,239 @@
+{
+    "clientName": "Thunder Client",
+    "collectionName": "Moran Strong Clustering",
+    "collectionId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+    "dateExported": "2024-12-11T16:22:11.772Z",
+    "version": "1.2",
+    "folders": [],
+    "requests": [
+        {
+            "_id": "fecc1085-d2f6-4fb5-bbb5-b67903cf0bca",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Delete Previous Data",
+            "url": "http://localhost:5000/delete-all-geofences",
+            "method": "POST",
+            "sortNum": 10000,
+            "created": "2024-12-11T15:50:21.875Z",
+            "modified": "2024-12-11T15:50:32.436Z",
+            "headers": []
+        },
+        {
+            "_id": "b85c6577-664c-45b6-93e0-e34c4337328e",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Create High-Price Marker 1",
+            "url": "http://localhost:5000/save-geofence",
+            "method": "POST",
+            "sortNum": 20000,
+            "created": "2024-12-11T15:50:50.113Z",
+            "modified": "2024-12-11T15:51:03.346Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"marker\": {\n    \"lat\": 44.4949,\n    \"lng\": 11.3426\n  }\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "1b62ed19-fa3c-46b2-ae7e-decb228eb08c",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Add Price to High-Price Marker 1",
+            "url": "http://localhost:5000/addMarkerPrice",
+            "method": "POST",
+            "sortNum": 30000,
+            "created": "2024-12-11T15:51:16.972Z",
+            "modified": "2024-12-11T15:51:32.008Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"geofenceId\": 1,\n  \"price\": 500000\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "06851cf7-a968-4289-a6c6-925ad226acc3",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Create High-Price Marker 2",
+            "url": "http://localhost:5000/save-geofence",
+            "method": "POST",
+            "sortNum": 40000,
+            "created": "2024-12-11T15:52:12.396Z",
+            "modified": "2024-12-11T16:05:27.593Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"marker\": {\n    \"lat\": 44.4952,\n    \"lng\": 11.3428\n  }\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "df29b050-8809-42a5-a026-d55f742dc56e",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Add Price to High-Price Marker 2",
+            "url": "http://localhost:5000/addMarkerPrice",
+            "method": "POST",
+            "sortNum": 50000,
+            "created": "2024-12-11T15:52:42.599Z",
+            "modified": "2024-12-11T15:52:53.172Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"geofenceId\": 2,\n  \"price\": 495000\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "27a56ad6-4185-4a9d-9707-4eb7818e0c26",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Create High-Price Marker 3",
+            "url": "http://localhost:5000/save-geofence",
+            "method": "POST",
+            "sortNum": 60000,
+            "created": "2024-12-11T15:53:07.277Z",
+            "modified": "2024-12-11T16:05:35.941Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"marker\": {\n    \"lat\": 44.4954,\n    \"lng\": 11.3430\n  }\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "aabc9cb0-1019-4db6-bf8c-96fe52b0759d",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Add Price to High-Price Marker 3",
+            "url": "http://localhost:5000/addMarkerPrice",
+            "method": "POST",
+            "sortNum": 70000,
+            "created": "2024-12-11T15:53:35.880Z",
+            "modified": "2024-12-11T15:54:06.191Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"geofenceId\": 3,\n  \"price\": 505000\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "38c3ccd7-c594-4f14-8147-d9db50d5629c",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Create Low-Price Marker 1",
+            "url": "http://localhost:5000/save-geofence",
+            "method": "POST",
+            "sortNum": 80000,
+            "created": "2024-12-11T15:53:59.284Z",
+            "modified": "2024-12-11T16:05:49.367Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"marker\": {\n    \"lat\": 44.5000,\n    \"lng\": 11.3500\n  }\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "7cad6642-eb9f-4753-b10b-cb06758773f2",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Add Price to Low-Price Marker 1",
+            "url": "http://localhost:5000/addMarkerPrice",
+            "method": "POST",
+            "sortNum": 90000,
+            "created": "2024-12-11T15:54:38.331Z",
+            "modified": "2024-12-11T15:54:49.827Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"geofenceId\": 4,\n  \"price\": 150000\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "b8730bd1-ca38-441b-823c-e01ac0cf7a7e",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Create Low-Price Marker 2",
+            "url": "http://localhost:5000/save-geofence",
+            "method": "POST",
+            "sortNum": 100000,
+            "created": "2024-12-11T15:55:04.294Z",
+            "modified": "2024-12-11T16:06:07.069Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"marker\": {\n    \"lat\": 44.5003,\n    \"lng\": 11.3502\n  }\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "acc4be39-37f8-429a-b8eb-2f2a908b3088",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Add Price to Low-Price Marker 2",
+            "url": "http://localhost:5000/addMarkerPrice",
+            "method": "POST",
+            "sortNum": 110000,
+            "created": "2024-12-11T15:55:35.410Z",
+            "modified": "2024-12-11T15:55:44.277Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"geofenceId\": 5,\n  \"price\": 155000\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "8dc2a203-3e68-433d-a24a-eb953abf98ec",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Create Low-Price Marker 3",
+            "url": "http://localhost:5000/save-geofence",
+            "method": "POST",
+            "sortNum": 120000,
+            "created": "2024-12-11T15:56:05.700Z",
+            "modified": "2024-12-11T16:06:20.720Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"marker\": {\n    \"lat\": 44.5005,\n    \"lng\": 11.3504\n  }\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "27eaec52-d229-4a6a-93cb-0ec769764050",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Add Price to Low-Price Marker 3",
+            "url": "http://localhost:5000/addMarkerPrice",
+            "method": "POST",
+            "sortNum": 130000,
+            "created": "2024-12-11T15:56:35.255Z",
+            "modified": "2024-12-11T15:56:44.585Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"geofenceId\": 6,\n  \"price\": 145000\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "17cf9762-a677-4d99-9404-6b88de697e7e",
+            "colId": "bbc745b1-4f7b-4f3d-9cc5-4b1dda063611",
+            "containerId": "",
+            "name": "Calculate Moran's Index",
+            "url": "http://localhost:5000/calculate_morans_i",
+            "method": "GET",
+            "sortNum": 140000,
+            "created": "2024-12-11T15:56:56.534Z",
+            "modified": "2024-12-11T15:57:03.379Z",
+            "headers": []
+        }
+    ],
+    "ref": "iqmNAgrTo0ErUXqeIpagpMtqAyV4OyR2hVB8yAS7VEu-xpS1jZo-SXJPuyKVA3nAoIISNecoiFyNFXjRW5GcuA"
+}

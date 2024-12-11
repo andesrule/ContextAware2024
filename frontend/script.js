@@ -179,41 +179,28 @@ document.addEventListener("DOMContentLoaded", function () {
 // Funzione per aggiornare l'indice di Moran
 function updateMoranIndex() {
   fetch("/calculate_morans_i")
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Servono almeno due immobili con prezzo");
-      }
-      return response.json();
-    })
-    .then((data) => {
-      const moranPrices = document.getElementById("moranPrices");
-      const moranPoi = document.getElementById("moranPoi");
-      const avgPrice = document.getElementById("avgPrice");
-      const numImmobili = document.getElementById("numImmobili");
+      .then((response) => {
+          if (!response.ok) {
+              throw new Error("Servono almeno due immobili con prezzo");
+          }
+          return response.json();
+      })
+      .then((data) => {
+          const moranPrices = document.getElementById("moranPrices");
+          const moranPoi = document.getElementById("moranPOI");
 
-      if (data.error) {
-        moranPrices.textContent = "N/A";
-        moranPoi.textContent = "N/A";
-        avgPrice.textContent = "-";
-        numImmobili.textContent = "-";
-        return;
-      }
+          if (data.error) {
+              moranPrices.textContent = "N/A";
+              moranPoi.textContent = "N/A";
+              return;
+          }
 
-      // Aggiorna valori e applica classi di colore
-      moranPrices.textContent = data.morans_i_prices.toFixed(3);
-      moranPrices.className = getValueColorClass(data.morans_i_prices);
-
-      moranPoi.textContent = data.morans_i_poi_density.toFixed(3);
-      moranPoi.className = getValueColorClass(data.morans_i_poi_density);
-
-      avgPrice.textContent =
-        "€" + data.statistics.prezzo_medio.toLocaleString();
-      numImmobili.textContent = data.statistics.num_immobili;
-    })
-    .catch((error) => {
-      console.error("Errore nel recupero dell'indice di Moran:", error);
-      console.log("Errore nel calcolo dell'indice di Moran");
-    });
+          moranPrices.textContent = data.morans_i_prices.toFixed(3);
+          moranPoi.textContent = data.morans_i_poi_density.toFixed(3);
+      })
+      .catch((error) => {
+          console.error("Errore nel recupero dell'indice di Moran:", error);
+      });
 }
 
 // Modifica le funzioni esistenti per aggiornare l'indice quando necessario

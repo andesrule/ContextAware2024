@@ -5,7 +5,7 @@ import json, logging
 import requests
 from shapely.geometry import mapping, Point, Polygon
 from shapely.wkt import loads
-from sqlalchemy import func, text
+from sqlalchemy import func, text, case
 from geoalchemy2.functions import *
 import numpy as np
 import time
@@ -610,126 +610,99 @@ def calculate_location_rank(lat, lng, radius=None):
         print(f"Error calculating location rank: {str(e)}")
         return 0
 
+    
 #get di tutti i geofence
-@utils_bp.route("/get_all_geofences")
+@utils_bp.route('/get_all_geofences')
 def get_all_geofences():
     try:
         if QuestionnaireResponse.query.count() == 0:
             return jsonify({"error": "No questionnaires found"}), 404
 
-        immobili = ListaImmobiliCandidati.query.all()
-        aree = ListaAreeCandidate.query.all()
         all_geofences = []
+        
+        markers = ListaImmobiliCandidati.query.all()
+        for marker in markers:
+            lat = db.session.scalar(ST_Y(marker.marker))
+            lng = db.session.scalar(ST_X(marker.marker))
+            all_geofences.append({
+                'id': marker.id,
+                'type': 'marker',
+                'lat': lat,
+                'lng': lng,
+                'rank': calculate_location_rank(lat, lng),
+                'price': marker.marker_price
+            })
 
-        # Processa i marker
-        for immobile in immobili:
-            try:
-                lat = db.session.scalar(ST_Y(immobile.marker))
-                lng = db.session.scalar(ST_X(immobile.marker))
-
-                rank = calculate_location_rank(lat, lng)
-
-                all_geofences.append(
-                    {
-                        "id": immobile.id,
-                        "type": "marker",
-                        "lat": lat,
-                        "lng": lng,
-                        "rank": rank,
-                        "price": immobile.marker_price,
-                    }
-                )
-                print(f"Processed marker {immobile.id} with rank {rank}")
-
-            except Exception as e:
-                print(f"Error processing marker {immobile.id}: {str(e)}")
-                continue
-
-        # Processa le aree
-        for area in aree:
-            try:
-                centroid = db.session.scalar(ST_Centroid(area.geofence))
-                lat = db.session.scalar(func.ST_Y(centroid))
-                lng = db.session.scalar(func.ST_X(centroid))
-
-                rank = calculate_location_rank(lat, lng)
-
-                geofence_geojson = db.session.scalar(ST_AsGeoJSON(area.geofence))
-                geofence_dict = json.loads(geofence_geojson)
-
-                all_geofences.append(
-                    {
-                        "id": area.id,
-                        "type": "polygon",
-                        "rank": rank,
-                        "coordinates": geofence_dict["coordinates"][0],
-                    }
-                )
-
-            except Exception as e:
-                print(f"Error processing area {area.id}: {str(e)}")
-                continue
+        areas = ListaAreeCandidate.query.all()
+        for area in areas:
+            #  centroide per il rank
+            centroid = db.session.scalar(ST_Centroid(area.geofence))
+            lat = db.session.scalar(ST_Y(centroid))
+            lng = db.session.scalar(ST_X(centroid))
+        
+            geofence_json = db.session.scalar(ST_AsGeoJSON(area.geofence))
+            geofence = json.loads(geofence_json)
+            
+            all_geofences.append({
+                'id': area.id,
+                'type': 'polygon',
+                'rank': calculate_location_rank(lat, lng),
+                'coordinates': geofence['coordinates'][0]
+            })
 
         return jsonify(all_geofences)
-
+        
     except Exception as e:
         print(f"Error in get_all_geofences: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
-def get_bologna_bounds():
-    return {"min_lat": 44.4, "max_lat": 44.6, "min_lon": 11.2, "max_lon": 11.4}
-
-
-
+#conta i poi vicini ad un punto a partire dal raggio
 @lru_cache(maxsize=1000)
 def count_pois_near_point(lat, lon, radius):
-    """
-    Conta i POI vicino a un punto usando la stessa logica di count_nearby_pois.
-    """
-    query = text(
-        """
-    SELECT type, COUNT(*) as count
-    FROM points_of_interest
-    WHERE ST_DWithin(
-        ST_Transform(location, 3857),
-        ST_Transform(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), 3857),
-        :radius
-    )
-    GROUP BY type
-    """
-    )
-
     try:
-        with db.engine.connect() as connection:
-            result = connection.execute(
-                query, {"lat": lat, "lon": lon, "radius": radius}
-            )
-            counts = {row.type: row.count for row in result}
-            return counts
+        
+        point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+        
+   
+        counts = (db.session.query(
+                    POI.type,
+                    func.count(POI.id).label('count')
+                )
+                .filter(
+                    ST_DWithin(
+                        ST_Transform(POI.location, 3857),
+                        ST_Transform(point, 3857),
+                        radius
+                    )
+                )
+                .group_by(POI.type)
+                .all())
+        
+   
+        return {poi_type: count for poi_type, count in counts}
+        
     except SQLAlchemyError as e:
         print(f"Errore nell'esecuzione della query: {str(e)}")
         return {}
 
-
+#seleziona delle location diverse, altrimenti le zone consigliate sono tutte nello stesso punto 
 def diverse_locations_selection(locations, num_locations=10, min_distance=0.008):
-    """
-    Seleziona le locations più diverse tra loro basandosi sia sulla distanza che sul rank
-    """
+
     if not locations:
         return []
 
     diverse_locations = []
     locations.sort(key=lambda x: x["rank"], reverse=True)
 
-    # Seleziona sempre il punto con il rank più alto
+    # rank piu alto
     diverse_locations.append(locations[0])
 
     for loc in locations[1:]:
         if len(diverse_locations) >= num_locations:
             break
 
-        # Calcola la distanza minima da tutti i punti già selezionati
+        
         distances = []
         for selected in diverse_locations:
             dist = (
@@ -742,7 +715,6 @@ def diverse_locations_selection(locations, num_locations=10, min_distance=0.008)
 
         # Se il punto è abbastanza distante e ha un rank sufficientemente diverso
         if min_dist >= min_distance:
-            # Verifica che il rank sia sufficientemente diverso dai punti vicini
             ranks_near = [
                 s["rank"]
                 for s in diverse_locations
@@ -758,7 +730,7 @@ def diverse_locations_selection(locations, num_locations=10, min_distance=0.008)
 
     return diverse_locations
 
-
+#calcola posizione ottimale con una griglia di punti che ricopre l'area di bologna
 @utils_bp.route("/calculate_optimal_locations")
 def calculate_optimal_locations():
     print("Inizio calculate_optimal_locations")
@@ -782,22 +754,26 @@ def calculate_optimal_locations():
         bounds = {"min_lat": 44.4, "max_lat": 44.6, "min_lon": 11.2, "max_lon": 11.4}
 
         grid_points = []
-        lat_step = (bounds["max_lat"] - bounds["min_lat"]) / 30
-        lon_step = (bounds["max_lon"] - bounds["min_lon"]) / 30
+        grid_size = 50
+        lat_step = (bounds["max_lat"] - bounds["min_lat"]) / grid_size
+        lon_step = (bounds["max_lon"] - bounds["min_lon"]) / grid_size
 
-        for i in range(30):
-            for j in range(30):
+        for i in range(grid_size):
+            for j in range(grid_size):
                 lat = bounds["min_lat"] + i * lat_step
                 lon = bounds["min_lon"] + j * lon_step
                 grid_points.append((lat, lon))
 
         results = []
+        #distribuzione per classificare i risultati
         rank_distribution = {"0-20": 0, "21-40": 0, "41-60": 0, "61-80": 0, "81-100": 0}
 
         for point in grid_points:
             lat, lon = point
             rank = calculate_location_rank(lat, lon)
 
+
+            #aggiungi il rank alla distribuzione
             if rank <= 20:
                 rank_distribution["0-20"] += 1
             elif rank <= 40:
@@ -840,7 +816,7 @@ def calculate_optimal_locations():
             500,
         )
 
-
+#aggiunge il prezzo ad un marker
 @utils_bp.route("/addMarkerPrice", methods=["POST"])
 def add_marker_price():
     data = request.get_json()
@@ -866,7 +842,7 @@ def add_marker_price():
     )
 
 
-
+#calcola l'indice di Moran rispetto ai prezzi e rispetto alla densità dei poi
 @utils_bp.route("/calculate_morans_i", methods=["GET"])
 def calculate_morans_i():
     try:
@@ -878,19 +854,14 @@ def calculate_morans_i():
         )
 
         if len(immobili) < 2:
-            return (
-                jsonify(
-                    {
-                        "error": "Servono almeno due immobili con prezzo per calcolare l'indice di Moran"
-                    }
-                ),
-                400,
-            )
+            return jsonify({
+                "error": "Servono almeno due immobili con prezzo per calcolare l'indice di Moran"
+            }), 400
 
         # Estrai coordinate e prezzi
         coords = []
         prices = []
-        threshold_distance = 500  # metri
+        threshold_distance = 1000  # Aumentato a 1000 metri
 
         for immobile in immobili:
             point = to_shape(immobile.marker)
@@ -908,9 +879,8 @@ def calculate_morans_i():
                 .filter(
                     ST_Distance(
                         ST_Transform(POI.location, 3857),
-                        ST_Transform(immobile.marker, 3857),
-                    )
-                    <= threshold_distance
+                        ST_Transform(immobile.marker, 3857)
+                    ) <= threshold_distance
                 )
                 .scalar()
             )
@@ -919,11 +889,37 @@ def calculate_morans_i():
         poi_densities = np.array(poi_densities)
 
         # Calcola matrice delle distanze e dei pesi
-        dist_matrix = cdist(coords, coords)
-        W = np.where(dist_matrix <= threshold_distance, 1, 0)
-        np.fill_diagonal(W, 0)
+        # Usa la formula haversine per distanze più accurate
+        def haversine_distance(lat1, lon1, lat2, lon2):
+            R = 6371000  # Raggio della Terra in metri
+            
+            # Converti in radianti
+            lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+            
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            
+            a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
+            c = 2 * np.arcsin(np.sqrt(a))
+            
+            return R * c
+
+        n = len(coords)
+        dist_matrix = np.zeros((n, n))
+        for i in range(n):
+            for j in range(n):
+                dist_matrix[i,j] = haversine_distance(
+                    coords[i,0], coords[i,1],  # lat1, lon1
+                    coords[j,0], coords[j,1]   # lat2, lon2
+                )
+
+        # Crea matrice dei pesi con decadimento esponenziale
+        W = np.exp(-2 * dist_matrix / threshold_distance)
+        np.fill_diagonal(W, 0)  # Rimuovi self-connections
+        
+        # Normalizza la matrice dei pesi
         row_sums = W.sum(axis=1)
-        row_sums[row_sums == 0] = 1
+        row_sums[row_sums == 0] = 1  # Evita divisione per zero
         W = W / row_sums[:, np.newaxis]
 
         # Calcola Moran's I per prezzi
@@ -939,25 +935,32 @@ def calculate_morans_i():
         denominator_poi = np.sum(z_poi**2)
         I_poi = (len(poi_densities) / W_sum) * (numerator_poi / denominator_poi)
 
-        return jsonify(
-            {
-                "morans_i_prices": float(I_prices),
-                "morans_i_poi_density": float(I_poi),
-                "threshold_distance": threshold_distance,
-                "statistics": {
-                    "num_immobili": len(immobili),
-                    "prezzo_medio": float(np.mean(prices)),
-                    "prezzo_std": float(np.std(prices)),
-                    "poi_density_mean": float(np.mean(poi_densities)),
-                    "poi_density_std": float(np.std(poi_densities)),
-                },
+        return jsonify({
+            "morans_i_prices": float(I_prices),
+            "morans_i_poi_density": float(I_poi),
+            "threshold_distance": threshold_distance,
+            "statistics": {
+                "num_immobili": len(immobili),
+                "prezzo_medio": float(np.mean(prices)),
+                "prezzo_std": float(np.std(prices)),
+                "poi_density_mean": float(np.mean(poi_densities)),
+                "poi_density_std": float(np.std(poi_densities)),
+            },
+            "debug_info": {
+                "max_distance": float(dist_matrix.max()),
+                "min_distance": float(dist_matrix[dist_matrix > 0].min()),
+                "mean_distance": float(dist_matrix.mean()),
+                "weight_matrix_stats": {
+                    "max_weight": float(W.max()),
+                    "min_weight": float(W[W > 0].min()),
+                    "mean_weight": float(W.mean())
+                }
             }
-        )
+        })
 
     except Exception as e:
         print(f"Errore nel calcolo dell'indice di Moran: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
 
 @utils_bp.route("/api/filters", methods=["POST"])
 def save_and_return_filters():
