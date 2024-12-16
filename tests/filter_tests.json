@@ -1,0 +1,144 @@
+{
+    "clientName": "Thunder Client",
+    "collectionName": "POI Filters Tests",
+    "collectionId": "682a6156-ebd6-4598-85ab-4c018a1b6ea3",
+    "dateExported": "2024-12-12T15:31:31.053Z",
+    "version": "1.2",
+    "folders": [],
+    "requests": [
+        {
+            "_id": "6b2298cb-a17f-4aeb-b44d-f6f48faa5344",
+            "colId": "682a6156-ebd6-4598-85ab-4c018a1b6ea3",
+            "containerId": "",
+            "name": "Reset Filters",
+            "url": "http://localhost:5000/api/filters",
+            "method": "POST",
+            "sortNum": 20000,
+            "created": "2024-12-12T15:27:23.053Z",
+            "modified": "2024-12-12T15:27:37.765Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n    \"distanceEnabled\": false,\n    \"travelMode\": \"driving\",\n    \"travelTime\": 5\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "7de1a479-b7e8-4fa8-b2c0-c78210664726",
+            "colId": "682a6156-ebd6-4598-85ab-4c018a1b6ea3",
+            "containerId": "",
+            "name": "Set Car Filters - Short Distance",
+            "url": "http://localhost:5000/api/filters",
+            "method": "POST",
+            "sortNum": 40000,
+            "created": "2024-12-12T15:27:48.356Z",
+            "modified": "2024-12-12T15:28:01.973Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n    \"distanceEnabled\": true,\n    \"travelMode\": \"driving\",\n    \"travelTime\": 5\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "a0f8a07f-e017-4061-8079-cc608557478f",
+            "colId": "682a6156-ebd6-4598-85ab-4c018a1b6ea3",
+            "containerId": "",
+            "name": "Get Train Stations - Short Distance",
+            "url": "http://localhost:5000/api/filter_pois/stazioni_ferroviarie",
+            "method": "GET",
+            "sortNum": 50000,
+            "created": "2024-12-12T15:28:31.179Z",
+            "modified": "2024-12-12T15:28:38.328Z",
+            "headers": []
+        },
+        {
+            "_id": "b858c5a3-f1b8-4e36-900d-c4bba1074e0a",
+            "colId": "682a6156-ebd6-4598-85ab-4c018a1b6ea3",
+            "containerId": "",
+            "name": "Set Car Filters - Long Distance",
+            "url": "http://localhost:5000/api/filters",
+            "method": "POST",
+            "sortNum": 70000,
+            "created": "2024-12-12T15:28:50.064Z",
+            "modified": "2024-12-12T15:29:04.459Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": " {\n    \"distanceEnabled\": true,\n    \"travelMode\": \"driving\",\n    \"travelTime\": 20\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "1916b5bd-28b1-4df9-9d8c-c9d5120a6ee3",
+            "colId": "682a6156-ebd6-4598-85ab-4c018a1b6ea3",
+            "containerId": "",
+            "name": "Get Train Stations - Long Distance",
+            "url": "http://localhost:5000/api/filter_pois/stazioni_ferroviarie",
+            "method": "GET",
+            "sortNum": 90000,
+            "created": "2024-12-12T15:29:24.465Z",
+            "modified": "2024-12-12T15:29:31.576Z",
+            "headers": []
+        },
+        {
+            "_id": "fef322fc-3d13-4f65-93b9-4dc4b6f93cd9",
+            "colId": "682a6156-ebd6-4598-85ab-4c018a1b6ea3",
+            "containerId": "",
+            "name": "Set Walking Filters",
+            "url": "http://localhost:5000/api/filters",
+            "method": "POST",
+            "sortNum": 100000,
+            "created": "2024-12-12T15:29:41.662Z",
+            "modified": "2024-12-12T15:29:58.047Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n    \"distanceEnabled\": true,\n    \"travelMode\": \"walking\",\n    \"travelTime\": 25\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "c4c3c1b5-626e-48b2-91c0-20f6efabad88",
+            "colId": "682a6156-ebd6-4598-85ab-4c018a1b6ea3",
+            "containerId": "",
+            "name": "Get Train Stations - Walking",
+            "url": "http://localhost:5000/api/filter_pois/stazioni_ferroviarie",
+            "method": "GET",
+            "sortNum": 120000,
+            "created": "2024-12-12T15:30:11.067Z",
+            "modified": "2024-12-12T15:30:17.858Z",
+            "headers": []
+        },
+        {
+            "_id": "6fe7e996-b6a8-41e2-b0a6-87bc80a63fdf",
+            "colId": "682a6156-ebd6-4598-85ab-4c018a1b6ea3",
+            "containerId": "",
+            "name": "Set Cycling Filters",
+            "url": "http://localhost:5000/api/filters",
+            "method": "POST",
+            "sortNum": 140000,
+            "created": "2024-12-12T15:30:29.151Z",
+            "modified": "2024-12-12T15:30:45.453Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n    \"distanceEnabled\": true,\n    \"travelMode\": \"cycling\",\n    \"travelTime\": 15\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "8755fcd0-56f9-4a9d-af2b-ffb0d88c5253",
+            "colId": "682a6156-ebd6-4598-85ab-4c018a1b6ea3",
+            "containerId": "",
+            "name": "Get Train Stations - Cycling",
+            "url": "http://localhost:5000/api/filter_pois/stazioni_ferroviarie",
+            "method": "GET",
+            "sortNum": 160000,
+            "created": "2024-12-12T15:30:57.391Z",
+            "modified": "2024-12-12T15:31:04.718Z",
+            "headers": []
+        }
+    ],
+    "ref": "SrhTZzjBRDsOlKpw-fwdu-0Okt2GFJr6pjA38ryZhvndf3gMUPFOUJ_6HX-_hNlwM_2DfNW8HoOlno_yRgx9bA"
+}
