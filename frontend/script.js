@@ -114,7 +114,7 @@ function submitForm() {
 
 
 
-// Inizializza la prima pagina al caricamento
+// inizializza la prima pagina al caricamento
 document.addEventListener("DOMContentLoaded", () => {
   showPage(1);
 });
@@ -176,7 +176,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-// Funzione per aggiornare l'indice di Moran
+// indice moran
 function updateMoranIndex() {
   fetch("/calculate_morans_i")
       .then((response) => {
@@ -203,34 +203,14 @@ function updateMoranIndex() {
       });
 }
 
-// Modifica le funzioni esistenti per aggiornare l'indice quando necessario
-const originalSetPrice = setPrice;
-function setPrice(marker, price) {
-  originalSetPrice(marker, price);
-  updateMoranIndex(); // Aggiorna l'indice dopo aver impostato un prezzo
-}
 
-const originalRemoveMarker = removeMarker;
-function removeMarker(markerToRemove) {
-  originalRemoveMarker(markerToRemove);
-  updateMoranIndex(); // Aggiorna l'indice dopo aver rimosso un marker
-}
 
-// Aggiungi l'inizializzazione al DOMContentLoaded esistente
+
 document.addEventListener("DOMContentLoaded", function () {
-  // Il tuo codice DOMContentLoaded esistente...
 
-  // Aggiungi l'inizializzazione dell'indice di Moran
   updateMoranIndex();
 
-  // Imposta l'aggiornamento automatico ogni 5 secondi
   setInterval(updateMoranIndex, 5000);
 
 });
 
-// Modifica la funzione addMarker esistente per includere l'aggiornamento dell'indice
-const originalAddMarker = addMarker;
-function addMarker(e) {
-  originalAddMarker(e);
-  updateMoranIndex(); // Aggiorna l'indice dopo aver aggiunto un marker
-}

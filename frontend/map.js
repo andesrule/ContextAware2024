@@ -57,7 +57,7 @@ const poiLayers = poiTypes.reduce((layers, type) => {
 }, {});
 
 
-// Definizione globale dei filtri salvati
+// filtri salvati
 let savedFilters = {
   distanceEnabled: false,
   travelMode: 'driving',
@@ -120,12 +120,12 @@ function loadAllGeofences() {
       .then((data) => {
           console.log("Received geofences data:", data);
           
-          // Clear existing layers
+          // elimina layer esistenti
           drawnItems.clearLayers();
           Object.values(circles).forEach((circle) => map.removeLayer(circle));
           circles = {};
 
-          // Initialize or clear geofences layer
+          // r
           window.geofencesLayer = window.geofencesLayer || L.layerGroup().addTo(map);
           window.geofencesLayer.clearLayers();
 
@@ -158,7 +158,7 @@ function loadAllGeofences() {
               }
           });
 
-          // If there are geofences, fit the map to show all of them
+        
           if (data.length > 0) {
               const bounds = L.featureGroup([drawnItems, window.geofencesLayer])
                   .getBounds();
@@ -338,24 +338,24 @@ function deleteAllGeofences() {
   .then((data) => {
       console.log("Cancellazione geofence completata:", data);
       
-      // Clear all drawn items
+      //pulisci tutti i layer
       drawnItems.clearLayers();
       
-      // Clear all circles
+      // rimuovi i cerchi
       Object.values(circles).forEach((circle) => map.removeLayer(circle));
       circles = {};
       
-      // Clear database markers if exists
+      //  rimuove dal db
       if (typeof databaseMarkers !== 'undefined' && databaseMarkers) {
           databaseMarkers.clearLayers();
       }
       
-      // Clear geofences layer
+      // pulisci geofence
       if (window.geofencesLayer) {
           window.geofencesLayer.clearLayers();
       }
       
-      // Update Moran's index if the function exists
+      //aggiorna indice moran
       if (typeof updateMoranIndex === 'function') {
           updateMoranIndex();
       }
