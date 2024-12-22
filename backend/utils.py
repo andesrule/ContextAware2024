@@ -983,8 +983,7 @@ def save_and_return_filters():
         return jsonify({"error": str(e)}), 400  # Errore generico in caso di eccezione
 
 #calcola i tempi di percorrenza per un batch di destinazioni
-def calculate_travel_time_batch(start_coords, destinations, transport_mode, batch_size=25):
-
+def calculate_travel_time(start_coords, destinations, transport_mode):
     base_url = "https://api.openrouteservice.org/v2/matrix/{transport_mode}"
     
     ors_modes = {
@@ -999,126 +998,97 @@ def calculate_travel_time_batch(start_coords, destinations, transport_mode, batc
         "Content-Type": "application/json",
     }
     
-    all_travel_times = {}
-    
-    for i in range(0, len(destinations), batch_size):
-        batch = destinations[i:i + batch_size]
+    try:
+        data = {
+            "locations": [[start_coords[1], start_coords[0]]] + 
+                       [[lon, lat] for lat, lon in destinations],
+            "sources": [0],
+            "destinations": list(range(1, len(destinations) + 1))
+        }
         
-        try:
-            data = {
-                "locations": [[start_coords[1], start_coords[0]]] + 
-                           [[lon, lat] for lat, lon in batch],
-                "sources": [0],
-                "destinations": list(range(1, len(batch) + 1))
+        response = requests.post(
+            base_url.format(transport_mode=mode),
+            json=data,
+            headers=headers,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            durations = result.get("durations", [[]])[0]
+            
+            return {
+                idx: duration / 60 if duration is not None else None 
+                for idx, duration in enumerate(durations)
             }
+        else:
+            logging.error(f"API error: {response.text}")
+            return {}
             
-            response = requests.post(
-                base_url.format(transport_mode=mode),
-                json=data,
-                headers=headers,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                # prendiamo il primo array di durations poiché abbiamo una sola source
-                durations = result.get("durations", [[]])[0]
-                
-                for idx, duration in enumerate(durations):
-                    if duration is not None:
-                        # convertiamo da secondi a minuti
-                        minutes = duration / 60
-                        all_travel_times[i + idx] = minutes
-            else:
-                logging.error(f"API error: {response.text}")
-                
-        except Exception as e:
-            logging.error(f"Batch {i} error: {str(e)}")
-            
-       
-        
-    return all_travel_times
+    except Exception as e:
+        return {}
 
 #restituisce poi in base al tipo e tempo di percorso 
 @utils_bp.route("/api/filter_pois/<poi_type>", methods=["GET"])
 def get_pois_by_type_and_travel_time(poi_type):
-   try:
-       center_lat, center_lon = 44.4949, 11.3426
-       
-       pois = (
-           db.session.query(
-               POI.id,
-               POI.type,
-               POI.additional_data,
-               func.ST_Y(POI.location).label('latitude'),
-               func.ST_X(POI.location).label('longitude'),
-               func.ST_Distance(
-                   func.ST_Transform(POI.location, 3857),
-                   func.ST_Transform(
-                       func.ST_SetSRID(
-                           func.ST_MakePoint(center_lon, center_lat),
-                           4326
-                       ),
-                       3857
-                   )
-               ).label('distance_meters')
-           )
-           .filter(POI.type == poi_type)
-           .order_by('distance_meters')
-           .all()
-       )
+    try:
+        pois = (
+            db.session.query(
+                POI.id,
+                POI.type,
+                POI.additional_data,
+                func.ST_Y(POI.location).label('latitude'),
+                func.ST_X(POI.location).label('longitude')
+            )
+            .filter(POI.type == poi_type)
+            .all()
+        )
 
-       results = []
-       for poi in pois:
-           try:
-               poi_data = {
-                   'id': poi.id,
-                   'type': poi_type,
-                   'lat': float(poi.latitude),
-                   'lng': float(poi.longitude),
-                   'distance': float(poi.distance_meters)
-               }
+        results = []
+        for poi in pois:
+            try:
+                poi_data = {
+                    'id': poi.id,
+                    'type': poi_type,
+                    'lat': float(poi.latitude),
+                    'lng': float(poi.longitude)
+                }
 
-               if poi.additional_data:
-                   try:
-                       poi_data['properties'] = json.loads(poi.additional_data)
-                   except json.JSONDecodeError:
-                       logging.error(f"Errore nel parsing dei dati addizionali per POI {poi.id}")
-                       poi_data['properties'] = {}
+                if poi.additional_data:
+                    try:
+                        poi_data['properties'] = json.loads(poi.additional_data)
+                    except json.JSONDecodeError:
+                        poi_data['properties'] = {}
 
-               results.append(poi_data)
+                results.append(poi_data)
 
-           except Exception as e:
-               logging.error(f"Errore nell'elaborazione del POI {poi.id}: {str(e)}")
-               continue
+            except Exception as e:
+                continue
 
-       if saved_filters["distanceEnabled"] and results:
-           coords = [(p['lat'], p['lng']) for p in results]
-           travel_times = calculate_travel_time_batch(
-               (center_lat, center_lon),
-               coords,
-               saved_filters["travelMode"]
-           )
-           
-           filtered_results = []
-           for idx, result in enumerate(results):
-               if idx in travel_times:
-                   result['travel_time'] = travel_times[idx]
-                   if travel_times[idx] <= saved_filters["travelTime"]:
-                       filtered_results.append(result)
-           
-           results = filtered_results
+        if saved_filters["distanceEnabled"] and results:
+            coords = [(p['lat'], p['lng']) for p in results]
+            center_lat, center_lon = 44.4949, 11.3426  
+            
+            travel_times = calculate_travel_time(
+                (center_lat, center_lon),
+                coords,
+                saved_filters["travelMode"]
+            )
+            
+            filtered_results = []
+            for idx, result in enumerate(results):
+                if idx in travel_times and travel_times[idx] is not None:
+                    result['travel_time'] = travel_times[idx]
+                    if travel_times[idx] <= saved_filters["travelTime"]:
+                        filtered_results.append(result)
+            
+            results = filtered_results
 
-       return jsonify({
-           "status": "success",
-           "count": len(results),
-           "data": results,
-           "query_info": {
-               "total_pois": len(pois),
-               "filtered_count": len(results)
-           }
-       })
+        return jsonify({
+            "status": "success",
+            "count": len(results),
+            "data": results
+        })
 
-   except Exception as e:
-       logging.error(f"Errore generale in get_pois_by_type_and_travel_time: {str(e)}")
-       return jsonify({"status": "error", "message": str(e)}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500

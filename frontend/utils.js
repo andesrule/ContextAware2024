@@ -4,31 +4,21 @@
 export function getColorFromRank(rank) {
   console.log("Calculating color for rank:", rank);
   
-  if (rank === undefined || rank === null) {
-      console.log("Default color for undefined rank");
-      return "#808080";  // grigio per undefined
-  }
   if (rank < 20) {
-      console.log("Rank < 20, using red");
-      return "#FF0000";     // Rosso per i punteggi più bassi
+      return "#FF0000";     // Rosso 
   }
   if (rank < 40) {
-      console.log("Rank < 40, using orange");
       return "#FF8C00";     // Arancione
   }
   if (rank < 60) {
-      console.log("Rank < 60, using yellow");
       return "#FFD700";     // Giallo
   }
-  if (rank < 90) {
-      console.log("Rank < 90, using green");
+  if (rank < 80) {
       return "#32CD32";     // Verde
   }
   
-  console.log("Rank >= 90, using blue");
-  return "#0000CD";         // Blu per i punteggi migliori (40-50.40)
+  return "#0000CD";     // Blu 
 }
-
 //icon per quicksettings
 export function getCustomIcon(poiType) {
   const iconMap = {
@@ -77,9 +67,7 @@ export const poiConfigs = {
 };
 
 //marker
-// In utils.js
 export function createMarker(map, drawnItems, circles, data, color, neighborhoodRadius) {
-  // Creiamo un div colorato come marker
   const markerDiv = document.createElement('div');
   markerDiv.style.backgroundColor = color;
   markerDiv.style.width = '20px';
@@ -90,17 +78,16 @@ export function createMarker(map, drawnItems, circles, data, color, neighborhood
 
   const icon = L.divIcon({
       html: markerDiv,
-      className: '', // Rimuoviamo la classe per evitare stili CSS che potrebbero interferire
+      className: '', 
       iconSize: [20, 20],
       iconAnchor: [10, 10]
   });
 
   const marker = L.marker([data.lat, data.lng], {
       icon: icon,
-      zIndexOffset: 1000 // Mettiamo il marker sopra altri elementi
+      zIndexOffset: 1000 
   }).addTo(map);
 
-  // Il cerchio sotto il marker
   const circle = L.circle([data.lat, data.lng], {
       color: color,
       fillColor: color,
