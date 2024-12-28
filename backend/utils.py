@@ -81,7 +81,7 @@ def get_poi_coordinates(poi):
         coordinates = poi["geo_shape"]["geometry"]["coordinates"]
         return float(coordinates[1]), float(
             coordinates[0]
-        )  # Nota: l'ordine è [lon, lat] in GeoJSON
+        )  #  l'ordine è [lon, lat] in GeoJSON
     elif "geo_point" in poi and "lat" in poi["geo_point"] and "lon" in poi["geo_point"]:
         # Handle geo_point format
         return float(poi["geo_point"]["lat"]), float(poi["geo_point"]["lon"])
@@ -130,7 +130,7 @@ def fetch_and_insert_pois(poi_type, api_url):
                         }
 
                         if location_key in bus_stops:
-                            # Aggiorna le informazioni esistenti
+                        
                             existing_stop = bus_stops[location_key]
                             if line_info["codice_linea"] not in [
                                 l["codice_linea"] for l in existing_stop["lines"]
@@ -148,7 +148,7 @@ def fetch_and_insert_pois(poi_type, api_url):
                                 "lines": [line_info],
                             }
                     else:
-                        # Per altri tipi di POI, procedi come prima
+                        # per altri tipi di POI, procedi come prima
                         new_poi = POI(
                             type=poi_type,
                             location=f"POINT({lon} {lat})",
@@ -713,7 +713,7 @@ def diverse_locations_selection(locations, num_locations=10, min_distance=0.008)
 
         min_dist = min(distances)
 
-        # Se il punto è abbastanza distante e ha un rank sufficientemente diverso
+        # se il punto è abbastanza distante e ha un rank sufficientemente diverso
         if min_dist >= min_distance:
             ranks_near = [
                 s["rank"]
@@ -861,7 +861,7 @@ def calculate_morans_i():
         # Estrai coordinate e prezzi
         coords = []
         prices = []
-        threshold_distance = 1000  # Aumentato a 1000 metri
+        threshold_distance = 1000  # metri
 
         for immobile in immobili:
             point = to_shape(immobile.marker)
@@ -888,30 +888,20 @@ def calculate_morans_i():
 
         poi_densities = np.array(poi_densities)
 
-        # Calcola matrice delle distanze e dei pesi
-        # Usa la formula haversine per distanze più accurate
-        def haversine_distance(lat1, lon1, lat2, lon2):
-            R = 6371000  # Raggio della Terra in metri
-            
-            # Converti in radianti
-            lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
-            
-            dlat = lat2 - lat1
-            dlon = lon2 - lon1
-            
-            a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
-            c = 2 * np.arcsin(np.sqrt(a))
-            
-            return R * c
-
-        n = len(coords)
+        # Calcola matrice delle distanze usando PostGIS
+        n = len(immobili)
         dist_matrix = np.zeros((n, n))
+        
         for i in range(n):
             for j in range(n):
-                dist_matrix[i,j] = haversine_distance(
-                    coords[i,0], coords[i,1],  # lat1, lon1
-                    coords[j,0], coords[j,1]   # lat2, lon2
-                )
+                if i != j:
+                    distance = db.session.scalar(
+                        func.ST_Distance(
+                            func.ST_Transform(immobili[i].marker, 3857),
+                            func.ST_Transform(immobili[j].marker, 3857)
+                        )
+                    )
+                    dist_matrix[i,j] = distance
 
         # Crea matrice dei pesi con decadimento esponenziale
         W = np.exp(-2 * dist_matrix / threshold_distance)
@@ -961,6 +951,7 @@ def calculate_morans_i():
     except Exception as e:
         print(f"Errore nel calcolo dell'indice di Moran: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
 
 @utils_bp.route("/api/filters", methods=["POST"])
 def save_and_return_filters():
