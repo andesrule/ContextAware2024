@@ -8,7 +8,7 @@ import {
   createOptimalPopup,
 } from "./utils.js";
 
-//inizializza mappa su bologna
+
 let map = L.map("map").setView([44.4949, 11.3426], 13);
 //raggio
 let neighborhoodRadius = 500;
@@ -266,9 +266,6 @@ window.addMarkerPrice = function (geofenceId) {
   })
     .then((response) => response.json())
     .then((data) => {
-      alert(
-        `Prezzo di €${price} aggiunto con successo per il marker ${geofenceId}`
-      );
       updateMoranIndex();
     })
     .catch((error) => {
@@ -614,14 +611,13 @@ function initializePOIControls() {
 
 document.addEventListener("DOMContentLoaded", initializePOIControls);
 
-// In map.js
+
 window.showOptimalPositions = function(positions) {
   window.optimalPositionsLayer.clearLayers();
 
   positions.forEach((pos, index) => {
       const color = getColorFromRank(pos.rank);
       
-      // Creiamo un div per il marker numerato
       const markerDiv = document.createElement('div');
       markerDiv.style.backgroundColor = color;
       markerDiv.style.width = '25px';

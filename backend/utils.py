@@ -115,11 +115,11 @@ def fetch_and_insert_pois(poi_type, api_url):
             if not results:
                 break
             for poi in results:
-                try:
+                
                     lat, lon = get_poi_coordinates(poi)
 
                     if poi_type == "fermate_bus":
-                        # crea una chiave unica basata sulle coordinate
+                        # unique key
                         location_key = f"{lat},{lon}"
 
                         # estrai le informazioni sulla linea
@@ -157,16 +157,14 @@ def fetch_and_insert_pois(poi_type, api_url):
                         db.session.add(new_poi)
                         total_count += 1
 
-                except ValueError as e:
-                    print(f"Errore nell'elaborazione del POI: {e}")
 
             if poi_type != "fermate_bus":
                 db.session.commit()
 
             offset += limit
-            print(f"Elaborati {len(results)} risultati per {poi_type}")
+
         else:
-            print(f"Errore nella richiesta API per {poi_type}: {response.status_code}")
+            print(f"Errore nella richiesta API {poi_type}: {response.status_code}")
             break
 
     # inserisci tutte le fermate bus unificate
@@ -188,7 +186,6 @@ def fetch_and_insert_pois(poi_type, api_url):
             db.session.add(new_poi)
             total_count += 1
         db.session.commit()
-        print(f"Inserite {total_count} fermate bus uniche")
 
     return total_count
 
@@ -196,7 +193,7 @@ def fetch_and_insert_pois(poi_type, api_url):
 # ritorna i POI di un certo tipo
 @utils_bp.route("/api/pois/<poi_type>", methods=["GET"])
 def get_pois_by_type(poi_type):
-    try:
+
         # prendi tutti i poi dal db
         pois = POI.query.filter_by(type=poi_type).all()
         print(f"Trovati {len(pois)} POI di tipo {poi_type}")
@@ -204,7 +201,6 @@ def get_pois_by_type(poi_type):
         poi_list = []
         for poi in pois:
             try:
-                # converti la geometria in coordinate
                 point = to_shape(poi.location)
 
                 poi_data = {
@@ -214,15 +210,11 @@ def get_pois_by_type(poi_type):
                     "lng": point.x,  # Longitudine
                 }
 
-                # Aggiungi i dati addizionali se presenti
+               
                 if poi.additional_data:
-                    try:
+                    
                         additional_data = json.loads(poi.additional_data)
                         poi_data["properties"] = additional_data
-                    except json.JSONDecodeError:
-                        print(
-                            f"Errore nel parsing dei dati addizionali per POI {poi.id}"
-                        )
                         poi_data["properties"] = {}
 
                 poi_list.append(poi_data)
@@ -230,13 +222,8 @@ def get_pois_by_type(poi_type):
             except Exception as e:
                 print(f"Errore nell'elaborazione del POI {poi.id}: {str(e)}")
                 continue
-
-        print(f"Restituisco {len(poi_list)} POI formattati")
         return jsonify({"status": "success", "count": len(poi_list), "data": poi_list})
 
-    except Exception as e:
-        print(f"Errore generale in get_pois_by_type: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @utils_bp.route("/set_radius", methods=["POST"])
@@ -246,7 +233,7 @@ def set_radius():
         data = request.get_json(force=True)
 
         radius = int(data["radius"])
-        global_radius = radius  # Aggiorna il raggio globale
+        global_radius = radius 
         return jsonify({"radius": radius}), 200
 
     except ValueError:
@@ -317,12 +304,8 @@ def submit_questionnaire():
         )
         db.session.add(new_questionnaire)
 
-    try:
+    
         db.session.commit()
-        return jsonify({"message": "Questionario inviato con successo!"})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
 
 
 # calcila i poi vicini ad un marker, o all'interno di un poligono
@@ -350,7 +333,6 @@ def count_nearby_pois(location_id, distance_meters=None):
             .all()
         )
 
-        print(f"Counted POIs within {distance_meters}m of marker {location_id}")
 
     else:
 
@@ -364,15 +346,12 @@ def count_nearby_pois(location_id, distance_meters=None):
             .all()
         )
 
-        print(f"Counted POIs within geofence {location_id}")
 
     for poi_type, count in poi_counts:
         if poi_type in result:
             result[poi_type] = count
         else:
-            print(f"Warning: Unexpected POI type found: {poi_type}")
-
-    return result
+            return result
 
 
 def calculate_rank(poi_counts, user_preferences, radius_meters=500):
@@ -614,7 +593,6 @@ def calculate_location_rank(lat, lng, radius=None):
 #get di tutti i geofence
 @utils_bp.route('/get_all_geofences')
 def get_all_geofences():
-    try:
         if QuestionnaireResponse.query.count() == 0:
             return jsonify({"error": "No questionnaires found"}), 404
 
@@ -651,10 +629,7 @@ def get_all_geofences():
             })
 
         return jsonify(all_geofences)
-        
-    except Exception as e:
-        print(f"Error in get_all_geofences: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+
 
 
 #conta i poi vicini ad un punto a partire dal raggio
@@ -846,7 +821,7 @@ def add_marker_price():
 @utils_bp.route("/calculate_morans_i", methods=["GET"])
 def calculate_morans_i():
     try:
-        # Recupera immobili con prezzo
+        #  immobili con prezzo
         immobili = (
             db.session.query(ListaImmobiliCandidati)
             .filter(ListaImmobiliCandidati.marker_price.isnot(None))
@@ -858,20 +833,20 @@ def calculate_morans_i():
                 "error": "Servono almeno due immobili con prezzo per calcolare l'indice di Moran"
             }), 400
 
-        # Estrai coordinate e prezzi
+  
         coords = []
         prices = []
-        threshold_distance = 1000  # metri
+        threshold_distance = 1000 
 
         for immobile in immobili:
             point = to_shape(immobile.marker)
-            coords.append([point.y, point.x])  # [lat, lon]
+            coords.append([point.y, point.x]) 
             prices.append(float(immobile.marker_price))
 
         coords = np.array(coords)
         prices = np.array(prices)
 
-        # Calcola densità POI
+        # densità POI
         poi_densities = []
         for immobile in immobili:
             poi_count = (
@@ -888,7 +863,7 @@ def calculate_morans_i():
 
         poi_densities = np.array(poi_densities)
 
-        # Calcola matrice delle distanze usando PostGIS
+        #  matrice delle distanze usando PostGIS
         n = len(immobili)
         dist_matrix = np.zeros((n, n))
         
@@ -903,13 +878,13 @@ def calculate_morans_i():
                     )
                     dist_matrix[i,j] = distance
 
-        # Crea matrice dei pesi con decadimento esponenziale
+        # matrice dei pesi con decadimento esponenziale
         W = np.exp(-2 * dist_matrix / threshold_distance)
-        np.fill_diagonal(W, 0)  # Rimuovi self-connections
+        np.fill_diagonal(W, 0)  # rimuovi self-connections
         
-        # Normalizza la matrice dei pesi
+        # Normalizza
         row_sums = W.sum(axis=1)
-        row_sums[row_sums == 0] = 1  # Evita divisione per zero
+        row_sums[row_sums == 0] = 1 
         W = W / row_sums[:, np.newaxis]
 
         # Calcola Moran's I per prezzi
