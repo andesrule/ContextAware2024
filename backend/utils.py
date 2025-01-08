@@ -224,20 +224,11 @@ def get_pois_by_type(poi_type):
         return jsonify({"status": "success", "count": len(poi_list), "data": poi_list})
 
 
-
 @utils_bp.route("/set_radius", methods=["POST"])
 def set_radius():
     global global_radius
-    try:
-        data = request.get_json(force=True)
-
-        radius = int(data["radius"])
-        global_radius = radius 
-        return jsonify({"radius": radius}), 200
-
-    except ValueError:
-        return jsonify({"error": "Il raggio deve essere un numero intero"}), 400
-
+    global_radius = request.json.get("radius")
+    return jsonify({"radius": global_radius}), 200
 
 # salva un marker o un geofence nel database
 @utils_bp.route("/save-geofence", methods=["POST"])
@@ -350,47 +341,46 @@ def calculate_rank(poi_counts, user_preferences, radius_meters=500):
     if not poi_counts or not user_preferences:
         return 0
         
-    try:
-        # numero poi totali
-        total_counts_query = """
-        SELECT type, COUNT(*) as total 
-        FROM points_of_interest 
-        GROUP BY type;
-        """
-           
-        with db.engine.connect() as conn:
-            result = conn.execute(text(total_counts_query))
-            # densita
-            city_poi_density = {row.type: row.total / BOLOGNA_AREA for row in result}
+    
+    # numero poi totali
+    total_counts_query = """
+    SELECT type, COUNT(*) as total 
+    FROM points_of_interest 
+    GROUP BY type;
+    """
+       
+    with db.engine.connect() as conn:
+        result = conn.execute(text(total_counts_query))
+        # densita
+        city_poi_density = {row.type: row.total / BOLOGNA_AREA for row in result}
+        
+        total_score = 0
+        counted_types = 0
+        
+        for poi_type, count in poi_counts.items():
+            preference = user_preferences.get(poi_type, 0)
+            city_density = city_poi_density.get(poi_type, 0)
             
-            total_score = 0
-            counted_types = 0
-            
-            for poi_type, count in poi_counts.items():
-                preference = user_preferences.get(poi_type, 0)
-                city_density = city_poi_density.get(poi_type, 0)
+            if preference > 0 and city_density > 0:
+        
+                local_density = count / buffer_area
                 
-                if preference > 0 and city_density > 0:
-            
-                    local_density = count / buffer_area
-                    
-                    # normalize
-                    density_score = min((local_density / city_density) * 100, 100)
-                    preference_percentage = (preference / 5) * 100
-                    type_score = (density_score * 0.7) + (preference_percentage * 0.3)
-                    
-                    total_score += type_score
-                    counted_types += 1
-            
-            if counted_types > 0:
-                final_rank = total_score / counted_types
-                final_rank = round(min(final_rank, 100), 2)
-                return final_rank
-            
-            return 0
-            
-    except Exception as e:
+                # normalize
+                density_score = min((local_density / city_density) * 100, 100)
+                preference_percentage = (preference / 5) * 100
+                type_score = (density_score * 0.7) + (preference_percentage * 0.3)
+                
+                total_score += type_score
+                counted_types += 1
+        
+        if counted_types > 0:
+            final_rank = total_score / counted_types
+            final_rank = round(min(final_rank, 100), 2)
+            return final_rank
+        
         return 0
+            
+    
 
 
 @utils_bp.route("/count_nearby_pois", methods=["POST"])
@@ -443,11 +433,6 @@ def get_questionnaire():
 
 
 
-
-@utils_bp.route("/check-questionnaires")
-def check_questionnaires():
-    count = QuestionnaireResponse.query.count()
-    return jsonify({"count": count})
 
 
 @utils_bp.route("/delete-all-geofences", methods=["POST"])
@@ -684,85 +669,78 @@ def calculate_optimal_locations():
 
     start_time = time.time()
 
-    try:
-        user_preferences = get_questionnaire()
+    
+    user_preferences = get_questionnaire()
 
 
-        if user_preferences is None:
-            return (
-                jsonify(
-                    {
-                        "error": "Nessun questionario trovato. Completa il questionario prima.",
-                        "execution_time_seconds": time.time() - start_time,
-                    }
-                ),
-                400,
-            )
-
-        bounds = {"min_lat": 44.4, "max_lat": 44.6, "min_lon": 11.2, "max_lon": 11.4}
-
-        grid_points = []
-        grid_size = 50
-        lat_step = (bounds["max_lat"] - bounds["min_lat"]) / grid_size
-        lon_step = (bounds["max_lon"] - bounds["min_lon"]) / grid_size
-
-        for i in range(grid_size):
-            for j in range(grid_size):
-                lat = bounds["min_lat"] + i * lat_step
-                lon = bounds["min_lon"] + j * lon_step
-                grid_points.append((lat, lon))
-
-        results = []
-        #distribuzione per classificare i risultati
-        rank_distribution = {"0-20": 0, "21-40": 0, "41-60": 0, "61-80": 0, "81-100": 0}
-
-        for point in grid_points:
-            lat, lon = point
-            rank = calculate_location_rank(lat, lon)
-
-
-            #aggiungi il rank alla distribuzione
-            if rank <= 20:
-                rank_distribution["0-20"] += 1
-            elif rank <= 40:
-                rank_distribution["21-40"] += 1
-            elif rank <= 60:
-                rank_distribution["41-60"] += 1
-            elif rank <= 80:
-                rank_distribution["61-80"] += 1
-            else:
-                rank_distribution["81-100"] += 1
-
-            if rank > 30:
-                results.append({"lat": lat, "lng": lon, "rank": rank})
-
-        diverse_locations = diverse_locations_selection(results)
-
-        execution_time = time.time() - start_time
-
-        return jsonify(
-            {
-                "message": "Le 10 migliori posizioni suggerite per acquistare casa a Bologna:",
-                "suggestions": diverse_locations,
-                "execution_time_seconds": execution_time,
-                "total_locations_analyzed": len(results),
-                "rank_distribution": rank_distribution,
-                "user_preferences": user_preferences,
-                "search_parameters": {
-                    "radius_meters": global_radius,
-                    "min_rank_threshold": 30,
-                },
-            }
-        )
-
-    except Exception as e:
+    if user_preferences is None:
         return (
             jsonify(
-                {"error": str(e), "execution_time_seconds": time.time() - start_time}
+                {
+                    "error": "Nessun questionario trovato. Completa il questionario prima.",
+                    "execution_time_seconds": time.time() - start_time,
+                }
             ),
-            500,
+            400,
         )
 
+    bounds = {"min_lat": 44.4, "max_lat": 44.6, "min_lon": 11.2, "max_lon": 11.4}
+
+    grid_points = []
+    grid_size = 50
+    lat_step = (bounds["max_lat"] - bounds["min_lat"]) / grid_size
+    lon_step = (bounds["max_lon"] - bounds["min_lon"]) / grid_size
+
+    for i in range(grid_size):
+        for j in range(grid_size):
+            lat = bounds["min_lat"] + i * lat_step
+            lon = bounds["min_lon"] + j * lon_step
+            grid_points.append((lat, lon))
+
+    results = []
+    #distribuzione per classificare i risultati
+    rank_distribution = {"0-20": 0, "21-40": 0, "41-60": 0, "61-80": 0, "81-100": 0}
+
+    for point in grid_points:
+        lat, lon = point
+        rank = calculate_location_rank(lat, lon)
+
+
+        #aggiungi il rank alla distribuzione
+        if rank <= 20:
+            rank_distribution["0-20"] += 1
+        elif rank <= 40:
+            rank_distribution["21-40"] += 1
+        elif rank <= 60:
+            rank_distribution["41-60"] += 1
+        elif rank <= 80:
+            rank_distribution["61-80"] += 1
+        else:
+            rank_distribution["81-100"] += 1
+
+        if rank > 30:
+            results.append({"lat": lat, "lng": lon, "rank": rank})
+
+    diverse_locations = diverse_locations_selection(results)
+
+    execution_time = time.time() - start_time
+
+    return jsonify(
+        {
+            "message": "Le 10 migliori posizioni suggerite per acquistare casa a Bologna:",
+            "suggestions": diverse_locations,
+            "execution_time_seconds": execution_time,
+            "total_locations_analyzed": len(results),
+            "rank_distribution": rank_distribution,
+            "user_preferences": user_preferences,
+            "search_parameters": {
+                "radius_meters": global_radius,
+                "min_rank_threshold": 30,
+            },
+        }
+    )
+
+    
 #aggiunge il prezzo ad un marker
 @utils_bp.route("/addMarkerPrice", methods=["POST"])
 def add_marker_price():
