@@ -277,35 +277,45 @@ def save_geofence():
 # aggiunge le user preference nel db una volta configurato il questionario
 @utils_bp.route("/submit-questionnaire", methods=["POST"])
 def submit_questionnaire():
-    data = request.get_json()
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
 
-    # se esite gia aggiorniamo i valori
-    existing_questionnaire = QuestionnaireResponse.query.first()
-    if existing_questionnaire:
-        for key, value in data.items():
-            setattr(existing_questionnaire, key, value)
-    else:
-        new_questionnaire = QuestionnaireResponse(
-            aree_verdi=data.get("aree_verdi"),
-            parcheggi=data.get("parcheggi"),
-            fermate_bus=data.get("fermate_bus"),
-            stazioni_ferroviarie=data.get("stazioni_ferroviarie"),
-            scuole=data.get("scuole"),
-            cinema=data.get("cinema"),
-            ospedali=data.get("ospedali"),
-            farmacia=data.get("farmacia"),
-            colonnina_elettrica=data.get("colonnina_elettrica"),
-            biblioteca=data.get("biblioteca"),
-            densita_aree_verdi=data.get("densita_aree_verdi"),
-            densita_fermate_bus=data.get("densita_fermate_bus"),
-            densita_farmacie=data.get("densita_farmacie"),
-            densita_scuole=data.get("densita_scuole"),
-            densita_parcheggi=data.get("densita_parcheggi"),
-        )
-        db.session.add(new_questionnaire)
+        # Validate required fields
+        required_fields = [
+            "aree_verdi", "parcheggi", "fermate_bus", "stazioni_ferroviarie",
+            "scuole", "cinema", "ospedali", "farmacia", "colonnina_elettrica",
+            "biblioteca", "densita_aree_verdi", "densita_fermate_bus",
+            "densita_farmacie", "densita_scuole", "densita_parcheggi"
+        ]
+        
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return jsonify({
+                "error": f"Missing required fields: {', '.join(missing_fields)}"
+            }), 400
 
-    
-        db.session.commit()
+        # Check if questionnaire exists
+        existing_questionnaire = QuestionnaireResponse.query.first()
+        
+        try:
+            if existing_questionnaire:
+                for key, value in data.items():
+                    setattr(existing_questionnaire, key, value)
+            else:
+                new_questionnaire = QuestionnaireResponse(**data)
+                db.session.add(new_questionnaire)
+
+            db.session.commit()
+            return jsonify({"message": "Questionnaire submitted successfully"}), 200
+            
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            return jsonify({"error": f"Database error: {str(e)}"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
 # calcila i poi vicini ad un marker, o all'interno di un poligono

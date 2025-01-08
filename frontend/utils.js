@@ -2,7 +2,6 @@
 //restituisci colore in base al rank 
 // In utils.js
 export function getColorFromRank(rank) {
-  console.log("Calculating color for rank:", rank);
   
   if (rank < 20) {
       return "#FF0000";     // Rosso 

@@ -22,7 +22,6 @@ async function checkQuestionnaires() {
           alert("Non ci sono questionari nel database. Compilare almeno un questionario per visualizzare i dati.");
       }
   } catch (error) {
-      console.error("Errore durante il controllo dei questionari:", error);
       alert("Errore durante il controllo dei questionari nel database.");
   }
 }
@@ -75,43 +74,33 @@ function submitForm() {
   const answers = {};
 
   formData.forEach((value, key) => {
-    answers[key] = parseInt(value);
+      answers[key] = parseInt(value) || 0;
   });
 
-
   fetch("/submit-questionnaire", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(answers),
+      method: "POST",
+      headers: {
+          "Content-Type": "application/json",
+      },
+      body: JSON.stringify(answers),
   })
-    .then((response) => {
+  .then(response => {
       if (!response.ok) {
-        throw new Error(
-          `Errore di rete: ${response.status} - ${response.statusText}`
-        );
+          return response.json().then(data => {
+              throw new Error(data.error || `HTTP error! status: ${response.status}`);
+          });
       }
       return response.json();
-    })
-    .then((data) => {
-      console.log("Risposta del server:", data);
+  })
+  .then(() => {
       alert("Questionario inviato con successo!");
       currentPage = 1;
       showPage(1);
-    })
-    .catch((error) => {
-      console.error("Errore durante l'invio del questionario:", error);
+  })
+  .catch(error => {
       alert(`Si è verificato un errore: ${error.message}`);
-    })
-    .finally(() => {
-      submitButton.innerHTML = originalText;
-      submitButton.disabled = false;
-    });
-
-    alert("Questionario Inviato")
+  });
 }
-
 
 
 // inizializza la prima pagina al caricamento
@@ -129,7 +118,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function calculateOptimalPositions(e) {
   e.preventDefault();
-  console.log("Calculating optimal positions...");
 
   const loadingOverlay = document.getElementById("loadingOverlay");
   if (loadingOverlay) {
@@ -180,12 +168,19 @@ document.addEventListener("DOMContentLoaded", function () {
 function updateMoranIndex() {
   fetch("/calculate_morans_i")
       .then((response) => {
+          if (response.status === 400) {
+              document.getElementById("moranPrices").textContent = "N/A";
+              document.getElementById("moranPOI").textContent = "N/A";
+              return null;
+          }
           if (!response.ok) {
-              throw new Error("Servono almeno due immobili con prezzo");
+              throw new Error(`Server error: ${response.status}`);
           }
           return response.json();
       })
       .then((data) => {
+          if (!data) return;
+
           const moranPrices = document.getElementById("moranPrices");
           const moranPoi = document.getElementById("moranPOI");
 
@@ -199,7 +194,8 @@ function updateMoranIndex() {
           moranPoi.textContent = data.morans_i_poi_density.toFixed(3);
       })
       .catch((error) => {
-          console.error("Errore nel recupero dell'indice di Moran:", error);
+          document.getElementById("moranPrices").textContent = "N/A";
+          document.getElementById("moranPOI").textContent = "N/A";
       });
 }
 

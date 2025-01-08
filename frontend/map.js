@@ -90,19 +90,14 @@ function updateNeighborhoodCircles() {
 
 function sendRadiusToBackend(radius) {
   fetch("/set_radius", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ radius: radius }),
+      method: "POST",
+      headers: {
+          "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ radius: radius }),
   })
-    .then((response) => response.json())
-    .then((data) => {
-      console.log("Success:", data);
-    })
-    .catch((error) => {
-      console.error("Error:", error);
-    });
+  .then((response) => response.json())
+  .catch(() => {});
 }
 
 //carica marker e poligoni
@@ -118,7 +113,7 @@ function loadAllGeofences() {
           return response.json();
       })
       .then((data) => {
-          console.log("Received geofences data:", data);
+
           
           // elimina layer esistenti
           drawnItems.clearLayers();
@@ -130,11 +125,11 @@ function loadAllGeofences() {
           window.geofencesLayer.clearLayers();
 
           data.forEach((geofenceData) => {
-              console.log("Processing geofence:", geofenceData);
+
               
               if (geofenceData.type === "marker") {
                   const color = getColorFromRank(geofenceData.rank);
-                  console.log(`Creating marker with rank ${geofenceData.rank}, color: ${color}`);
+
                   
                   createMarker(
                       map,
@@ -147,7 +142,7 @@ function loadAllGeofences() {
               } 
               else if (geofenceData.type === "polygon") {
                   const color = getColorFromRank(geofenceData.rank);
-                  console.log(`Creating polygon with rank ${geofenceData.rank}, color: ${color}`);
+
                   
                   createPolygon(
                       map,
@@ -166,7 +161,7 @@ function loadAllGeofences() {
           }
       })
       .catch((error) => {
-          console.error("Error loading geofences:", error);
+
           if (error.message === "No questionnaires found") {
               alert("Completa prima il questionario per visualizzare i dati.");
           }
@@ -232,12 +227,10 @@ window.createGeofencePopup = createGeofencePopup;
 
 //rimuove un singolo geofence dalla mappa e dal db
 window.deleteGeofence = function (geofenceId) {
-  console.log("Delete geofence with ID:", geofenceId);
   fetch(`/delete-geofence/${geofenceId}`, {
     method: "DELETE",
   })
     .then((data) => {
-      console.log("Geofence eliminato:", data);
       removeGeofenceFromMap(geofenceId);
       updateMoranIndex();
     })
@@ -267,16 +260,17 @@ window.addMarkerPrice = function (geofenceId) {
     .then((response) => response.json())
     .then((data) => {
       updateMoranIndex();
+      alert("Prezzo aggiunto con successo");
     })
     .catch((error) => {
-      console.error("Errore durante l'aggiunta del prezzo:", error);
+
       alert("Errore durante l'aggiunta del prezzo");
     });
 };
 
 map.on(L.Draw.Event.CREATED, function (e) {
   let layer = e.layer;
-
+ 
   if (layer instanceof L.Marker) {
     const latlng = layer.getLatLng();
     saveGeofenceToDatabase([{ lat: latlng.lat, lng: latlng.lng }], null)
@@ -284,7 +278,7 @@ map.on(L.Draw.Event.CREATED, function (e) {
       .then((data) => {
         loadAllGeofences();
       })
-      .catch((error) => console.error("Errore nel salvare il marker:", error));
+      .catch(() => {});
   } else if (layer instanceof L.Polygon) {
     const coordinates = layer
       .getLatLngs()[0]
@@ -294,11 +288,9 @@ map.on(L.Draw.Event.CREATED, function (e) {
       .then((data) => {
         loadAllGeofences();
       })
-      .catch((error) =>
-        console.error("Errore nel salvare il geofence:", error)
-      );
+      .catch(() => {});
   }
-});
+ });
 
 //aggiungi un geofence al db, gestisce sia una lista che un singolo marker/poligono
 function saveGeofenceToDatabase(markers, geofences) {
@@ -308,7 +300,6 @@ function saveGeofenceToDatabase(markers, geofences) {
   } else if (geofences && geofences.length > 0) {
     data = { geofence: geofences[0] };
   } else {
-    console.error("Nessun marker o geofence valido da salvare.");
     return Promise.reject("Dati non validi");
   }
 
@@ -333,7 +324,7 @@ function deleteAllGeofences() {
       return response.json();
   })
   .then((data) => {
-      console.log("Cancellazione geofence completata:", data);
+
       
       //pulisci tutti i layer
       drawnItems.clearLayers();
@@ -360,13 +351,12 @@ function deleteAllGeofences() {
       alert("Tutti i geofence sono stati cancellati con successo");
   })
   .catch((error) => {
-      console.error("Errore nella cancellazione dei geofence:", error);
       alert("Si è verificato un errore durante la cancellazione dei geofence");
   });
 }
 
 function removeGeofenceFromMap(geofenceId) {
-  console.log("Removing geofence from map:", geofenceId);
+
   // Rimuovi il marker 
   drawnItems.eachLayer(function (layer) {
     if (layer.geofenceId === geofenceId) {
@@ -571,7 +561,6 @@ function togglePOI(poiType, show) {
           }
       })
       .catch((error) => {
-          console.error(`Errore nel caricamento dei POI ${poiType}:`, error);
           alert(`Errore nel caricamento dei ${poiConfigs[poiType].label}`);
       });
 }
@@ -583,10 +572,6 @@ document.getElementById("filterTime").addEventListener("change", handleFilters);
 
 function initializePOIControls() {
   const poiGrid = document.querySelector(".grid.grid-cols-2.gap-2");
-  if (!poiGrid) {
-    console.error("Grid container per i POI non trovato");
-    return;
-  }
 
   poiGrid.innerHTML = "";
 
