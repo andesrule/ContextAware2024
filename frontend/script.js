@@ -17,10 +17,6 @@ async function checkQuestionnaires() {
   try {
       const response = await fetch("/check-questionnaires");
       const data = await response.json();
-
-      if (data.count === 0) {
-          alert("Non ci sono questionari nel database. Compilare almeno un questionario per visualizzare i dati.");
-      }
   } catch (error) {
       alert("Errore durante il controllo dei questionari nel database.");
   }

@@ -196,7 +196,6 @@ def get_pois_by_type(poi_type):
 
         # prendi tutti i poi dal db
         pois = POI.query.filter_by(type=poi_type).all()
-        print(f"Trovati {len(pois)} POI di tipo {poi_type}")
 
         poi_list = []
         for poi in pois:
@@ -220,7 +219,7 @@ def get_pois_by_type(poi_type):
                 poi_list.append(poi_data)
 
             except Exception as e:
-                print(f"Errore nell'elaborazione del POI {poi.id}: {str(e)}")
+                return jsonify({"error": str(e)}), 500  
                 continue
         return jsonify({"status": "success", "count": len(poi_list), "data": poi_list})
 
@@ -279,43 +278,20 @@ def save_geofence():
 def submit_questionnaire():
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        # Validate required fields
-        required_fields = [
-            "aree_verdi", "parcheggi", "fermate_bus", "stazioni_ferroviarie",
-            "scuole", "cinema", "ospedali", "farmacia", "colonnina_elettrica",
-            "biblioteca", "densita_aree_verdi", "densita_fermate_bus",
-            "densita_farmacie", "densita_scuole", "densita_parcheggi"
-        ]
-        
-        missing_fields = [field for field in required_fields if field not in data]
-        if missing_fields:
-            return jsonify({
-                "error": f"Missing required fields: {', '.join(missing_fields)}"
-            }), 400
-
-        # Check if questionnaire exists
         existing_questionnaire = QuestionnaireResponse.query.first()
-        
-        try:
-            if existing_questionnaire:
-                for key, value in data.items():
-                    setattr(existing_questionnaire, key, value)
-            else:
-                new_questionnaire = QuestionnaireResponse(**data)
-                db.session.add(new_questionnaire)
+        if existing_questionnaire:
+            for key, value in data.items():
+                setattr(existing_questionnaire, key, value)
+        else:
+            new_questionnaire = QuestionnaireResponse(**data)
+            db.session.add(new_questionnaire)
 
-            db.session.commit()
-            return jsonify({"message": "Questionnaire submitted successfully"}), 200
-            
-        except SQLAlchemyError as e:
-            db.session.rollback()
-            return jsonify({"error": f"Database error: {str(e)}"}), 500
-            
-    except Exception as e:
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        db.session.commit()
+        return jsonify({"status": "success"}), 200
+
+    except Exception:
+        db.session.rollback()
+        return jsonify({"status": "error"}), 500
 
 
 # calcila i poi vicini ad un marker, o all'interno di un poligono
@@ -387,7 +363,6 @@ def calculate_rank(poi_counts, user_preferences, radius_meters=500):
             # densita
             city_poi_density = {row.type: row.total / BOLOGNA_AREA for row in result}
             
-            print(f"Densità POI città: {city_poi_density}")
             total_score = 0
             counted_types = 0
             
@@ -410,13 +385,11 @@ def calculate_rank(poi_counts, user_preferences, radius_meters=500):
             if counted_types > 0:
                 final_rank = total_score / counted_types
                 final_rank = round(min(final_rank, 100), 2)
-                print(f"Final rank: {final_rank}")
                 return final_rank
             
             return 0
             
     except Exception as e:
-        print(f"Error in calculate_rank: {str(e)}")
         return 0
 
 
@@ -443,7 +416,7 @@ def calculate_rank_endpoint():
 
 
 def get_questionnaire():
-    try:
+    
         questionnaire = QuestionnaireResponse.query.first()
 
         if not questionnaire:
@@ -466,9 +439,7 @@ def get_questionnaire():
             "densita_scuole": questionnaire.densita_scuole,
             "densita_parcheggi": questionnaire.densita_parcheggi,
         }
-    except Exception as e:
-        print(f"Errore nel recupero del questionario: {str(e)}")
-        return None
+
 
 
 
@@ -529,7 +500,7 @@ def calculate_location_rank(lat, lng, radius=None):
     if radius is None:
         radius = global_radius
 
-    print(f"Calculating rank using radius: {radius}m")
+
 
     
     #crea prima un punto geometrico, poi calcola la distanza, infine aggiunge il rank degradando in base alla distanza
@@ -586,18 +557,13 @@ def calculate_location_rank(lat, lng, radius=None):
             user_preferences = get_questionnaire()
 
             if not user_preferences:
-                print("Warning: No questionnaire found")
                 return 0
 
             rank = calculate_rank(poi_counts, user_preferences)
-            print(f"Calculated rank for location ({lat}, {lng}): {rank}")
-            print(f"Using radius: {radius}m (extended: {extended_radius}m)")
-            print(f"Weighted POI counts: {poi_counts}")
             return rank
 
     except Exception as e:
-        print(f"Error calculating location rank: {str(e)}")
-        return 0
+        return jsonify({"error": str(e)}), 500
 
     
 #get di tutti i geofence
@@ -645,8 +611,7 @@ def get_all_geofences():
 #conta i poi vicini ad un punto a partire dal raggio
 @lru_cache(maxsize=1000)
 def count_pois_near_point(lat, lon, radius):
-    try:
-        
+
         point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
         
    
@@ -667,9 +632,7 @@ def count_pois_near_point(lat, lon, radius):
    
         return {poi_type: count for poi_type, count in counts}
         
-    except SQLAlchemyError as e:
-        print(f"Errore nell'esecuzione della query: {str(e)}")
-        return {}
+
 
 #seleziona delle location diverse, altrimenti le zone consigliate sono tutte nello stesso punto 
 def diverse_locations_selection(locations, num_locations=10, min_distance=0.008):
@@ -718,12 +681,12 @@ def diverse_locations_selection(locations, num_locations=10, min_distance=0.008)
 #calcola posizione ottimale con una griglia di punti che ricopre l'area di bologna
 @utils_bp.route("/calculate_optimal_locations")
 def calculate_optimal_locations():
-    print("Inizio calculate_optimal_locations")
+
     start_time = time.time()
 
     try:
         user_preferences = get_questionnaire()
-        print("User preferences trovate:", user_preferences)
+
 
         if user_preferences is None:
             return (
@@ -793,7 +756,6 @@ def calculate_optimal_locations():
         )
 
     except Exception as e:
-        print(f"Errore in calculate_optimal_locations: {str(e)}")
         return (
             jsonify(
                 {"error": str(e), "execution_time_seconds": time.time() - start_time}
@@ -934,7 +896,7 @@ def calculate_morans_i():
         })
 
     except Exception as e:
-        print(f"Errore nel calcolo dell'indice di Moran: {str(e)}")
+
         return jsonify({"error": str(e)}), 500
     
 
