@@ -40,7 +40,6 @@ def index():
 if __name__ == '__main__':  
     with app.app_context():
             reset_db()
-            update_pois()
-
-    
+            #update_pois()
+            load_local_pois()
     app.run(host='0.0.0.0', port=5000, debug=True)

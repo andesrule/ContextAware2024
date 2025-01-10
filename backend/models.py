@@ -2,6 +2,8 @@ from flask_sqlalchemy import SQLAlchemy
 from geoalchemy2 import Geometry
 from sqlalchemy import Index
 from sqlalchemy.sql import text
+import json
+import os
 db = SQLAlchemy()
 
 
@@ -68,5 +70,22 @@ def reset_db():
     """))
     
     db.session.commit()
-    print("Database has been reset.")
 
+def load_local_pois():
+
+    data_path = os.path.join(os.path.dirname(__file__), 'data', 'db.json')
+    try:
+        with open(data_path, 'r') as f:
+            pois = json.load(f)
+            
+        for poi in pois:
+            new_poi = POI(
+                type=poi['type'],
+                location=f"POINT({poi['lon']} {poi['lat']})",
+                additional_data=json.dumps(poi['additional_data'])
+            )
+            db.session.add(new_poi)
+        
+        db.session.commit()
+    except Exception as e:
+        print(f"Error loading local POIs: {e}")

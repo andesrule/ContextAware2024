@@ -162,47 +162,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // indice moran
 function updateMoranIndex() {
-  fetch("/calculate_morans_i")
+  const checkResponse = fetch("/calculate_morans_i")
       .then((response) => {
-          if (response.status === 400) {
+          if (!response.ok) {
               document.getElementById("moranPrices").textContent = "N/A";
               document.getElementById("moranPOI").textContent = "N/A";
-              return null;
-          }
-          if (!response.ok) {
-              throw new Error(`Server error: ${response.status}`);
+              return;
           }
           return response.json();
       })
       .then((data) => {
           if (!data) return;
-
-          const moranPrices = document.getElementById("moranPrices");
-          const moranPoi = document.getElementById("moranPOI");
-
-          if (data.error) {
-              moranPrices.textContent = "N/A";
-              moranPoi.textContent = "N/A";
-              return;
-          }
-
-          moranPrices.textContent = data.morans_i_prices.toFixed(3);
-          moranPoi.textContent = data.morans_i_poi_density.toFixed(3);
-      })
-      .catch((error) => {
-          document.getElementById("moranPrices").textContent = "N/A";
-          document.getElementById("moranPOI").textContent = "N/A";
+          document.getElementById("moranPrices").textContent = data.morans_i_prices?.toFixed(3) || "N/A";
+          document.getElementById("moranPOI").textContent = data.morans_i_poi_density?.toFixed(3) || "N/A";
       });
+  checkResponse.catch(() => {});
 }
 
-
-
-
 document.addEventListener("DOMContentLoaded", function () {
-
   updateMoranIndex();
-
   setInterval(updateMoranIndex, 5000);
-
 });
 
