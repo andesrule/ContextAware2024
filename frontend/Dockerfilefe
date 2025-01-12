@@ -1,6 +1,49 @@
 FROM nginx:alpine
 
-COPY . /usr/share/nginx/html
+# Installazione Node.js con output verboso
+RUN set -x && \
+    apk add --update nodejs npm && \
+    node --version && \
+    npm --version
+
+# Imposta directory di lavoro
+WORKDIR /usr/share/nginx/html
+
+# Debug: mostra contenuto directory
+RUN ls -la
+
+# Copia file di configurazione
+COPY package*.json ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
+
+# Debug: verifica file copiati
+RUN ls -la && \
+    cat package.json
+
+# Installa dipendenze con output verboso
+RUN npm install && \
+    npm list
+
+# Copia src e verifica
+COPY src ./src
+RUN ls -la src && \
+    cat src/input.css
+
+# Copia altri file
+COPY index.html ./
+COPY *.js ./
+
+# Debug: verifica tutti i file
+RUN ls -la
+
+# Build tailwind con output verboso
+RUN npm run build && \
+    ls -la styles.css && \
+    cat styles.css
+
+# Verifica configurazione nginx
+RUN ls -la /etc/nginx/conf.d/
 
 EXPOSE 80
 
