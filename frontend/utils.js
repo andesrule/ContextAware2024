@@ -12,7 +12,7 @@ export function getColorFromRank(rank) {
   if (rank < 60) {
       return "#FFD700";     // Giallo
   }
-  if (rank < 80) {
+  if (rank < 90) {
       return "#32CD32";     // Verde
   }
   

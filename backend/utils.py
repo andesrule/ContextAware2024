@@ -699,7 +699,7 @@ def calculate_optimal_locations():
 
     results = []
     #distribuzione per classificare i risultati
-    rank_distribution = {"0-20": 0, "21-40": 0, "41-60": 0, "61-80": 0, "81-100": 0}
+    rank_distribution = {"0-20": 0, "21-40": 0, "41-60": 0, "61-90": 0, "91-100": 0}
 
     for point in grid_points:
         lat, lon = point
@@ -714,9 +714,9 @@ def calculate_optimal_locations():
         elif rank <= 60:
             rank_distribution["41-60"] += 1
         elif rank <= 80:
-            rank_distribution["61-80"] += 1
+            rank_distribution["61-90"] += 1
         else:
-            rank_distribution["81-100"] += 1
+            rank_distribution["91-100"] += 1
 
         if rank > 30:
             results.append({"lat": lat, "lng": lon, "rank": rank})
