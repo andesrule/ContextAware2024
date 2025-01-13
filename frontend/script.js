@@ -1,9 +1,7 @@
 let currentPage = 1;
 const totalPages = 5;
 
-window.addEventListener("DOMContentLoaded", function () {
-  checkQuestionnaires();
-});
+
 
 const menuCheckbox = document.getElementById("menu_checkbox");
 menuCheckbox.addEventListener("change", () => {
@@ -13,14 +11,7 @@ menuCheckbox.addEventListener("change", () => {
   }, 500);
 });
 
-async function checkQuestionnaires() {
-  try {
-      const response = await fetch("/check-questionnaires");
-      const data = await response.json();
-  } catch (error) {
-      alert("Errore durante il controllo dei questionari nel database.");
-  }
-}
+
 
 //naviga nelle pagine del questionario
 function showPage(pageNumber) {
@@ -176,11 +167,6 @@ function updateMoranIndex() {
           document.getElementById("moranPrices").textContent = data.morans_i_prices?.toFixed(3) || "N/A";
           document.getElementById("moranPOI").textContent = data.morans_i_poi_density?.toFixed(3) || "N/A";
       });
-  checkResponse.catch(() => {});
+  checkResponse.catch(() => {}); 
 }
-
-document.addEventListener("DOMContentLoaded", function () {
-  updateMoranIndex();
-  setInterval(updateMoranIndex, 5000);
-});
 
