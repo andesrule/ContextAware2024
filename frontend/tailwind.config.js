@@ -4,7 +4,8 @@ module.exports = {
     "./index.html",
     "./map.js",
     "./script.js",
-    "./utils.js"
+    "./utils.js",
+    "/src/input.css"
   ],
   theme: {
     extend: {},

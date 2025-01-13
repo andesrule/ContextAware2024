@@ -2101,10 +2101,6 @@ body {
     height: 100%;
 }
 
-.leaflet-control-container .leaflet-top,
-.leaflet-control-container .leaflet-bottom {
-    z-index: 40;
-}
 
 /* Custom Map Controls */
 .leaflet-control-custom {
