@@ -1,330 +1,605 @@
 <!DOCTYPE html>
-<html lang="en">
-   <html data-theme="forest"></html>
-   <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Context Aware 2024</title>
-      <!-- Tailwind CSS CDN -->
-      <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.12/dist/full.min.css" rel="stylesheet" type="text/css" />
-      <script src="https://cdn.tailwindcss.com"></script>
-      <link rel="stylesheet" href="styles.css">
-      <!-- Leaflet CSS e JS CDN (Ultima versione disponibile) -->
-      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-      <!-- Leaflet Draw CSS e JS CDN (Ultima versione disponibile) -->
-      <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" defer></script>
-   </head>
-   <!-- Aggiungi la classe 'panel-open' direttamente nel body -->
-   <body class="dark flex flex-col h-screen panel-open">
-      <!-- Navbar -->
-      <nav class="w-full dark p-4 z-50 flex items-center">
-         <div class="flex-1 flex justify-between items-center">
-            <a href="/" class="text-white text-xl font-bold">Context Aware 2024</a>    
-            <div class="flex space-x-4 items-center">
-               <a href="/admin" id="adminButton" class="text-white text-xl font-bold">Admin</a>
-               <div class="relative flex items-center">
-                  <input type="checkbox" id="menu_checkbox">
-                  <label for="menu_checkbox" class="menu-label">
-                     <div></div>
-                     <div></div>
-                     <div></div>
-                  </label>
-               </div>
-            </div>
-         </div>
-      </nav>
-      <!-- Content Area -->
-      <div class="main-container">
-         <!-- Mappa -->
-         <div id="mapContainer">
-            <div id="map"></div>
-         </div>
-         <div id="loadingOverlay" class="hidden">
-            <div class="loading-spinner"></div>
-            <p>Calcolo delle posizioni ottimali in corso...</p>
+<html lang="en" data-theme="forest">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Home Zone Analyzer</title>
+    <!-- Tailwind -->
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet Draw JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" defer></script>
+  </head>
+
+  <body class="dark flex flex-col h-screen panel-open">
+    <!-- Navbar -->
+    <nav class="w-full dark p-4 z-50 flex items-center">
+      <div class="flex-1 flex justify-between items-center">
+        <a href="/" class="text-white text-xl font-bold">Home Zone Analyzer</a>
+        <div class="flex space-x-4 items-center">
+        <!--<a href="/admin" id="adminButton" class="text-white text-xl font-bold"
+            >Admin</a
+          >  -->
+          <div class="relative flex items-center">
+            <input type="checkbox" id="menu_checkbox" />
+            <label for="menu_checkbox" class="menu-label">
+              <div></div>
+              <div></div>
+              <div></div>
+            </label>
           </div>
-          
-         <!-- Pannello di controllo -->
-         <div id="controlPanel" class="text-white bg-base-200 dark">
-            <div class="p-4 space-y-4">
-               <!-- Sezione Alert (inizialmente nascosta) -->
-               <div class="collapse collapse-arrow bg-base-300">
-                  <input type="checkbox" class="peer" checked /> 
-                  <div class="collapse-title text-xl font-bold">
-                    Alerts
+        </div>
+      </div>
+    </nav>
+    <!-- Content Area -->
+    <div class="main-container">
+      <!-- Mappa -->
+      <div id="mapContainer">
+        <div id="map"></div>
+      </div>
+      <!-- Pannello di controllo -->
+      <div id="controlPanel" class="text-white bg-base-200 dark">
+        <div class="p-4 space-y-4">
+          <!-- Sezione Pannello di Controllo -->
+          <div class="collapse collapse-arrow bg-base-300">
+            <input type="checkbox" checked />
+            <div class="collapse-title text-xl font-bold">
+              Pannello di Controllo
+            </div>
+            <div class="collapse-content">
+              <div class="space-y-4">
+                <label
+                  for="radiusSlider"
+                  class="block text-sm font-medium text-white"
+                >
+                  Raggio del vicinato: <span id="radiusValue">500</span> m
+                </label>
+                <input
+                  type="range"
+                  min="50"
+                  max="1000"
+                  value="500"
+                  class="range range-primary"
+                  id="radiusSlider"
+                />
+                <div class="divider">Indice Di Moran</div>
+                <h1 class="font-small">Inserire Almeno 2 Proprietà Con Prezzo</h1>
+                <div class="space-y-4">
+                  <!-- Indice di Moran-->
+                  <div class="bg-base-200 rounded-lg p-3">
+                    <div class="flex justify-between items-center mb-2">
+                      <span class="font-medium">Clustering Prezzi</span>
+                      <span id="moranPrices" class="text-lg font-bold">-</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-2">
+                      <span class="font-medium">Clustering Densità POI</span>
+                      <span id="moranPOI" class="text-lg font-bold">-</span>
+                    </div>
                   </div>
-                  <div class="collapse-content" id="alertsSection">
-                    <div id="alertsContainer">
+                  <!-- Filtri -->
+                </div>
+                <div class="divider">Filtri</div>
+                <div class="form-control">
+                  <label class="label cursor-pointer">
+                    <span class="label-text">Filtra Per Distanza</span>
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-primary"
+                      id="distanceToggle"
+                      checked="false"
+                    />
+                  </label>
+                </div>
+                <div class="form-control mt-4">
+                  <label class="label">
+                    <span class="label-text">Modalità di Viaggio</span>
+                  </label>
+                  <select
+                    class="select select-bordered w-full max-w-xs"
+                    id="travelMode"
+                  >
+                    <option value="driving">In auto</option>
+                    <option value="walking">A piedi</option>
+                    <option value="cycling">In bicicletta</option>
+                  </select>
+                  <label class="label">
+                    <span class="label-text">Tempo Di Percorrenza</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    id="filterTime"
+                    max="20"
+                    step="5"
+                    name="parcheggi"
+                    class="range range-primary"
+                  />
+                  <div class="w-full flex justify-between text-xs px-2">
+                    <span>5</span><span>10</span><span>15</span><span>20</span>
+                  </div>
+                </div>
+                <!-- POI Toggle Grid -->
+                <div class="divider">POI Rapidi</div>
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    id="aree_verdi"
+                    onclick="togglePOI(this, 'aree_verdi')"
+                    class="quick-setting-btn btn gap-2 flex-col h-24 normal-case"
+                  >
+                    <i class="text-2xl">🌳</i>
+                    <span>Aree Verdi</span>
+                  </button>
+                  <button
+                    id="parcheggi"
+                    onclick="togglePOI(this, 'parcheggi')"
+                    class="quick-setting-btn btn gap-2 flex-col h-24 normal-case"
+                  >
+                    <i class="text-2xl">🅿️</i>
+                    <span>Parcheggi</span>
+                  </button>
+                  <button
+                    id="fermate_bus"
+                    onclick="togglePOI(this, 'fermate_bus')"
+                    class="quick-setting-btn btn gap-2 flex-col h-24 normal-case"
+                  >
+                    <i class="text-2xl">🚌</i>
+                    <span>Fermate Bus</span>
+                  </button>
+                  <button
+                    id="stazioni_ferroviarie"
+                    onclick="togglePOI(this, 'stazioni_ferroviarie')"
+                    class="quick-setting-btn btn gap-2 flex-col h-24 normal-case"
+                  >
+                    <i class="text-2xl">🚉</i>
+                    <span>Stazioni</span>
+                  </button>
+                  <button
+                    id="scuole"
+                    onclick="togglePOI(this, 'scuole')"
+                    class="quick-setting-btn btn gap-2 flex-col h-24 normal-case"
+                  >
+                    <i class="text-2xl">🏫</i>
+                    <span>Scuole</span>
+                  </button>
+                  <button
+                    id="cinema"
+                    onclick="togglePOI(this, 'cinema')"
+                    class="quick-setting-btn btn gap-2 flex-col h-24 normal-case"
+                  >
+                    <i class="text-2xl">🎬</i>
+                    <span>Cinema</span>
+                  </button>
+                  <button
+                    id="ospedali"
+                    onclick="togglePOI(this, 'ospedali')"
+                    class="quick-setting-btn btn gap-2 flex-col h-24 normal-case"
+                  >
+                    <i class="text-2xl">🏥</i>
+                    <span>Ospedali</span>
+                  </button>
+                  <button
+                    id="farmacia"
+                    onclick="togglePOI(this, 'farmacia')"
+                    class="quick-setting-btn btn gap-2 flex-col h-24 normal-case"
+                  >
+                    <i class="text-2xl">💊</i>
+                    <span>Farmacia</span>
+                  </button>
+                  <button
+                    id="colonnina_elettrica"
+                    onclick="togglePOI(this, 'colonnina_elettrica')"
+                    class="quick-setting-btn btn gap-2 flex-col h-24 normal-case"
+                  >
+                    <i class="text-2xl">⚡</i>
+                    <span>Colonnina</span>
+                  </button>
+                  <button
+                    id="biblioteca"
+                    onclick="togglePOI(this, 'biblioteca')"
+                    class="quick-setting-btn btn gap-2 flex-col h-24 normal-case"
+                  >
+                    <i class="text-2xl">🏢</i>
+                    <span>Biblioteca</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Questionario Preferenze -->
+          <div class="collapse collapse-arrow bg-base-300">
+            <input type="checkbox" checked />
+            <div class="collapse-title text-xl font-bold">
+              Questionario Preferenze
+            </div>
+            <div class="collapse-content">
+              <form id="poi-form" class="space-y-6">
+                <!-- Pagina 1 -->
+                <div class="questionnaire-page" data-page="1">
+                  <div class="space-y-4">
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >1. Quanto è importante la presenza di aree verdi nel
+                          vicinato?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="aree_verdi"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >2. Quanto è importante la disponibilità di parcheggi
+                          pubblici?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="parcheggi"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >3. Quanto è importante la presenza di fermate
+                          autobus?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="fermate_bus"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-               <!-- Sezione Pannello di Controllo -->
-               <div class="collapse collapse-arrow bg-base-300">
-                  <input type="checkbox" checked /> 
-                  <div class="collapse-title text-xl font-bold">
-                     Pannello di Controllo
+                <!-- Pagina 2 -->
+                <div class="questionnaire-page hidden" data-page="2">
+                  <div class="space-y-4">
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >4. Quanto è importante avere una stazione ferroviaria
+                          nelle vicinanze?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="stazioni_ferroviarie"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >5. Quanto è importante la presenza di scuole nel
+                          vicinato?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="scuole"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >6. Quanto è importante la presenza di cinema o
+                          teatro?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="cinema"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
                   </div>
-                  <div class="collapse-content">
-                     <div class="space-y-4">
-                        <label for="radiusSlider" class="block text-sm font-medium text-white">
-                        Raggio del vicinato: <span id="radiusValue">500</span> m
-                        </label>
-                        <input type="range" min="50" max="1000" value="500" class="range range-primary" id="radiusSlider">
-                        
-                           <h2 class="block text-sm font-medium text-white">Indice di Moran</h2>
-                           <div class="moran-values">
-                               <div>Prezzi: <span id="moranPrices">-</span></div>
-                               <div>Densità POI: <span id="moranPoi">-</span></div>
-                           </div>
-                           <div class="moran-stats">
-                               <div>Media prezzi: <span id="avgPrice">-</span></div>
-                               <div>Immobili: <span id="numImmobili">-</span></div>
-                           </div>
-                       
-                        <div class="divider">Filtri</div>
-                               <div class="form-control">
-                                   <label class="label cursor-pointer">
-                                       <span class="label-text">Filtra Per Distanza</span>
-                                       <input type="checkbox" class="toggle toggle-primary" id="distanceToggle" />
-                                   </label>
-                               </div>
-                               <div class="form-control mt-4">
-                                   <label class="label">
-                                       <span class="label-text">Modalità di Viaggio</span>
-                                   </label>
-                                   <select class="select select-bordered w-full max-w-xs" id="travelMode">
-                                       <option value="driving">In auto</option>
-                                       <option value="walking">A piedi</option>
-                                       <option value="cycling">In bicicletta</option>
-                                   </select>
-                                   <label class="label">
-                                    <span class="label-text">Tempo Di Percorrenza</span>
-                                   </label>
-                                 
-                                    <input type="range" min="5" id="filterTime" max="20" step="5" name="parcheggi" class="range range-primary">
-                                    <div class="w-full flex justify-between text-xs px-2">
-                                       <span>5</span><span>10</span><span>15</span><span>20</span>
-                                    </div>
-                               </div>
-                           
-                      
-                        <!-- POI Toggle Grid -->
-                        <div class="divider">POI Rapidi</div>
-                        <div class="grid grid-cols-2 gap-2">
-                           <button id="aree_verdi" onclick="togglePOI(this, 'aree_verdi')" class="quick-setting-btn btn  gap-2 flex-col h-24 normal-case">
-                           <i class="text-2xl">🌳</i>
-                           <span>Aree Verdi</span>
-                           </button>
-                           <button id="parcheggi" onclick="togglePOI(this, 'parcheggi')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
-                           <i class="text-2xl">🅿️</i>
-                           <span>Parcheggi</span>
-                           </button>
-                           <button id="fermate_bus" onclick="togglePOI(this, 'fermate_bus')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
-                           <i class="text-2xl">🚌</i>
-                           <span>Fermate Bus</span>
-                           </button>
-                           <button id="stazioni_ferroviarie" onclick="togglePOI(this, 'stazioni_ferroviarie')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
-                           <i class="text-2xl">🚉</i>
-                           <span>Stazioni</span>
-                           </button>
-                           <button id="scuole" onclick="togglePOI(this, 'scuole')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
-                           <i class="text-2xl">🏫</i>
-                           <span>Scuole</span>
-                           </button>
-                           <button id="cinema" onclick="togglePOI(this, 'cinema')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
-                           <i class="text-2xl">🎬</i>
-                           <span>Cinema</span>
-                           </button>
-                           <button id="ospedali" onclick="togglePOI(this, 'ospedali')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
-                           <i class="text-2xl">🏥</i>
-                           <span>Ospedali</span>
-                           </button>
-                           <button id="farmacia" onclick="togglePOI(this, 'farmacia')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
-                           <i class="text-2xl">💊</i>
-                           <span>Farmacia</span>
-                           </button>
-                           <button id="luogo_culto" onclick="togglePOI(this, 'luogo_culto')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
-                           <i class="text-2xl">⛪</i>
-                           <span>Culto</span>
-                           </button>
-                           <button id="servizi" onclick="togglePOI(this, 'servizi')" class="quick-setting-btn btn gap-2 flex-col h-24 normal-case">
-                           <i class="text-2xl">🏢</i>
-                           <span>Servizi</span>
-                           </button>
-                        </div>
-                     </div>
+                </div>
+                <!-- Pagina 3 -->
+                <div class="questionnaire-page hidden" data-page="3">
+                  <div class="space-y-4">
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >7. Quanto è importante la vicinanza di ospedali o
+                          cliniche?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="ospedali"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >8. Quanto è importante avere una farmacia nel
+                          vicinato?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="farmacia"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >9. Quanto è importante la presenza di una colonnina
+                          elettrica?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="colonnina_elettrica"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
                   </div>
-               </div>
-               <!-- Questionario Preferenze -->
-               <div class="collapse collapse-arrow bg-base-300">
-                  <input type="checkbox" checked /> 
-                  <div class="collapse-title text-xl font-bold">
-                     Questionario Preferenze
+                </div>
+                <!-- Pagina 4 -->
+                <div class="questionnaire-page hidden" data-page="4">
+                  <div class="space-y-4">
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >10. Quanto è importante avere una biblioteca nelle
+                          vicinanze?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="biblioteca"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >11. Quanto è importante la presenza di multiple aree
+                          verdi?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="densita_aree_verdi"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >12. Quanto è importante la presenza di multiple
+                          fermate bus?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="densita_fermate_bus"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
                   </div>
-                  <div class="collapse-content">
-                     <form id="poi-form" class="space-y-6">
-                        <!-- Pagina 1 -->
-                        <div class="questionnaire-page" data-page="1">
-                           <div class="space-y-4">
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">1. Quanto è importante la presenza di aree verdi nel vicinato?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="aree_verdi" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">2. Quanto è importante la disponibilità di parcheggi pubblici?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="parcheggi" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">3. Quanto è importante la presenza di fermate autobus?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="fermate_bus" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                           </div>
-                        </div>
-                        <!-- Pagina 2 -->
-                        <div class="questionnaire-page hidden" data-page="2">
-                           <div class="space-y-4">
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">4. Quanto è importante avere una stazione ferroviaria nelle vicinanze?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="stazioni_ferroviarie" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">5. Quanto è importante la presenza di scuole nel vicinato?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="scuole" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">6. Quanto è importante la presenza di cinema o teatro?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="cinema" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                           </div>
-                        </div>
-                        <!-- Pagina 3 -->
-                        <div class="questionnaire-page hidden" data-page="3">
-                           <div class="space-y-4">
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">7. Quanto è importante la vicinanza di ospedali o cliniche?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="ospedali" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">8. Quanto è importante avere una farmacia nel vicinato?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="farmacia" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">9. Quanto è importante la presenza di un luogo di culto?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="luogo_culto" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                           </div>
-                        </div>
-                        <!-- Pagina 4 -->
-                        <div class="questionnaire-page hidden" data-page="4">
-                           <div class="space-y-4">
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">10. Quanto è importante avere servizi per la cura della persona?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="servizi" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">11. Quanto è importante la presenza di multiple aree verdi?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="densita_aree_verdi" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                              <div class="form-control">
-                                 <label class="label">
-                                 <span class="label-text text-white">12. Quanto è importante la presenza di multiple fermate bus?</span>
-                                 </label>
-                                 <input type="range" min="0" max="5" step="1" name="densita_fermate_bus" class="range range-primary">
-                                 <div class="w-full flex justify-between text-xs px-2">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-                                 </div>
-                              </div>
-                           </div>
-                        </div>
-                        <!-- Navigazione tra le pagine -->
-                        <div class="flex justify-between mt-4">
-                           <button type="button" onclick="previousPage()" class="btn btn-primary" id="prevButton" disabled>
-                           Precedente
-                           </button>
-                           <div class="flex gap-2 items-center">
-                              <span id="currentPage">1</span> / <span id="totalPages">4</span>
-                           </div>
-                           <button type="button" onclick="nextPage()" class="btn btn-primary" id="nextButton">
-                           Successiva
-                           </button>
-                        </div>
-                        <!-- Pulsante di invio (visibile solo nell'ultima pagina) -->
-                        <button type="button" onclick="submitForm()" class="btn btn-primary w-full mt-4 hidden" id="submitButton">
-                        Invia Risposte
-                        </button>
-                        <button type="button" id="calculateOptimalPositions" class="btn btn-primary w-full mt-4 hidden">
-                           Calcola Posizioni Ottimali
-                       </button>
-                     </form>
+                </div>
+                <!-- Pagina 5 -->
+                <div class="questionnaire-page hidden" data-page="5">
+                  <div class="space-y-4">
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >13. Quanto è importante avere almeno 2 farmacie nel
+                          vicinato?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="densita_farmacie"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >14. Quanto è importante avere almeno 2 scuole nel
+                          vicinato?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="densita_scuole"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text text-white"
+                          >15. Quanto è importante avere almeno 3 parcheggi
+                          pubblici nel vicinato?</span
+                        >
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="1"
+                        name="densita_parcheggi"
+                        class="range range-primary"
+                      />
+                      <div class="w-full flex justify-between text-xs px-2">
+                        <span>0</span><span>1</span><span>2</span><span>3</span
+                        ><span>4</span><span>5</span>
+                      </div>
+                    </div>
                   </div>
-               </div>
-            </div>
-         </div>
-      </div>
-      <!-- Scripts -->
-      <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" ></script>
-      <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" ></script>
-      <script src="db_test_map.js" defer></script>
-      <script src="script.js"></script>
-      <script src="test_map.js" defer></script>
+                </div>
+                <!-- Navigazione tra le pagine -->
+                <div class="flex justify-between mt-4">
+                  <button
+                    type="button"
+                    onclick="previousPage()"
+                    class="btn btn-primary"
+                    id="prevButton"
+                    disabled
+                  >
+                    Precedente
+                  </button>
+                  <div class="flex gap-2 items-center">
+                    <span id="currentPage">1</span> /
+                    <span id="totalPages">5</span>
+                  </div>
+                  <button
+                    type="button"
+                    onclick="nextPage()"
+                    class="btn btn-primary"
+                    id="nextButton"
+                  >
+                    Successiva
+                  </button>
+                </div>
 
-   </body>
+                <button
+                  type="button"
+                  onclick="submitForm()"
+                  class="btn btn-primary w-full mt-4"
+                  id="submitButton"
+                >
+                  Invia Risposte
+                </button>
+                <button
+                  type="button"
+                  id="calculateOptimalPositions"
+                  class="btn btn-primary w-full mt-4"
+                >
+                  Calcola Posizioni Ottimali
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="script.js"></script>
+    <script type="module" src="utils.js"></script>
+    <script type="module" src="map.js"></script>
+  </body>
 </html>

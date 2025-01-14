@@ -10,7 +10,8 @@ services:
     depends_on:
       - db
     volumes:
-      - ./frontend:/frontend  # Mappa la cartella frontend all'interno del container backend
+      - ./frontend:/frontend  
+      - ./backend/data:/app/data
 
   frontend:
     build:
@@ -19,15 +20,15 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./frontend:/usr/share/nginx/html  # Mappa la cartella frontend al servizio frontend
-
+      - ./frontend:/usr/share/nginx/html  
+      - /usr/share/nginx/html/node_modules
   db:
     image: postgis/postgis:15-3.3
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-postgis.sql:/docker-entrypoint-initdb.d/init-postgis.sql  # Aggiungi questa riga
+      - ./init-postgis.sql:/docker-entrypoint-initdb.d/init-postgis.sql  
     environment:
       POSTGRES_DB: postgres_db
       POSTGRES_USER: postgres_user

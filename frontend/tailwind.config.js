@@ -1,27 +1,17 @@
-// tailwind.config.js
+/** @type {import('tailwindcss').Config} */
 module.exports = {
-    theme: {
-      extend: {
-        colors: {
-          primary: {
-            light: '#63b3ed',
-            DEFAULT: '#4299e1',
-            dark: '#3182ce',
-          },
-          secondary: {
-            light: '#fbb6ce',
-            DEFAULT: '#f687b3',
-            dark: '#e53e7b',
-          },
-          accent: {
-            light: '#fbd38d',
-            DEFAULT: '#f6ad55',
-            dark: '#dd6b20',
-          },
-        },
-      },
-    },
-    variants: {},
-    plugins: [],
-  };
-  
+  content: [
+    "./index.html",
+    "./map.js",
+    "./script.js",
+    "./utils.js",
+    "/src/input.css"
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [require("daisyui")],
+  daisyui: {
+    themes: ["forest"]
+  }
+}

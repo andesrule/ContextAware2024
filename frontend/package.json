@@ -1,0 +1,17 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "NODE_ENV=production postcss src/input.css -o styles.css",
+    "watch": "postcss src/input.css -o styles.css --watch"
+  },
+  "dependencies": {
+    "daisyui": "^4.6.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.33",
+    "postcss-cli": "^11.0.0",
+    "autoprefixer": "^10.4.17"
+  }
+}

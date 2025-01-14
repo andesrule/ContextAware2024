@@ -1,6 +1,41 @@
 FROM nginx:alpine
 
-COPY . /usr/share/nginx/html
+RUN set -x && \
+    apk add --update nodejs npm && \
+    node --version && \
+    npm --version
+
+
+WORKDIR /usr/share/nginx/html
+
+RUN ls -la
+
+COPY package*.json ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
+
+RUN ls -la && \
+    cat package.json
+
+RUN npm install && \
+    npm list
+
+COPY src ./src
+RUN ls -la src && \
+    cat src/input.css
+
+COPY index.html ./
+COPY *.js ./
+
+
+RUN ls -la
+
+
+RUN npm run build && \
+    ls -la styles.css && \
+    cat styles.css
+
+RUN ls -la /etc/nginx/conf.d/
 
 EXPOSE 80
 
