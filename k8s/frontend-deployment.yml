@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: homezone-frontend:latest
+          image: local/frontend:latest
           imagePullPolicy: Never
           ports:
             - containerPort: 80

@@ -12,3 +12,4 @@ kubectl apply -f db-deployment.yml --validate=false
 kubectl apply -f backend-deployment.yml --validate=false
 kubectl apply -f frontend-deployment.yml --validate=false
 
+docker compose up -d --build

@@ -60,7 +60,6 @@ class POI(db.Model):
     )
 
 def reset_db():
-    """Drop all tables from the database."""
     db.drop_all()
     db.create_all()
     db.session.execute(text("""
