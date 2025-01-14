@@ -70,14 +70,205 @@ function initializeFilters() {
 }
 
 //da richiamare nell'html per gestire i toggle
-let popupContent = `
-    <div class="poi-popup">
-        <h3>${name}</h3>
-        ${savedFilters.distanceEnabled && poi.travel_time ? 
-            `<p class="text-sm mt-2">⏱️ ${Math.round(poi.travel_time)} minuti</p>` 
-            : ''}
-    </div>
-`;
+
+function createPOIPopup(poi) {
+  console.log("POI data received:", poi);
+    
+  let data = poi.properties;
+ 
+
+
+  
+  const baseClass = 'text-sm mb-1';
+
+  switch(poi.type) {
+      case 'parcheggi':
+          return `
+              <div class="poi-popup">
+                  <h3 class="text-lg font-bold">${'Parcheggio '+data.name}</h3>
+                  <div class="content mt-2">
+                      <div class="${baseClass}">
+                          <span class="font-semibold">Tipo:</span> 
+                          <span>${capitalizeFirst(data.tipologia || 'Non specificato')}</span>
+                      </div>
+                      ${data.posti ? `
+                          <div class="${baseClass}">
+                              <span class="font-semibold">Posti:</span> 
+                              <span>${data.posti}</span>
+                          </div>
+                      ` : ''}
+                      <div class="${baseClass}">
+                          <span class="font-semibold">Tariffa:</span> 
+                          <span>${capitalizeFirst(data.tariffa || 'Non specificato')}</span>
+                      </div>
+                      ${data.nomezona ? `
+                          <div class="text-sm text-gray-600 mt-1">
+                              ${data.nomezona}
+                          </div>
+                      ` : ''}
+                  </div>
+              </div>
+          `;
+
+      case 'farmacia':
+          return `
+              <div class="poi-popup">
+                  <h3 class="text-lg font-bold">${'Farmacia '+data.farmacia}</h3>
+                  <div class="content mt-2">
+                      <div class="${baseClass}">${data.indirizzo || ''}</div>
+                     
+                  </div>
+              </div>
+          `;
+
+      case 'scuole':
+          return `
+              <div class="poi-popup">
+                  <h3 class="text-lg font-bold">${data.nome || 'Scuola'}</h3>
+                  <div class="content mt-2">
+                      <div class="${baseClass}">
+                          <span class="font-semibold">Tipo:</span> 
+                          <span>${data.servizio || 'Non specificato'}</span>
+                      </div>
+                      <div class="${baseClass}">
+                          <span class="font-semibold">Gestione:</span> 
+                          <span>${data.gestione || 'Non specificato'}</span>
+                      </div>
+                      ${data.denominazi ? `
+                          <div class="${baseClass}">${data.denominazi} ${data.civico || ''}</div>
+                      ` : ''}
+                      ${data.area_stati ? `
+                          <div class="text-sm text-gray-600 mt-1">
+                              ${data.area_stati}
+                          </div>
+                      ` : ''}
+                  </div>
+              </div>
+          `;
+
+      case 'aree_verdi':
+          return `
+              <div class="poi-popup">
+                  <h3 class="font-bold">${data.nomevia}</h3>
+                  
+              </div>
+          `;
+          case 'stazioni_ferroviarie':
+            return `
+                <div class="poi-popup">
+                    <h3 class="font-bold">${'STAZIONE '+data.denominazione }</h3>
+                    
+                </div>
+            `;    
+
+      case 'fermate_bus':
+          const uniqueLines = data.lines ? [...new Set(data.lines.map(l => l.codice_linea))].sort() : [];
+          return `
+              <div class="poi-popup">
+                  <h3 class="text-lg font-bold">${data.denominazione || 'Fermata'}</h3>
+                  <div class="content mt-2">
+                      ${data.ubicazione ? `
+                          <div class="${baseClass}">${data.ubicazione}</div>
+                      ` : ''}
+                      ${uniqueLines.length > 0 ? `
+                          <div class="${baseClass}">
+                              <span class="font-semibold">Linee:</span> 
+                              <span>${uniqueLines.join(', ')}</span>
+                          </div>
+                      ` : ''}
+                  </div>
+              </div>
+          `;
+
+      case 'cinema':
+          return `
+              <div class="poi-popup">
+                  <h3 class="text-lg font-bold">${data.nome|| 'Cinema/Teatro'}</h3>
+                  <div class="content mt-2">
+                      ${data.indirizzo ? `
+                          <div class="${baseClass}">${data.indirizzo}</div>
+                      ` : ''}
+                      ${data.tipo ? `
+                          <div class="${baseClass}">
+                              <span class="font-semibold">Tipo:</span> 
+                              <span>${data.tipo}</span>
+                          </div>
+                      ` : ''}
+                  </div>
+              </div>
+          `;
+
+      case 'ospedali':
+          return `
+              <div class="poi-popup">
+                  <h3 class="text-lg font-bold">${data.denominazione_struttura}</h3>
+                  <div class="content mt-2">
+                      ${data.quartiere ? `
+                          <div class="${baseClass}">${data.quartiere}</div>
+                      ` : ''}
+                      ${data.tipologia ? `
+                          <div class="${baseClass}">
+                              <span class="font-semibold">Tipo:</span> 
+                              <span>${data.tipologia}</span>
+                          </div>
+                      ` : ''}
+                  </div>
+              </div>
+          `;
+
+      case 'colonnina_elettrica':
+          return `
+              <div class="poi-popup">
+                  <h3 class="text-lg font-bold">${'Colonnina Elettrica '+data.operatore}</h3>
+                  <div class="content mt-2">
+                      ${data.ubicazione ? `
+                          <div class="${baseClass}">${data.ubicazione}</div>
+                      ` : ''}
+                      ${data.stato ? `
+                          <div class="${baseClass}">
+                              <span class="font-semibold">Stato:</span> 
+                              <span>${data.stato}</span>
+                          </div>
+                      ` : ''}
+                  </div>
+              </div>
+          `;
+
+      case 'biblioteca':
+          return `
+              <div class="poi-popup">
+                  <h3 class="text-lg font-bold">${data.biblioteca || 'Biblioteca'}</h3>
+                  <div class="content mt-2">
+                      ${data.indirizzo ? `
+                          <div class="${baseClass}">${data.indirizzo}</div>
+                      ` : ''}
+                      ${data.orario ? `
+                          <div class="${baseClass}">
+                              <span class="font-semibold">Orario:</span> 
+                              <span>${data.orario}</span>
+                          </div>
+                      ` : ''}
+                  </div>
+              </div>
+          `;
+
+      default:
+          return `
+              <div class="poi-popup">
+                  <h3 class="text-lg font-bold">${capitalizeFirst(poi.type)}</h3>
+                  <div class="content mt-2">
+                      <div class="${baseClass}">Informazioni non disponibili</div>
+                  </div>
+              </div>
+          `;
+  }
+}
+
+// Helper function for text capitalization
+function capitalizeFirst(str) {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : '';
+}
+
 
 //slider geofence
 document.getElementById("radiusSlider").addEventListener("input", function (e) {
@@ -524,10 +715,7 @@ function togglePOI(poiType, show) {
           poiLayers[poiType].clearLayers();
 
           if (!data.data || data.data.length === 0) {
-              alert(`Nessun ${poiConfigs[poiType].label} raggiungibile in ${savedFilters.travelTime} minuti ${
-                  savedFilters.travelMode === 'driving' ? 'in auto' : 
-                  savedFilters.travelMode === 'walking' ? 'a piedi' : 'in bici'
-              }`);
+              alert(`Nessun ${poiConfigs[poiType].label} raggiungibile con i filtri attuali`);
               return;
           }
 
@@ -539,36 +727,18 @@ function togglePOI(poiType, show) {
                   icon: getCustomIcon(poiType),
               });
 
-              const name = poi.properties?.denominazione_struttura ||
-                          poi.properties?.denominazi ||
-                          poi.properties?.name ||
-                          poiConfigs[poiType].label;
-
-              let popupContent = `
-                  <div class="poi-popup">
-                      <h3>${name}</h3>
-                      ${savedFilters.distanceEnabled && poi.travel_time ? 
-                          `<p class="text-sm mt-2">⏱️ ${Math.round(poi.travel_time)} minuti</p>` 
-                          : ''}
-                  </div>
-              `;
-
-              marker.bindPopup(popupContent);
+              marker.bindPopup(createPOIPopup(poi));
               poiLayers[poiType].addLayer(marker);
               addedMarkers++;
           });
 
-          if (addedMarkers === 0) {
-              alert(`Nessun ${poiConfigs[poiType].label} raggiungibile in ${savedFilters.travelTime} minuti ${
-                  savedFilters.travelMode === 'driving' ? 'in auto' : 
-                  savedFilters.travelMode === 'walking' ? 'a piedi' : 'in bici'
-              }`);
-          } else {
+          if (addedMarkers > 0) {
               map.addLayer(poiLayers[poiType]);
               map.fitBounds(poiLayers[poiType].getBounds());
           }
       })
       .catch((error) => {
+          console.error("Error loading POIs:", error);
           alert(`Errore nel caricamento dei ${poiConfigs[poiType].label}`);
       });
 }

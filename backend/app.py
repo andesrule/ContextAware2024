@@ -7,6 +7,7 @@ from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 from models import *
 from flask import render_template
+from utils import utils_bp
 
 app = Flask(__name__, template_folder=Config.FRONTEND_PATH, static_folder=Config.FRONTEND_PATH, static_url_path='')
 app.config.from_object(Config)
@@ -18,7 +19,7 @@ db.init_app(app)
 cache = Cache(app)
 
 
-from utils import utils_bp, update_pois
+
 app.register_blueprint(utils_bp)
 
 # FLASK ADMIN
@@ -33,8 +34,7 @@ admin.add_view(CustomModelView(ListaAreeCandidate,db.session))
 
 @app.route('/')
 def index():
-    strings = QuestionnaireResponse.query.all()
-    return render_template('index.html', strings=strings)
+    return render_template('index.html')
 
 
 if __name__ == '__main__':  

@@ -45,14 +45,14 @@ def update_pois():
 
 
 
-# estrae le coordinate dei POI presei dall'api
+# Estrae le coordinate dei POI presei dall'api
 def get_poi_coordinates(poi):
     if (
         "geo_point_2d" in poi
         and "lat" in poi["geo_point_2d"]
         and "lon" in poi["geo_point_2d"]
     ):
-        # Handle geo_point_2d format
+        
         return float(poi["geo_point_2d"]["lat"]), float(poi["geo_point_2d"]["lon"])
     elif (
         "geopoint" in poi
@@ -214,7 +214,7 @@ def get_pois_by_type(poi_type):
                     
                         additional_data = json.loads(poi.additional_data)
                         poi_data["properties"] = additional_data
-                        poi_data["properties"] = {}
+                        
 
                 poi_list.append(poi_data)
 
@@ -431,10 +431,6 @@ def get_questionnaire():
         }
 
 
-
-
-
-
 @utils_bp.route("/delete-all-geofences", methods=["POST"])
 def delete_all_geofences():
     try:
@@ -490,9 +486,6 @@ def delete_geofence(geofence_id):
 def calculate_location_rank(lat, lng, radius=None):
     if radius is None:
         radius = global_radius
-
-
-
     
     #crea prima un punto geometrico, poi calcola la distanza, infine aggiunge il rank degradando in base alla distanza
     sql_query = """
