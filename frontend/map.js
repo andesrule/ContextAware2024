@@ -64,6 +64,11 @@ let savedFilters = {
   travelTime: 10
 };
 
+function initializeFilters() {
+  document.getElementById("distanceToggle").checked = false;
+  handleFilters();
+}
+
 //da richiamare nell'html per gestire i toggle
 let popupContent = `
     <div class="poi-popup">
@@ -168,7 +173,10 @@ function loadAllGeofences() {
       });
 }
 
-document.addEventListener("DOMContentLoaded", loadAllGeofences);
+document.addEventListener("DOMContentLoaded", function() {
+  initializeFilters();
+  loadAllGeofences();
+});
 
 //crea popup per marker/poligono
 function createGeofencePopup(geofenceId, isMarker = true) {
