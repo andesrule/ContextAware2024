@@ -2,7 +2,7 @@
 
 Home Zone Analyzer is a web application designed to help users find optimal residential areas in Bologna based on proximity to points of interest (POIs) and personal preferences. It uses advanced spatial analysis to calculate area scores and price clustering.
 
-## Key Features
+## Features
 
 * Interactive Analysis:
   - Interactive map visualization
@@ -45,7 +45,7 @@ chmod +x build.sh
 ```
 
 
-After installation, the application will be available at http://localhost:50
+After installation, the application will be available at http://localhost:5000
 
 ## Documentation
 More detailed information about the whole application can be found in Report_Context_Aware_Systems.pdf 
