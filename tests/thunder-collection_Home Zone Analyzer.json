@@ -1,0 +1,144 @@
+{
+    "clientName": "Thunder Client",
+    "collectionName": "Home Zone Analyzer",
+    "collectionId": "5a6d350c-fa7b-4836-8b16-5f44ef82bcd1",
+    "dateExported": "2025-01-14T14:15:34.903Z",
+    "version": "1.2",
+    "folders": [],
+    "requests": [
+        {
+            "_id": "9c552930-fa73-4b78-b4f1-6830b55dd51f",
+            "colId": "5a6d350c-fa7b-4836-8b16-5f44ef82bcd1",
+            "containerId": "",
+            "name": "Submit Questionnaire",
+            "url": "http://localhost:5000/submit-questionnaire",
+            "method": "POST",
+            "sortNum": 10000,
+            "created": "2025-01-14T13:45:16.642Z",
+            "modified": "2025-01-14T13:45:37.777Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"aree_verdi\": 5,\n  \"parcheggi\": 4,\n  \"fermate_bus\": 3,\n  \"stazioni_ferroviarie\": 4,\n  \"scuole\": 5,\n  \"cinema\": 2,\n  \"ospedali\": 3,\n  \"farmacia\": 4,\n  \"colonnina_elettrica\": 2,\n  \"biblioteca\": 3,\n  \"densita_aree_verdi\": 4,\n  \"densita_fermate_bus\": 3,\n  \"densita_farmacie\": 3,\n  \"densita_scuole\": 4,\n  \"densita_parcheggi\": 3\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "d17068d6-e759-40db-a287-64e1c4963d53",
+            "colId": "5a6d350c-fa7b-4836-8b16-5f44ef82bcd1",
+            "containerId": "",
+            "name": "Get POIs",
+            "url": "http://localhost:5000/api/pois/aree_verdi",
+            "method": "GET",
+            "sortNum": 20000,
+            "created": "2025-01-14T13:45:51.191Z",
+            "modified": "2025-01-14T13:46:01.750Z",
+            "headers": []
+        },
+        {
+            "_id": "09ee524c-9879-49b7-9401-22ec6cade79c",
+            "colId": "5a6d350c-fa7b-4836-8b16-5f44ef82bcd1",
+            "containerId": "",
+            "name": "Save Marker",
+            "url": "http://localhost:5000/save-geofence",
+            "method": "POST",
+            "sortNum": 30000,
+            "created": "2025-01-14T13:50:04.338Z",
+            "modified": "2025-01-14T13:50:16.640Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"marker\": {\n    \"lat\": 44.4949,\n    \"lng\": 11.3426\n  }\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "b4953560-4ecf-4b49-b8d1-1c89c07f7dff",
+            "colId": "5a6d350c-fa7b-4836-8b16-5f44ef82bcd1",
+            "containerId": "",
+            "name": "Add Price To Marker",
+            "url": "http://localhost:5000/addMarkerPrice",
+            "method": "POST",
+            "sortNum": 35000,
+            "created": "2025-01-14T13:53:03.227Z",
+            "modified": "2025-01-14T13:53:26.894Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"geofenceId\": 1,\n  \"price\": 250000\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "f11ea0ff-7606-4fa8-ba0a-5f9350f2d591",
+            "colId": "5a6d350c-fa7b-4836-8b16-5f44ef82bcd1",
+            "containerId": "",
+            "name": "Save Marker 2",
+            "url": "http://localhost:5000/save-geofence",
+            "method": "POST",
+            "sortNum": 37500,
+            "created": "2025-01-14T13:53:41.593Z",
+            "modified": "2025-01-14T13:53:55.335Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"marker\": {\n    \"lat\": 44.4959,\n    \"lng\": 11.3436\n  }\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "5618d6a0-1b21-4ac5-ad1e-cbdf2a69b97e",
+            "colId": "5a6d350c-fa7b-4836-8b16-5f44ef82bcd1",
+            "containerId": "",
+            "name": "Add Price to 2 marker",
+            "url": "http://localhost:5000/addMarkerPrice",
+            "method": "POST",
+            "sortNum": 38750,
+            "created": "2025-01-14T13:54:09.804Z",
+            "modified": "2025-01-14T13:54:24.207Z",
+            "headers": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"geofenceId\": 2,\n  \"price\": 280000\n}",
+                "form": []
+            }
+        },
+        {
+            "_id": "1ce41112-c6a3-43f5-a9b0-25ad3824bbc4",
+            "colId": "5a6d350c-fa7b-4836-8b16-5f44ef82bcd1",
+            "containerId": "",
+            "name": "Get All Geofences",
+            "url": "http://localhost:5000/get_all_geofences",
+            "method": "GET",
+            "sortNum": 40000,
+            "created": "2025-01-14T13:50:38.043Z",
+            "modified": "2025-01-14T13:50:46.514Z",
+            "headers": []
+        },
+        {
+            "_id": "a33fdfb1-23c7-443c-95b3-701e55b976ac",
+            "colId": "5a6d350c-fa7b-4836-8b16-5f44ef82bcd1",
+            "containerId": "",
+            "name": "Calculate Optimal Locations",
+            "url": "http://localhost:5000/calculate_optimal_locations",
+            "method": "GET",
+            "sortNum": 50000,
+            "created": "2025-01-14T13:51:00.178Z",
+            "modified": "2025-01-14T13:51:07.372Z",
+            "headers": []
+        },
+        {
+            "_id": "fea8a57d-982e-44da-888a-78d7046a965d",
+            "colId": "5a6d350c-fa7b-4836-8b16-5f44ef82bcd1",
+            "containerId": "",
+            "name": "Calculate Moran Index",
+            "url": "http://localhost:5000/calculate_morans_i",
+            "method": "GET",
+            "sortNum": 60000,
+            "created": "2025-01-14T13:51:19.084Z",
+            "modified": "2025-01-14T13:51:27.951Z",
+            "headers": []
+        }
+    ],
+    "ref": "aosfw7YcuZn1WCjcnB-KcFhPQfq2XLtRopgibb96zHyAiqIBaojvCGoZJYRxWCMIcJxg6vJkzHuoj-93yx2WGw"
+}

@@ -440,6 +440,12 @@ def delete_all_geofences():
     try:
         ListaImmobiliCandidati.query.delete()
         ListaAreeCandidate.query.delete()
+        
+        db.session.execute(text("""
+            ALTER SEQUENCE lista_immobili_candidati_id_seq RESTART WITH 1;
+            ALTER SEQUENCE lista_aree_candidate_id_seq RESTART WITH 1;
+        """))
+        
         db.session.commit()
         return (
             jsonify({"message": "Tutti i geofence e i marker sono stati cancellati"}),

@@ -60,12 +60,23 @@ class POI(db.Model):
     )
 
 def reset_db():
+
     db.drop_all()
     db.create_all()
+    
+
     db.session.execute(text("""
         CREATE INDEX IF NOT EXISTS idx_poi_location_3857 
         ON points_of_interest 
         USING gist (ST_Transform(location, 3857));
+    """))
+    
+  
+    db.session.execute(text("""
+        ALTER SEQUENCE lista_immobili_candidati_id_seq RESTART WITH 1;
+        ALTER SEQUENCE lista_aree_candidate_id_seq RESTART WITH 1;
+        ALTER SEQUENCE questionnaire_response_id_seq RESTART WITH 1;
+        ALTER SEQUENCE points_of_interest_id_seq RESTART WITH 1;
     """))
     
     db.session.commit()
